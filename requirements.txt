@@ -6,3 +6,4 @@ pyarrow
 trl==0.11.4
 bitsandbytes==0.45.0
 peft==0.14.0
+rich
