@@ -1,0 +1,2573 @@
+Mode:      smoke
+Config:    configs/rps_shaping.json
+Output:    checkpoints/rps_shaping_smoke
+Seeds:     1
+Epochs:    20
+Device:    cuda
+
+Packages imported
+Using device: cuda
+Arguments parsed
+Ready to start experiments
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:00<00:00,  5.16it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  6.35it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  6.14it/s]
+/usr/local/lib/python3.11/dist-packages/trl/trainer/ppo_config.py:207: FutureWarning: `PPOConfig` is deprecated and will be removed in the future. Please use `PPOv2Config` with `PPOv2Trainer` instead.
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/trl/trainer/ppo_trainer.py:193: FutureWarning: `PPOTrainer` is deprecated and will be removed in trl v0.12. Please use `PPOv2Trainer` instead.
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/trl/trainer/ppo_trainer.py:273: UserWarning: No dataset is provided. Make sure to set config.batch_size to the correct value before training.
+  warnings.warn(
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:00<00:00,  5.00it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  6.25it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  6.02it/s]
+/usr/local/lib/python3.11/dist-packages/trl/trainer/ppo_config.py:207: FutureWarning: `PPOConfig` is deprecated and will be removed in the future. Please use `PPOv2Config` with `PPOv2Trainer` instead.
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/trl/trainer/ppo_trainer.py:193: FutureWarning: `PPOTrainer` is deprecated and will be removed in trl v0.12. Please use `PPOv2Trainer` instead.
+  warnings.warn(
+You're using a GemmaTokenizerFast tokenizer. Please note that with a fast tokenizer, using the `__call__` method is faster than using a method to encode the text followed by a call to the `pad` method to get a padded encoding.
+The 'batch_size' attribute of HybridCache is deprecated and will be removed in v4.49. Use the more precisely named 'self.max_batch_size' attribute instead.
+You're using a GemmaTokenizerFast tokenizer. Please note that with a fast tokenizer, using the `__call__` method is faster than using a method to encode the text followed by a call to the `pad` method to get a padded encoding.
+The 'batch_size' argument of HybridCache is deprecated and will be removed in v4.49. Use the more precisely named 'max_batch_size' argument instead.
+Agents initialised.
+Starting epoch 1:
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 5, RP: 8, RS: 29, PR: 4, PP: 3, PS: 6, SR: 4, SP: 13, SS: 9.
+ I: 16
+
+Parameters of model 1 updated.
+
+Total loss: 2.275. 
+Mean Score: 0.137+/-1.000
+
+Value loss: 11.380.
+Policy loss: -0.001.
+
+Entropy: 0.735. 
+Policy Ratio: 0.940+/-0.344.
+KL-Div: 0.000
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 4, RP: 1, RS: 2, PR: 2, PP: 2, PS: 2, SR: 2, SP: 1, SS: 3.
+ I: 33
+
+Parameters of model 1 updated.
+
+Total loss: 0.983. 
+Mean Score: -0.705+/-0.730
+
+Value loss: 5.355.
+Policy loss: -0.088.
+
+Entropy: 0.788. 
+Policy Ratio: 0.894+/-0.458.
+KL-Div: -0.001
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 0, RP: 0, RS: 0, PR: 0, PP: 0, PS: 0, SR: 0, SP: 0, SS: 0.
+ I: 39
+
+Parameters of model 1 updated.
+
+Total loss: 2.010. 
+Mean Score: -1.144+/-0.000
+
+Value loss: 9.939.
+Policy loss: 0.022.
+
+Entropy: 0.791. 
+Policy Ratio: 0.952+/-0.318.
+KL-Div: -0.192
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 1, RP: 11, RS: 1, PR: 3, PP: 4, PS: 1, SR: 4, SP: 7, SS: 0.
+ I: 21
+
+Parameters of model 1 updated.
+
+Total loss: 0.797. 
+Mean Score: -0.568+/-0.952
+
+Value loss: 4.003.
+Policy loss: -0.004.
+
+Entropy: 0.833. 
+Policy Ratio: 0.929+/-0.377.
+KL-Div: -0.055
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 0, RP: 0, RS: 0, PR: 0, PP: 0, PS: 0, SR: 0, SP: 0, SS: 0.
+ I: 34
+
+Parameters of model 1 updated.
+
+Total loss: 1.296. 
+Mean Score: -1.196+/-0.000
+
+Value loss: 6.486.
+Policy loss: -0.002.
+
+Entropy: 0.760. 
+Policy Ratio: 0.943+/-0.335.
+KL-Div: -0.563
+
+Parameters of model 2 updated.
+
+Total loss: 0.308. 
+Mean Score: -1.338+/-1.000
+
+Value loss: 292.167.
+Policy loss: 0.015.
+
+Entropy: 0.828. 
+Policy Ratio: 0.999+/-0.054.
+KL-Div: 0.000
+Starting epoch 2:
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 2, RP: 37, RS: 21, PR: 0, PP: 5, PS: 1, SR: 2, SP: 23, SS: 5.
+ I: 1
+
+Parameters of model 1 updated.
+
+Total loss: 1.665. 
+Mean Score: 0.035+/-1.060
+
+Value loss: 8.422.
+Policy loss: -0.020.
+
+Entropy: 0.775. 
+Policy Ratio: 0.939+/-0.343.
+KL-Div: 0.041
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 5, RP: 3, RS: 2, PR: 3, PP: 4, PS: 5, SR: 4, SP: 4, SS: 3.
+ I: 12
+
+Parameters of model 1 updated.
+
+Total loss: 0.254. 
+Mean Score: -0.380+/-0.909
+
+Value loss: 1.265.
+Policy loss: 0.001.
+
+Entropy: 0.790. 
+Policy Ratio: 1.003+/-0.037.
+KL-Div: -0.159
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 1, RP: 0, RS: 3, PR: 2, PP: 1, PS: 0, SR: 1, SP: 1, SS: 3.
+ I: 25
+
+Parameters of model 1 updated.
+
+Total loss: 0.925. 
+Mean Score: -0.621+/-0.882
+
+Value loss: 4.364.
+Policy loss: 0.052.
+
+Entropy: 0.729. 
+Policy Ratio: 0.850+/-0.528.
+KL-Div: -0.470
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 4, RP: 3, RS: 2, PR: 1, PP: 1, PS: 1, SR: 2, SP: 2, SS: 3.
+ I: 14
+
+Parameters of model 1 updated.
+
+Total loss: 0.303. 
+Mean Score: -0.527+/-0.874
+
+Value loss: 1.842.
+Policy loss: -0.066.
+
+Entropy: 0.782. 
+Policy Ratio: 0.884+/-0.465.
+KL-Div: -0.341
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 8, RP: 8, RS: 5, PR: 6, PP: 6, PS: 2, SR: 8, SP: 11, SS: 5.
+ I: 2
+
+Parameters of model 1 updated.
+
+Total loss: 0.347. 
+Mean Score: 0.038+/-0.964
+
+Value loss: 1.622.
+Policy loss: 0.023.
+
+Entropy: 0.807. 
+Policy Ratio: 0.880+/-0.483.
+KL-Div: 0.021
+
+Parameters of model 2 updated.
+
+Total loss: 0.176. 
+Mean Score: -0.850+/-1.104
+
+Value loss: 157.894.
+Policy loss: 0.019.
+
+Entropy: 0.786. 
+Policy Ratio: 1.000+/-0.104.
+KL-Div: 0.001
+Starting epoch 3:
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 7, RP: 17, RS: 17, PR: 5, PP: 17, PS: 12, SR: 0, SP: 18, SS: 3.
+ I: 1
+
+Parameters of model 1 updated.
+
+Total loss: 1.110. 
+Mean Score: 0.118+/-0.968
+
+Value loss: 5.596.
+Policy loss: -0.009.
+
+Entropy: 0.772. 
+Policy Ratio: 0.940+/-0.343.
+KL-Div: 0.051
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 5, RP: 8, RS: 0, PR: 6, PP: 10, PS: 1, SR: 2, SP: 7, SS: 1.
+ I: 3
+
+Parameters of model 1 updated.
+
+Total loss: 0.437. 
+Mean Score: -0.027+/-0.919
+
+Value loss: 2.129.
+Policy loss: 0.011.
+
+Entropy: 0.810. 
+Policy Ratio: 0.914+/-0.415.
+KL-Div: -0.046
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 2, RP: 4, RS: 1, PR: 1, PP: 3, PS: 1, SR: 2, SP: 3, SS: 0.
+ I: 7
+
+Parameters of model 1 updated.
+
+Total loss: 0.137. 
+Mean Score: -0.431+/-0.947
+
+Value loss: 0.806.
+Policy loss: -0.024./usr/local/lib/python3.11/dist-packages/trl/trainer/ppo_trainer.py:1313: UserWarning: KL divergence is starting to become negative: -1.40 - this might be a precursor for failed training. sometimes this happens because the generation kwargs are not correctly set. Please make sure that the generation kwargs are set correctly, or review your training hyperparameters.
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/trl/trainer/ppo_trainer.py:1313: UserWarning: KL divergence is starting to become negative: -1.46 - this might be a precursor for failed training. sometimes this happens because the generation kwargs are not correctly set. Please make sure that the generation kwargs are set correctly, or review your training hyperparameters.
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/trl/trainer/ppo_trainer.py:1313: UserWarning: KL divergence is starting to become negative: -1.57 - this might be a precursor for failed training. sometimes this happens because the generation kwargs are not correctly set. Please make sure that the generation kwargs are set correctly, or review your training hyperparameters.
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/trl/trainer/ppo_trainer.py:1313: UserWarning: KL divergence is starting to become negative: -1.66 - this might be a precursor for failed training. sometimes this happens because the generation kwargs are not correctly set. Please make sure that the generation kwargs are set correctly, or review your training hyperparameters.
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/trl/trainer/ppo_trainer.py:1313: UserWarning: KL divergence is starting to become negative: -1.10 - this might be a precursor for failed training. sometimes this happens because the generation kwargs are not correctly set. Please make sure that the generation kwargs are set correctly, or review your training hyperparameters.
+  warnings.warn(
+
+
+Entropy: 0.792. 
+Policy Ratio: 0.918+/-0.394.
+KL-Div: -0.396
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 0, RP: 0, RS: 0, PR: 0, PP: 0, PS: 0, SR: 0, SP: 0, SS: 0.
+ I: 10
+
+Parameters of model 1 updated.
+
+Total loss: 0.111. 
+Mean Score: -1.151+/-0.000
+
+Value loss: 0.509.
+Policy loss: 0.010.
+
+Entropy: 0.719. 
+Policy Ratio: 1.000+/-0.032.
+KL-Div: -1.400
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 0, RP: 0, RS: 0, PR: 0, PP: 0, PS: 0, SR: 0, SP: 0, SS: 0.
+ I: 12
+
+Parameters of model 1 updated.
+
+Total loss: 0.013. 
+Mean Score: -1.153+/-0.000
+
+Value loss: 0.613.
+Policy loss: -0.110.
+
+Entropy: 0.737. 
+Policy Ratio: 0.599+/-0.800.
+KL-Div: -1.403
+
+Parameters of model 2 updated.
+
+Total loss: 0.229. 
+Mean Score: -1.084+/-0.950
+
+Value loss: 215.101.
+Policy loss: 0.014.
+
+Entropy: 0.771. 
+Policy Ratio: 0.996+/-0.102.
+KL-Div: -0.002
+Starting epoch 4:
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 6, RP: 10, RS: 47, PR: 2, PP: 5, PS: 4, SR: 1, SP: 13, SS: 6.
+ I: 1
+
+Parameters of model 1 updated.
+
+Total loss: 3.350. 
+Mean Score: 0.545+/-0.867
+
+Value loss: 16.765.
+Policy loss: -0.003.
+
+Entropy: 0.669. 
+Policy Ratio: 0.998+/-0.043.
+KL-Div: 0.047
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 4, RP: 4, RS: 6, PR: 1, PP: 4, PS: 2, SR: 8, SP: 5, SS: 3.
+ I: 4
+
+Parameters of model 1 updated.
+
+Total loss: 0.050. 
+Mean Score: -0.165+/-0.963
+
+Value loss: 0.437.
+Policy loss: -0.038.
+
+Entropy: 0.789. 
+Policy Ratio: 0.822+/-0.570.
+KL-Div: -0.171
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 0, RP: 0, RS: 0, PR: 0, PP: 0, PS: 0, SR: 0, SP: 0, SS: 0.
+ I: 11
+
+Parameters of model 1 updated.
+
+Total loss: 0.466. 
+Mean Score: -1.130+/-0.000
+
+Value loss: 0.699.
+Policy loss: 0.326.
+
+Entropy: 0.738. 
+Policy Ratio: 0.466+/-0.884.
+KL-Div: -1.456
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 3, RP: 0, RS: 0, PR: 0, PP: 0, PS: 0, SR: 3, SP: 0, SS: 1.
+ I: 13
+
+Parameters of model 1 updated.
+
+Total loss: 0.297. 
+Mean Score: -0.907+/-0.465
+
+Value loss: 1.521.
+Policy loss: -0.007.
+
+Entropy: 0.772. 
+Policy Ratio: 1.002+/-0.036.
+KL-Div: -0.810
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 0, RP: 0, RS: 1, PR: 0, PP: 1, PS: 2, SR: 2, SP: 0, SS: 0.
+ I: 6
+
+Parameters of model 1 updated.
+
+Total loss: -0.122. 
+Mean Score: -0.851+/-0.705
+
+Value loss: 0.608.
+Policy loss: -0.244.
+
+Entropy: 0.677. 
+Policy Ratio: 0.601+/-0.801.
+KL-Div: -0.729
+
+Parameters of model 2 updated.
+
+Total loss: 0.266. 
+Mean Score: -1.239+/-0.875
+
+Value loss: 256.121.
+Policy loss: 0.010.
+
+Entropy: 0.777. 
+Policy Ratio: 1.001+/-0.106.
+KL-Div: -0.000
+Starting epoch 5:
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 4, RP: 29, RS: 13, PR: 0, PP: 7, PS: 9, SR: 2, SP: 30, SS: 5.
+ I: 0
+
+Parameters of model 1 updated.
+
+Total loss: 0.750. 
+Mean Score: 0.034+/-1.037
+
+Value loss: 3.749.
+Policy loss: 0.001.
+
+Entropy: 0.802. 
+Policy Ratio: 0.982+/-0.204.
+KL-Div: 0.037
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 0, RP: 0, RS: 0, PR: 0, PP: 0, PS: 0, SR: 0, SP: 0, SS: 0.
+ I: 12
+
+Parameters of model 1 updated.
+
+Total loss: 0.239. 
+Mean Score: -1.128+/-0.000
+
+Value loss: 0.517.
+Policy loss: 0.136.
+
+Entropy: 0.727. 
+Policy Ratio: 0.599+/-0.800.
+KL-Div: -1.565
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 5, RP: 5, RS: 12, PR: 3, PP: 6, PS: 4, SR: 5, SP: 8, SS: 4.
+ I: 5
+
+Parameters of model 1 updated.
+
+Total loss: 0.916. 
+Mean Score: 0.079+/-0.973
+
+Value loss: 4.747.
+Policy loss: -0.034.
+
+Entropy: 0.719. 
+Policy Ratio: 0.900+/-0.437.
+KL-Div: -0.090
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 0, RP: 0, RS: 0, PR: 0, PP: 0, PS: 0, SR: 0, SP: 0, SS: 0.
+ I: 10
+
+Parameters of model 1 updated.
+
+Total loss: 0.072. 
+Mean Score: -1.128+/-0.000
+
+Value loss: 0.209.
+Policy loss: 0.030.
+
+Entropy: 0.703. 
+Policy Ratio: 0.999+/-0.032.
+KL-Div: -1.656
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 0, RP: 0, RS: 0, PR: 0, PP: 0, PS: 0, SR: 0, SP: 0, SS: 0.
+ I: 3
+
+Parameters of model 1 updated.
+
+Total loss: 0.003. 
+Mean Score: -1.129+/-0.000
+
+Value loss: 0.017.
+Policy loss: 0.000.
+
+Entropy: 0.741. 
+Policy Ratio: 1.000+/-0.000.
+KL-Div: -1.104
+
+Parameters of model 2 updated.
+
+Total loss: 0.248. 
+Mean Score: -1.130+/-1.012
+
+Value loss: 234.940.
+Policy loss: 0.013.
+
+Entropy: 0.805. 
+Policy Ratio: 1.003+/-0.052.
+KL-Div: 0.000
+Starting epoch 6:
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19./usr/local/lib/python3.11/dist-packages/trl/trainer/ppo_trainer.py:1313: UserWarning: KL divergence is starting to become negative: -2.08 - this might be a precursor for failed training. sometimes this happens because the generation kwargs are not correctly set. Please make sure that the generation kwargs are set correctly, or review your training hyperparameters.
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/trl/trainer/ppo_trainer.py:1313: UserWarning: KL divergence is starting to become negative: -2.62 - this might be a precursor for failed training. sometimes this happens because the generation kwargs are not correctly set. Please make sure that the generation kwargs are set correctly, or review your training hyperparameters.
+  warnings.warn(
+
+
+Interaction 20.
+In this episode - RR: 4, RP: 27, RS: 6, PR: 3, PP: 10, PS: 4, SR: 3, SP: 25, SS: 4.
+ I: 5
+
+Parameters of model 1 updated.
+
+Total loss: 0.512. 
+Mean Score: -0.062+/-1.013
+
+Value loss: 2.394.
+Policy loss: 0.033.
+
+Entropy: 0.785. 
+Policy Ratio: 0.915+/-0.403.
+KL-Div: -0.077
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 2, RP: 9, RS: 10, PR: 1, PP: 4, PS: 2, SR: 1, SP: 8, SS: 6.
+ I: 5
+
+Parameters of model 1 updated.
+
+Total loss: 0.544. 
+Mean Score: 0.047+/-0.985
+
+Value loss: 3.001.
+Policy loss: -0.056.
+
+Entropy: 0.710. 
+Policy Ratio: 0.920+/-0.394.
+KL-Div: -0.163
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 1, RP: 1, RS: 4, PR: 0, PP: 0, PS: 0, SR: 2, SP: 2, SS: 2.
+ I: 9
+
+Parameters of model 1 updated.
+
+Total loss: 0.449. 
+Mean Score: -0.322+/-1.017
+
+Value loss: 1.769.
+Policy loss: 0.095.
+
+Entropy: 0.685. 
+Policy Ratio: 0.679+/-0.733.
+KL-Div: -0.582
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 0, RP: 0, RS: 0, PR: 0, PP: 0, PS: 0, SR: 0, SP: 0, SS: 0.
+ I: 4
+
+Parameters of model 1 updated.
+
+Total loss: 0.000. 
+Mean Score: -1.127+/-0.000
+
+Value loss: 0.001.
+Policy loss: 0.000.
+
+Entropy: 0.725. 
+Policy Ratio: 1.000+/-0.000.
+KL-Div: -2.081
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 3, RP: 1, RS: 3, PR: 0, PP: 0, PS: 0, SR: 2, SP: 1, SS: 1.
+ I: 4
+
+Parameters of model 1 updated.
+
+Total loss: 0.286. 
+Mean Score: -0.226+/-0.972
+
+Value loss: 1.436.
+Policy loss: -0.001.
+
+Entropy: 0.705. 
+Policy Ratio: 1.000+/-0.038.
+KL-Div: -0.578
+
+Parameters of model 2 updated.
+
+Total loss: 0.241. 
+Mean Score: -1.121+/-1.005
+
+Value loss: 231.172.
+Policy loss: 0.010.
+
+Entropy: 0.823. 
+Policy Ratio: 0.992+/-0.133.
+KL-Div: 0.001
+Starting epoch 7:
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 2, RP: 26, RS: 29, PR: 0, PP: 2, PS: 0, SR: 0, SP: 36, SS: 3.
+ I: 0
+
+Parameters of model 1 updated.
+
+Total loss: 2.532. 
+Mean Score: 0.443+/-0.982
+
+Value loss: 12.681.
+Policy loss: -0.004.
+
+Entropy: 0.688. 
+Policy Ratio: 0.961+/-0.284.
+KL-Div: 0.108
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 6, RP: 4, RS: 10, PR: 2, PP: 4, PS: 3, SR: 8, SP: 12, SS: 7.
+ I: 3
+
+Parameters of model 1 updated.
+
+Total loss: 0.369. 
+Mean Score: 0.113+/-0.942
+
+Value loss: 1.855.
+Policy loss: -0.002.
+
+Entropy: 0.688. 
+Policy Ratio: 0.970+/-0.262.
+KL-Div: 0.128
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 2, RP: 4, RS: 4, PR: 1, PP: 1, PS: 0, SR: 1, SP: 5, SS: 2.
+ I: 1
+
+Parameters of model 1 updated.
+
+Total loss: 0.248. 
+Mean Score: 0.212+/-0.973
+
+Value loss: 1.576.
+Policy loss: -0.067.
+
+Entropy: 0.669. 
+Policy Ratio: 0.681+/-0.734.
+KL-Div: -0.002
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 0, RP: 0, RS: 0, PR: 0, PP: 0, PS: 0, SR: 0, SP: 0, SS: 0.
+ I: 4
+
+Parameters of model 1 updated.
+
+Total loss: 0.031. 
+Mean Score: -1.115+/-0.000
+
+Value loss: 0.153.
+Policy loss: 0.000.
+
+Entropy: 0.703. 
+Policy Ratio: 1.000+/-0.000.
+KL-Div: -2.623
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 3, RP: 3, RS: 2, PR: 0, PP: 4, PS: 1, SR: 3, SP: 1, SS: 2.
+ I: 3
+
+Parameters of model 1 updated.
+
+Total loss: 0.249. 
+Mean Score: -0.356+/-0.801
+
+Value loss: 0.014.
+Policy loss: 0.246.
+
+Entropy: 0.779. 
+Policy Ratio: 0.761+/-0.651.
+KL-Div: -0.182
+
+Parameters of model 2 updated.
+
+Total loss: 0.226. 
+Mean Score: -1.110+/-1.011
+
+Value loss: 212.296.
+Policy loss: 0.014.
+
+Entropy: 0.760. 
+Policy Ratio: 0.993+/-0.135.
+KL-Div: -0.004
+Starting epoch 8:
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 10, RP: 6, RS: 40, PR: 3, PP: 6, PS: 3, SR: 2, SP: 18, SS: 9.
+ I: 0
+
+Parameters of model 1 updated.
+
+Total loss: 2.771. 
+Mean Score: 0.575+/-0.774
+
+Value loss: 13.837.
+Policy loss: 0.003.
+
+Entropy: 0.617. 
+Policy Ratio: 0.941+/-0.345.
+KL-Div: 0.193
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 2, RP: 2, RS: 0, PR: 1, PP: 2, PS: 1, SR: 1, SP: 6, SS: 1.
+ I: 1
+
+Parameters of model 1 updated.
+
+Total loss: -0.034. 
+Mean Score: 0.131+/-0.957
+
+Value loss: 0.009.
+Policy loss: -0.036.
+
+Entropy: 0.690. 
+Policy Ratio: 0.701+/-0.715.
+KL-Div: 0.005
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 5, RP: 1, RS: 6, PR: 1, PP: 3, PS: 0, SR: 9, SP: 2, SS: 6.
+ I: 2
+
+Parameters of model 1 updated.
+
+Total loss: 0.140. 
+Mean Score: -0.096+/-0.874
+
+Value loss: 0.724.
+Policy loss: -0.005.
+
+Entropy: 0.628. 
+Policy Ratio: 1.002+/-0.041.
+KL-Div: 0.062
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18./usr/local/lib/python3.11/dist-packages/trl/trainer/ppo_trainer.py:1309: UserWarning: std(): degrees of freedom is <= 0. Correction should be strictly less than the reduction factor (input numel divided by output numel). (Triggered internally at ../aten/src/ATen/native/ReduceOps.cpp:1823.)
+  std_scores = data["scores"].std()
+/usr/local/lib/python3.11/dist-packages/trl/trainer/ppo_trainer.py:1313: UserWarning: KL divergence is starting to become negative: -2.89 - this might be a precursor for failed training. sometimes this happens because the generation kwargs are not correctly set. Please make sure that the generation kwargs are set correctly, or review your training hyperparameters.
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/trl/trainer/ppo_trainer.py:1336: UserWarning: std(): degrees of freedom is <= 0. Correction should be strictly less than the reduction factor (input numel divided by output numel). (Triggered internally at ../aten/src/ATen/native/ReduceOps.cpp:1823.)
+  stats["tokens/queries_len_std"] = torch.std(query_lens).cpu().numpy().item()
+/usr/local/lib/python3.11/dist-packages/trl/trainer/ppo_trainer.py:1339: UserWarning: std(): degrees of freedom is <= 0. Correction should be strictly less than the reduction factor (input numel divided by output numel). (Triggered internally at ../aten/src/ATen/native/ReduceOps.cpp:1823.)
+  stats["tokens/responses_len_std"] = torch.std(response_lens).cpu().numpy().item()
+../aten/src/ATen/native/cuda/TensorCompare.cu:110: _assert_async_cuda_kernel: block: [0,0,0], thread: [0,0,0] Assertion `probability tensor contains either `inf`, `nan` or element < 0` failed.
+
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 2, RP: 1, RS: 0, PR: 3, PP: 2, PS: 0, SR: 2, SP: 1, SS: 1.
+ I: 2
+
+Parameters of model 1 updated.
+
+Total loss: 0.154. 
+Mean Score: -0.080+/-0.928
+
+Value loss: 0.826.
+Policy loss: -0.011.
+
+Entropy: 0.646. 
+Policy Ratio: 0.867+/-0.501.
+KL-Div: -0.443
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 2, RP: 0, RS: 1, PR: 1, PP: 1, PS: 0, SR: 0, SP: 1, SS: 2.
+ I: 1
+
+Parameters of model 1 updated.
+
+Total loss: 0.131. 
+Mean Score: 0.249+/-0.747
+
+Value loss: 1.016.
+Policy loss: -0.072.
+
+Entropy: 0.745. 
+Policy Ratio: 0.800+/-0.601.
+KL-Div: -0.189
+
+Parameters of model 2 updated.
+
+Total loss: 0.254. 
+Mean Score: -1.242+/-0.849
+
+Value loss: 240.866.
+Policy loss: 0.014.
+
+Entropy: 0.786. 
+Policy Ratio: 1.006+/-0.057.
+KL-Div: -0.003
+Starting epoch 9:
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 7, RP: 13, RS: 21, PR: 1, PP: 7, PS: 0, SR: 3, SP: 32, SS: 9.
+ I: 0
+
+Parameters of model 1 updated.
+
+Total loss: 1.863. 
+Mean Score: 0.458+/-0.862
+
+Value loss: 9.332.
+Policy loss: -0.003.
+
+Entropy: 0.625. 
+Policy Ratio: 0.959+/-0.290.
+KL-Div: 0.178
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 6, RP: 13, RS: 3, PR: 1, PP: 1, PS: 1, SR: 7, SP: 10, SS: 6.
+ I: 3
+
+Parameters of model 1 updated.
+
+Total loss: 1.053. 
+Mean Score: -0.220+/-0.953
+
+Value loss: 4.491.
+Policy loss: 0.154.
+
+Entropy: 0.605. 
+Policy Ratio: 0.855+/-0.521.
+KL-Div: -0.073
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 5, RP: 2, RS: 5, PR: 3, PP: 1, PS: 1, SR: 4, SP: 3, SS: 4.
+ I: 1
+
+Parameters of model 1 updated.
+
+Total loss: 0.265. 
+Mean Score: 0.116+/-0.918
+
+Value loss: 1.354.
+Policy loss: -0.005.
+
+Entropy: 0.610. 
+Policy Ratio: 0.936+/-0.362.
+KL-Div: 0.040
+
+Interaction 1.
+
+Interaction 2.
+
+Interaction 3.
+
+Interaction 4.
+
+Interaction 5.
+
+Interaction 6.
+
+Interaction 7.
+
+Interaction 8.
+
+Interaction 9.
+
+Interaction 10.
+
+Interaction 11.
+
+Interaction 12.
+
+Interaction 13.
+
+Interaction 14.
+
+Interaction 15.
+
+Interaction 16.
+
+Interaction 17.
+
+Interaction 18.
+
+Interaction 19.
+
+Interaction 20.
+In this episode - RR: 0, RP: 0, RS: 0, PR: 0, PP: 0, PS: 0, SR: 0, SP: 0, SS: 0.
+ I: 1
+
+Parameters of model 1 updated.
+
+Total loss: nan. 
+Mean Score: -1.123+/-nan
+
+Value loss: 0.445.
+Policy loss: nan.
+
+Entropy: 0.696. 
+Policy Ratio: 1.000+/-0.000.
+KL-Div: -2.885
+
+Interaction 1.
+Traceback (most recent call last):
+  File "/workspace/cpr-shape-llm/finetuning_two_learners.py", line 81, in <module>
+    main()
+  File "/workspace/cpr-shape-llm/finetuning_two_learners.py", line 60, in main
+    traj_data1, traj_data2, outcomes = outer_rollout(game, agent1, agent2)
+                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/cpr-shape-llm/environment.py", line 303, in outer_rollout
+    traj_data1, traj_data2, env_state = inner_rollout(game, env_state, traj_data1, traj_data2, agent1, agent2) # rollout trajectory
+                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/cpr-shape-llm/environment.py", line 277, in inner_rollout
+    reponse_tensors1, reponse_tensors2 = agent1.take_action(query_tensor1), agent2.take_action(query_tensor2) # Take actions
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/cpr-shape-llm/agents.py", line 118, in take_action
+    response_tensors = self.trainer.generate(query_tensors, return_prompt = False, **self.generation_kwargs)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/trl/trainer/ppo_trainer.py", line 495, in generate
+    response = self._generate_batched(
+               ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/trl/trainer/ppo_trainer.py", line 582, in _generate_batched
+    generations = unwrapped_model.generate(**padded_inputs, **generation_kwargs)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/trl/models/modeling_value_head.py", line 207, in generate
+    return self.pretrained_model.generate(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/peft/peft_model.py", line 1838, in generate
+    outputs = self.base_model.generate(*args, **kwargs)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/torch/utils/_contextlib.py", line 116, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/transformers/generation/utils.py", line 2252, in generate
+    result = self._sample(
+             ^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/transformers/generation/utils.py", line 3297, in _sample
+    next_tokens = torch.multinomial(probs, num_samples=1).squeeze(1)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: CUDA error: device-side assert triggered
+Compile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.
+
