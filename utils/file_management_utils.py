@@ -43,6 +43,8 @@ def validate_config(config: Dict, simulation_type:str = "fixed_opponent") -> Non
         assert config["obs_manager_parameters"]["is_shaper"] == config["ppo_agent_parameters"]["is_shaper"], "The is_shaper parameter must have the same value in the observation manager and agent configs"
         assert config["fixed_agent_parameters"]["allowed_tokens"]["a1_tok"] == config["obs_manager_parameters"]["a1_tok"], "The allowed token for action 1 must be the same in the fixed agent parameters and observation manager"
         assert config["fixed_agent_parameters"]["allowed_tokens"]["a2_tok"] == config["obs_manager_parameters"]["a2_tok"], "The allowed token for action 2 must be the same in the fixed agent parameters and observation manager"
+        if "a3_tok" in config["obs_manager_parameters"]:
+            assert config["fixed_agent_parameters"]["allowed_tokens"].get("a3_tok") == config["obs_manager_parameters"]["a3_tok"], "The allowed token for action 3 must be the same in the fixed agent parameters and observation manager"
         assert config["fixed_agent_parameters"]["n_games"] == config["game_parameters"]["n_games"], "The number of games must be the same with the fixed agent parameters and the game parameters"
 
     elif simulation_type == "two_learners":

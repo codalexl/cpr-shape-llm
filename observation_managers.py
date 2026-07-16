@@ -13,6 +13,8 @@ class ObservationManagerConfig:
     a2_string: str
     reward_matrix: List[List[List[float]]]
     is_shaper: bool 
+    a3_tok: Optional[int] = None
+    a3_string: Optional[str] = None
     game_description: Optional[str] = "You are playing a 2-player game with actions: {a1_tok}, {a2_tok}. Points are assigned as follows: {a1_tok}/{a1_tok}: {p1_a1a1}/{p2_a1a1},  {a1_tok}/{a2_tok}: {p1_a1a2}/{p2_a2a1}, {a2_tok}/{a1_tok}: {p1_a2a1}/{p2_a1a2}, {a2_tok}/{a2_tok}: {p1_a2a2}/{p2_a2a2}."
     state_prompt: Optional[str] = "In the previous round, you played {own_action} and your opponent played {opp_action}."
     instruction_prompt: Optional[str] = "\nChoose an action for the current round. Reply only with {a1_tok} or {a2_tok}."
@@ -20,6 +22,17 @@ class ObservationManagerConfig:
     additional_info_type: Optional[str] = "state_only"
     model_name: Optional[str] = "gemma-2b"
     transmit_info: Optional[bool] = True
+
+    def __post_init__(self):
+        n = len(self.reward_matrix[0])
+        has_a3 = self.a3_tok is not None or self.a3_string is not None
+        if n == 3:
+            assert has_a3 and self.a3_tok is not None and self.a3_string is not None, (
+                "3×3 games require a3_tok and a3_string"
+            )
+        elif has_a3:
+            raise ValueError("a3_tok/a3_string provided but reward_matrix is not 3×3")
+
 
 def validate_templates(placeholder_dict, template_list): 
     """Validate that templates contain required placeholders"""
@@ -30,16 +43,52 @@ def validate_templates(placeholder_dict, template_list):
                 raise ValueError(f"{name} is missing required placeholders: {missing}")
 
 def create_payoff_table(params):
-    """Create an appropriate string cotaining a table. params must include the tokens used to express actions 1 and 2, the payoffs for both models."""
+    """Create a markdown payoff table. params must include action token strings and per-cell payoffs."""
     def format_cell(val1, val2, width=7):
                 payoff = f"({val1}, {val2})"
                 return payoff.center(width)
-    header = f'You are playing a 2-player game with actions: {params["a1_tok"]}, {params["a2_tok"]}. Points are assigned as follows:\n\n'
-    top_row = f'| {"":6}| {("**"+params["a1_tok"]+"**").center(7)} | {("**"+params["a2_tok"]+"**").center(7)} |\n'
-    divider = "|-------|---------|---------|\n"
-    row1 = f'| {"**" + params["a1_tok"]+"**":5} | {format_cell(params["p1_a1a1"], params["p2_a1a1"])} | {format_cell(params["p1_a1a2"], params["p2_a2a1"])} |\n'
-    row2 = f'| {"**" + params["a2_tok"]+"**":5} | {format_cell(params["p1_a2a1"], params["p2_a1a2"])} | {format_cell(params["p1_a2a2"], params["p2_a2a2"])} |\n'
-    return header + top_row + divider + row1 + row2
+
+    action_keys = sorted(
+        [k for k in params if re.fullmatch(r"a\d+_tok", k)],
+        key=lambda k: int(k.split("_")[0][1:]),
+    )
+    actions = [params[k] for k in action_keys]
+    n = len(actions)
+
+    header = f'You are playing a 2-player game with actions: {", ".join(actions)}. Points are assigned as follows:\n\n'
+    top_row = f'| {"":6}| ' + " | ".join(f'{("**"+a+"**").center(7)}' for a in actions) + " |\n"
+    divider = "|-------|" + "|".join(["---------"] * n) + "|\n"
+
+    rows = []
+    for i, a_own in enumerate(actions):
+        cells = []
+        for j in range(n):
+            # Player-2 cell uses swapped indices (opp's own × this agent's action as opp)
+            p1 = params[f"p1_a{i+1}a{j+1}"]
+            p2 = params[f"p2_a{j+1}a{i+1}"]
+            cells.append(format_cell(p1, p2))
+        rows.append(f'| {"**" + a_own + "**":5} | ' + " | ".join(cells) + " |\n")
+
+    return header + top_row + divider + "".join(rows)
+
+
+def _action_strings_from_config(config: "ObservationManagerConfig") -> List[str]:
+    strings = [config.a1_string, config.a2_string]
+    if config.a3_string is not None:
+        strings.append(config.a3_string)
+    return strings
+
+
+def _payoff_params(config: "ObservationManagerConfig", action_strings: List[str]) -> Dict:
+    """Build format kwargs for game description / instruction templates."""
+    params = {f"a{i+1}_tok": s for i, s in enumerate(action_strings)}
+    n = len(action_strings)
+    for p in (1, 2):
+        for i in range(n):
+            for j in range(n):
+                params[f"p{p}_a{i+1}a{j+1}"] = config.reward_matrix[p - 1][i][j]
+    return params
+
 
 class AdditionalInfoHandler(ABC):
     """Abstract base class for additional information handling strategies"""
@@ -66,12 +115,13 @@ class AdditionalInfoHandler(ABC):
 class BasicStateUpdater(AdditionalInfoHandler):  # Inherit from abstract class
     """Handles state updates without additional information tracking."""
 
-    def __init__(self, a1_string:str, a2_string:str):
-        self.a1_string, self.a2_string = a1_string, a2_string
+    def __init__(self, action_strings: List[str]):
+        self.action_strings = action_strings
+        self.legal_actions = set(action_strings)
 
     def update_obs(self, obs: str, a1: str, a2: str, inner_t: int, outer_t: int, update_state: Callable[[str, str, str], str]) -> str:
         """Update observation only if actions are legal."""
-        if a1 not in {self.a1_string, self.a2_string} or a2 not in {self.a1_string, self.a2_string}:
+        if a1 not in self.legal_actions or a2 not in self.legal_actions:
             return obs  # Invalid actions → No update
 
         return update_state(obs, a1, a2)  # Update state and return
@@ -80,22 +130,36 @@ class BasicStateUpdater(AdditionalInfoHandler):  # Inherit from abstract class
 class StateOccurrenceUpdater(AdditionalInfoHandler):
     """Handles state updates and records state occurrence throughout the game and the trial."""
 
-    def __init__(self, a1_string:str, a2_string:str, state_tag: str, additional_info_tag: str, game_description: str, state_prompt: str, instruction: str):
+    def __init__(self, action_strings: List[str], state_tag: str, additional_info_tag: str, game_description: str, state_prompt: str, instruction: str):
         self.state_tag, self.additional_info_tag = state_tag, additional_info_tag 
 
         self.game_description = game_description
         self.state_prompt = state_prompt
         self.instruction = instruction 
 
-        self.a1_string, self.a2_string = a1_string, a2_string
-        self.index_map = {f"{self.a1_string}{self.a1_string}": 0, f"{self.a1_string}{self.a2_string}": 1, f"{self.a2_string}{self.a1_string}": 2, f"{self.a2_string}{self.a2_string}": 3}
+        self.action_strings = action_strings
+        self.legal_actions = set(action_strings)
+        self.n_bins = len(action_strings) ** 2
+        self.labels = [f"{a}{b}" for a in action_strings for b in action_strings]
+        self.index_map = {lab: i for i, lab in enumerate(self.labels)}
 
-        self.current_round_prompt = lambda x, y, z, w: f"The occurrence of each state in the current game has been {self.a1_string}{self.a1_string}:{x}, {self.a1_string}{self.a2_string}:{y}, {self.a2_string}{self.a1_string}:{z}, {self.a2_string}{self.a2_string}:{w}."
-        self.prev_game_prompt = lambda game, x, y, z, w: f"The occurrence of each state in game {game} was {self.a1_string}{self.a1_string}:{x}, {self.a1_string}{self.a2_string}:{y}, {self.a2_string}{self.a1_string}:{z}, {self.a2_string}{self.a2_string}:{w}."
+    def _counts_phrase(self, prefix: str, counts: List[int]) -> str:
+        joined = ", ".join(f"{lab}:{c}" for lab, c in zip(self.labels, counts))
+        return f"{prefix}{joined}."
+
+    def current_round_prompt(self, *counts) -> str:
+        return self._counts_phrase(
+            "The occurrence of each state in the current game has been ", counts
+        )
+
+    def prev_game_prompt(self, game, *counts) -> str:
+        return self._counts_phrase(
+            f"The occurrence of each state in game {game} was ", counts
+        )
 
     def _extract_current_counts(self, obs:str) -> List[int]:
         """Extract state occurrences from observation. If missing, set to 0."""
-        return [int(count) for count in re.findall(r":(\d+)", obs)][-4:] if ("current game" in obs) else [0] * 4
+        return [int(count) for count in re.findall(r":(\d+)", obs)][-self.n_bins:] if ("current game" in obs) else [0] * self.n_bins
 
     def _get_updated_counts(self, a1s:List[str], a2s:List[str], counts:List[int]) -> List[int]:
         """Returns the updated state counts given an observation and two lists of players actions."""
@@ -116,7 +180,8 @@ class StateOccurrenceUpdater(AdditionalInfoHandler):
         replacement = self.current_round_prompt(*new_counts) if inner_t != 0 else self.prev_game_prompt(outer_t, *new_counts)
 
         if "current game" in obs: # IF current game is in the observation, replace pattern
-            pattern = self.current_round_prompt(r"\d+", r"\d+", r"\d+", r"\d+")
+            digit = r"\d+"
+            pattern = self.current_round_prompt(*([digit] * self.n_bins))
             return re.sub(pattern, replacement, obs)
 
         # If current game is not in observation, add the current game prompt before the state
@@ -129,7 +194,7 @@ class StateOccurrenceUpdater(AdditionalInfoHandler):
 
         
         # If the action played is illegal, reset
-        if not ((a1 in {self.a1_string, self.a2_string}) and (a2 in {self.a1_string, self.a2_string})):
+        if not ((a1 in self.legal_actions) and (a2 in self.legal_actions)):
             return obs 
         # If the state tag is not in the observation, simply add the state
         if self.state_tag not in obs:
@@ -145,8 +210,8 @@ class StateOccurrenceUpdater(AdditionalInfoHandler):
 class SingleStateOccurrenceUpdater(StateOccurrenceUpdater):
     """Handles state updates and records state occurrence throughout all episodes, without distinguishing between episodes."""
 
-    def __init__(self, a1_string:str, a2_string:str, state_tag: str, additional_info_tag: str, game_description: str, state_prompt: str, instruction: str):
-        super().__init__(a1_string, a2_string, state_tag, additional_info_tag, game_description, state_prompt, instruction)
+    def __init__(self, action_strings: List[str], state_tag: str, additional_info_tag: str, game_description: str, state_prompt: str, instruction: str):
+        super().__init__(action_strings, state_tag, additional_info_tag, game_description, state_prompt, instruction)
 
     def _update_obs_counts(self, obs:str, a1:str, a2:str, inner_t:int, outer_t:int) -> str:
         """Returns the updated observation with the provided state counts"""
@@ -156,7 +221,8 @@ class SingleStateOccurrenceUpdater(StateOccurrenceUpdater):
         # If starting a new episode, change phrasing to express state count is from a previous game
         replacement = self.current_round_prompt(*new_counts) 
         if "current game" in obs: # IF current game is in the observation, replace pattern
-            pattern = self.current_round_prompt(r"\d+", r"\d+", r"\d+", r"\d+")
+            digit = r"\d+"
+            pattern = self.current_round_prompt(*([digit] * self.n_bins))
             return re.sub(pattern, replacement, obs)
 
         # If current game is not in observation, add the current game prompt before the state
@@ -168,7 +234,7 @@ class SingleStateOccurrenceUpdater(StateOccurrenceUpdater):
         """Updates the state occurrence based on the input state, and updates the input state based on the new actions."""
 
         # If the action played is illegal, reset
-        if not ((a1 in {self.a1_string, self.a2_string}) and (a2 in {self.a1_string, self.a2_string})):
+        if not ((a1 in self.legal_actions) and (a2 in self.legal_actions)):
             return obs
         # If the state tag is not in the observation, simply add the state
         if self.state_tag not in obs:
@@ -181,14 +247,15 @@ class SingleStateOccurrenceUpdater(StateOccurrenceUpdater):
 class FullTrajectoryUpdater(AdditionalInfoHandler):
     """Handles state updates and records state occurrence throughout the game and the trial."""
 
-    def __init__(self, a1_string:str, a2_string:str, state_tag: str, additional_info_tag: str, game_description: str, state_prompt: str, instruction: str):
+    def __init__(self, action_strings: List[str], state_tag: str, additional_info_tag: str, game_description: str, state_prompt: str, instruction: str):
         self.state_tag = state_tag
         self.additional_info_tag = additional_info_tag
         self.game_description = game_description
         self.state_prompt = state_prompt
         self.instruction = instruction 
 
-        self.a1_string, self.a2_string = a1_string, a2_string
+        self.action_strings = action_strings
+        self.legal_actions = set(action_strings)
 
         self.prev_game = lambda game: f"\nThe trajectory of game {game} was: "
         self.current_game = "\nThe current trajectory of the game has been: "
@@ -215,7 +282,7 @@ class FullTrajectoryUpdater(AdditionalInfoHandler):
     def update_obs(self, obs: str, a1:str, a2:str, inner_t:int, outer_t:int, update_state: Callable[[str, str, str], str]) -> str: 
         """Update observation with the actions played in the current round (a1 and a2)."""
         # If the action played is illegal, keep the observation unchanged. 
-        if not ((a1 in {self.a1_string, self.a2_string}) and (a2 in {self.a1_string, self.a2_string})):
+        if not ((a1 in self.legal_actions) and (a2 in self.legal_actions)):
             return obs
 
         elif self.state_tag not in obs: # If the observation contains no state, simply add it. This occurs at the beginning of gameplay AND in the first turn of each game (any e, t==1). 
@@ -243,58 +310,62 @@ class FullTrajectoryUpdater(AdditionalInfoHandler):
 class ObservationManager:
     """Manages game observations, including state tracking and formatting"""
 
-    # Class constants
-    PLACEHOLDERS = {'description': {"a1_tok", "a2_tok", "p1_a1a1", "p1_a1a2", "p1_a2a1", "p1_a2a2", "p2_a1a1", "p2_a1a2", "p2_a2a1", "p2_a2a2"},
-        'instruction': {"a1_tok", "a2_tok"}, 'state': {"own_action", "opp_action"}}
-
     TAGS = {'state': "\n<STATE> ", 'additional_info': "\n<ADDITIONAL INFORMATION> "}
 
     def __init__(self, config: ObservationManagerConfig):
         
         # Need for formatting and for additional information managers
-        self.a1_string, self.a2_string = config.a1_string, config.a2_string
-        self.action_string_map = {0: self.a1_string, 1: self.a2_string, 2: "unknown"} 
+        self.action_strings = _action_strings_from_config(config)
+        self.a1_string, self.a2_string = self.action_strings[0], self.action_strings[1]
+        self.a3_string = self.action_strings[2] if len(self.action_strings) > 2 else None
+        self.n_actions = len(self.action_strings)
+        self.action_string_map = {
+            i: s for i, s in enumerate(self.action_strings)
+        }
+        self.action_string_map[self.n_actions] = "unknown"
         self.transmit_info = config.transmit_info
 
         self.is_shaper = config.is_shaper # Need to reset observation after each episode for non shapers
 
         # Validate and format prompts
-        validate_templates(self.PLACEHOLDERS, [config.game_description, config.instruction_prompt, config.state_prompt])
+        placeholders = self._placeholders(self.n_actions)
+        validate_templates(placeholders, [config.game_description, config.instruction_prompt, config.state_prompt])
         # Store game description and instruction and state prompts with the correct legal tokens, reward matrix, and model specific formatting
         self.game_description, self.instruction_prompt, self.state_prompt = self._format_templates(config)
 
         # Initialize additional information handler
         self.additional_info_handler = self._create_info_handler(config.additional_info_type)
 
+    @staticmethod
+    def _placeholders(n_actions: int) -> Dict[str, set]:
+        action_toks = {f"a{i}_tok" for i in range(1, n_actions + 1)}
+        payoff_keys = {
+            f"p{p}_a{i}a{j}"
+            for p in (1, 2)
+            for i in range(1, n_actions + 1)
+            for j in range(1, n_actions + 1)
+        }
+        return {
+            "description": action_toks | payoff_keys,
+            "instruction": action_toks,
+            "state": {"own_action", "opp_action"},
+        }
 
     def _create_info_handler(self, handler_type: str) -> AdditionalInfoHandler:
         """Factory method for creating the appropriate additional information handler"""
+        common = dict(
+            action_strings=self.action_strings,
+            state_tag=self.TAGS["state"],
+            additional_info_tag=self.TAGS["additional_info"],
+            game_description=self.game_description,
+            state_prompt=self.state_prompt,
+            instruction=self.instruction_prompt,
+        )
         handlers = {
-            "state_occurrence": lambda: StateOccurrenceUpdater(
-                self.a1_string, self.a2_string,
-                self.TAGS['state'],
-                self.TAGS['additional_info'],
-                self.game_description,
-                self.state_prompt,
-                self.instruction_prompt
-            ),
-            "single_state_occurrence": lambda: SingleStateOccurrenceUpdater(
-                self.a1_string, self.a2_string,
-                self.TAGS['state'],
-                self.TAGS['additional_info'],
-                self.game_description,
-                self.state_prompt,
-                self.instruction_prompt
-            ),
-            "full_trajectory": lambda: FullTrajectoryUpdater(
-                self.a1_string, self.a2_string,
-                self.TAGS['state'],
-                self.TAGS['additional_info'],
-                self.game_description,
-                self.state_prompt,
-                self.instruction_prompt
-            ),
-            "state_only": lambda: BasicStateUpdater(self.a1_string, self.a2_string)
+            "state_occurrence": lambda: StateOccurrenceUpdater(**common),
+            "single_state_occurrence": lambda: SingleStateOccurrenceUpdater(**common),
+            "full_trajectory": lambda: FullTrajectoryUpdater(**common),
+            "state_only": lambda: BasicStateUpdater(self.action_strings),
         }
         
         if handler_type not in handlers:
@@ -305,11 +376,7 @@ class ObservationManager:
 
     def _format_templates(self, config: ObservationManagerConfig) -> None:
         """Formats templates by including the specified allowed tokens, reward matrix, and formatting tags."""
-        params = {"a1_tok": self.a1_string, "a2_tok": config.a2_string,
-            "p1_a1a1": config.reward_matrix[0][0][0], "p1_a1a2": config.reward_matrix[0][0][1],
-            "p1_a2a1": config.reward_matrix[0][1][0], "p1_a2a2": config.reward_matrix[0][1][1],
-            "p2_a1a1": config.reward_matrix[1][0][0], "p2_a1a2": config.reward_matrix[1][0][1],
-            "p2_a2a1": config.reward_matrix[1][1][0], "p2_a2a2": config.reward_matrix[1][1][1]}
+        params = _payoff_params(config, self.action_strings)
 
         if config.model_name == "gemma-2b":
             formatted_game_description = config.formatting_tags["start_user_tag"] + (create_payoff_table(params) if (config.game_description == "table") else config.game_description.format(**params))

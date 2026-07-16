@@ -1,0 +1,14 @@
+# Apple Silicon (MPS) dependencies — install PyTorch separately first:
+#   pip install torch torchvision torchaudio
+transformers==4.47.0
+urllib3<2.0
+pyarrow
+trl==0.11.4
+peft==0.14.0
+accelerate
+datasets
+matplotlib
+pandas
+pyyaml
+psutil
+rich

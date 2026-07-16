@@ -10,6 +10,7 @@ from trl import PPOConfig, AutoModelForCausalLMWithValueHead
 from typing import List, Dict, Optional
 
 from utils.dataset_utils import simple_collator
+from utils.device_utils import get_device, get_device_str
 from utils.file_management_utils import StatsLogger
 from utils.training_utils import CustomPPOTrainer
 
@@ -45,6 +46,7 @@ class AgentConfig():
     training_cont: Optional[bool] = False
     a1_tok: Optional[int] = 235288
     a2_tok: Optional[int] = 235299
+    a3_tok: Optional[int] = None
 
 @dataclass
 class EvalAgentConfig():
@@ -75,7 +77,11 @@ class PPOAgent():
         if "qwen" in config.model_path:
             self.model = AutoModelForCausalLM.from_pretrained(config.model_path, torch_dtype=torch.bfloat16, attn_implementation='eager')
         else:
-            self.model = AutoModelForCausalLM.from_pretrained(config.model_path, attn_implementation='eager') 
+            self.model = AutoModelForCausalLM.from_pretrained(
+                config.model_path,
+                torch_dtype=torch.bfloat16,
+                attn_implementation='eager',
+            )
 
         # Load adapter if any provided
         is_peft_model, peft_config = False, None
@@ -92,9 +98,12 @@ class PPOAgent():
             self.model.load_state_dict(value_head_state, strict=False)  # strict=False to only load value head
 
         # Initialise PPO Trainer
+        legal_tokens = [config.a1_tok, config.a2_tok]
+        if config.a3_tok is not None:
+            legal_tokens.append(config.a3_tok)
         self.trainer_config = PPOConfig(model_name = config.model_path, **config.ppo_params)
         self.trainer = CustomPPOTrainer(init_entropy_coef = config.init_entropy_coef, final_entropy_coef = config.final_entropy_coef, entropy_coef_horizon = config.entropy_coef_horizon, \
-                 a1_tok=config.a1_tok, a2_tok=config.a2_tok, track_gradients = config.track_gradients, model=self.model, config=self.trainer_config, dataset=None, tokenizer=self.tokenizer, data_collator=simple_collator)
+                 legal_tokens=legal_tokens, track_gradients = config.track_gradients, model=self.model, config=self.trainer_config, dataset=None, tokenizer=self.tokenizer, data_collator=simple_collator)
 
         # Initialise stats logger
         self.logger = StatsLogger(track_gradients = config.track_gradients)
@@ -158,16 +167,21 @@ class FixedAgent():
         self.agent_id = config.agent_id
         self.agent_type, self.n_tats = config.agent_type, config.n_tats
         self.a1_tok, self.a2_tok = config.allowed_tokens["a1_tok"], config.allowed_tokens["a2_tok"]
+        self.a3_tok = config.allowed_tokens.get("a3_tok")
+        self.legal_tokens = [self.a1_tok, self.a2_tok]
+        if self.a3_tok is not None:
+            self.legal_tokens.append(self.a3_tok)
         self.n_games = config.n_games
     
     def _get_random_actions(self) -> List[torch.Tensor]:
         """Generates actions sampled from a random policy"""
-        action_list = np.random.choice([self.a1_tok, self.a2_tok], (self.n_games)).tolist()
+        action_list = np.random.choice(self.legal_tokens, (self.n_games)).tolist()
         tensor_list = list(torch.tensor(action_list))
         return tensor_list
     
     def _get_tfnt_actions(self, opp_actions:torch.Tensor) -> List[torch.Tensor]: 
         """Generates actions sampled from a TFNT policy."""
+        assert self.a3_tok is None, "TFT/TFNT is only defined for 2-action games"
         # Initialise the actions to be all cooperative 
         actions = torch.full((self.n_games,), self.a1_tok)
 
@@ -199,13 +213,17 @@ class EvaluationAgent():
         if config.adapter_path:
             self.model = PeftModel.from_pretrained(self.model, config.adapter_path, is_trainable=True)
         
-        # Put model in evaluation mode and move to GPU
+        # Put model in evaluation mode and move to device
         self.model.eval()
-        self.model = self.model.to("cuda")
+        self.device = get_device()
+        self.model = self.model.to(self.device)
     
-    def extract_probabilities(self, prompts:List[str], a1_strs:List[str], a2_strs:List[str], device:str="cuda"): 
+    def extract_probabilities(self, prompts:List[str], a1_strs:List[str], a2_strs:List[str], device:str=None, a3_strs:List[str]=None):
+        device = device or get_device_str()
 
         assert len(prompts) == len(a1_strs) == len(a2_strs), "The observation and legal tokens lists have different lengths"
+        if a3_strs is not None:
+            assert len(a3_strs) == len(prompts), "a3_strs length must match prompts"
 
         # Get token IDs of the legal strings
         a1_tokens = self.tokenizer(a1_strs, padding=True, return_tensors="pt")["input_ids"][:, -1].tolist()
@@ -218,12 +236,16 @@ class EvaluationAgent():
         a1_probs = probs[list(range(len(prompts))), -1, a1_tokens].tolist() 
         a2_probs = probs[list(range(len(prompts))), -1, a2_tokens].tolist() 
 
-        # Create df with relevant probabilities for storage
-        return (a1_probs, a2_probs)
+        if a3_strs is None:
+            return (a1_probs, a2_probs)
+
+        a3_tokens = self.tokenizer(a3_strs, padding=True, return_tensors="pt")["input_ids"][:, -1].tolist()
+        a3_probs = probs[list(range(len(prompts))), -1, a3_tokens].tolist()
+        return (a1_probs, a2_probs, a3_probs)
     
     def tokenize_observation(self, obs: List[str]) -> torch.Tensor:
         """Tokenize observations. returns a List of torch.Tensors as it is the format required by the PPO Trainer"""
-        input_ids = self.tokenizer(obs, padding=True, return_tensors="pt")["input_ids"].to("cuda")
+        input_ids = self.tokenizer(obs, padding=True, return_tensors="pt")["input_ids"].to(self.device)
         return input_ids
 
     def take_action(self, query_tensors: torch.Tensor) -> torch.Tensor: 

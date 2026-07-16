@@ -26,7 +26,15 @@ class GameParams():
 
     def __post_init__(self): 
         r_matrix = np.array(self.r_matrix)
-        assert r_matrix.shape == (2, 2, 2), f"The reward matrix has an incorrect size. Expected (2,2,2), got {r_matrix.shape}"
+        assert r_matrix.ndim == 3 and r_matrix.shape[0] == 2, (
+            f"The reward matrix must have shape (2, n, n); got {r_matrix.shape}"
+        )
+        n = r_matrix.shape[1]
+        assert r_matrix.shape == (2, n, n), (
+            f"The reward matrix must be square per player. Expected (2, {n}, {n}), got {r_matrix.shape}"
+        )
+        assert n in (2, 3), f"Only 2×2 and 3×3 matrix games are supported; got n={n}"
+        self.n_actions = int(n)
 
 
 @dataclass
@@ -53,7 +61,9 @@ class TrajectoryData:
 
     def _update(self, new_queries: List[torch.Tensor], new_responses: List[torch.Tensor], new_ids: List, new_rewards: List[torch.Tensor]) -> None:
         """Updates the trajectory with results from the current episode. Forbidden transitions are excluded"""
-        allowed_transitions = [not torch.isnan(x) for x in new_rewards] # exclude rounds where player took legal action, and opponent took illegal one
+        # Materialize the legality mask once to avoid per-reward Python truthiness syncs on MPS.
+        reward_mask = ~torch.isnan(torch.stack(new_rewards).reshape(len(new_rewards), -1)).any(dim=1)
+        allowed_transitions = reward_mask.tolist() # exclude rounds where player took legal action, and opponent took illegal one
 
         self.query_tensors.append([x for x, cond in zip(new_queries, allowed_transitions) if cond])
         self.response_tensors.append([x for x, cond in zip(new_responses, allowed_transitions) if cond])
@@ -69,48 +79,89 @@ class TrajectoryData:
 
 
 class TokenToActionMapper: 
-    """This mapper uses the same legal tokens for all parallel games"""
-    def __init__(self, agent_id:str, a1_tok:int=7, a2_tok:int=8):
+    """Maps generated token IDs to action indices. Illegal tokens map to n_actions."""
+    def __init__(self, agent_id: str, action_toks: List[int]):
         self.agent_id = agent_id
-        self.a1_tok, self.a2_tok = a1_tok, a2_tok 
+        self.action_toks = list(action_toks)
+        self.n_actions = len(self.action_toks)
+        self.illegal_action = self.n_actions
 
     def map(self, responses: List[torch.Tensor]) -> torch.Tensor:
-        """Maps generated tokens to actions, where 0 := action 1, 1 := action 2, 2 := any other illegal action"""
+        """Maps generated tokens to actions 0..n_actions-1; any other token → n_actions (illegal)."""
         response_tensor = torch.tensor(responses)
 
-        actions = torch.full(response_tensor.shape, fill_value=2) # Illegal actions default to 2
-        actions[response_tensor == torch.full(response_tensor.shape, self.a1_tok)] = 0
-        actions[response_tensor == torch.full(response_tensor.shape, self.a2_tok)] = 1
+        actions = torch.full(response_tensor.shape, fill_value=self.illegal_action)
+        for action_idx, tok in enumerate(self.action_toks):
+            actions[response_tensor == tok] = action_idx
 
         return actions
+
+    # Backward-compatible aliases used by older call sites / TFT helpers
+    @property
+    def a1_tok(self) -> int:
+        return self.action_toks[0]
+
+    @property
+    def a2_tok(self) -> int:
+        return self.action_toks[1]
+
+
+def _build_action_pair_lookup(n_actions: int) -> torch.Tensor:
+    """
+    Maps (own_action, opp_action) → outcome index.
+    Legal pairs: own * n + opp  (0 .. n²-1)
+    Own illegal: n²
+    Own legal + opp illegal: n² + 1
+    """
+    illegal = n_actions
+    n_legal = n_actions * n_actions
+    self_illegal, opp_illegal = n_legal, n_legal + 1
+    lookup = torch.full((n_actions + 1, n_actions + 1), self_illegal)
+    for own in range(n_actions):
+        for opp in range(n_actions):
+            lookup[own, opp] = own * n_actions + opp
+        lookup[own, illegal] = opp_illegal
+    return lookup
 
 
 class IteratedMatrixGame:
 
     def __init__(self, game_params:GameParams, *obs_manager_params): 
-        """Two-player, two-action matrix game simulation"""
+        """Two-player matrix game simulation (2×2 or 3×3)."""
         # Check number of observation manager configs does not exceed maximum number of players.
         assert (len(obs_manager_params) <= 2), f"Number of observation manager configurations exceeds maximum number of players. Expected 2, got {len(obs_manager_params)}."
 
         self.t_max, self.e_max, self.n_games = game_params.t_max, game_params.e_max, game_params.n_games
+        self.n_actions = game_params.n_actions
 
         # Initialise observation managers and token to action maps for each player
         self.obs_managers, self.token_action_maps = {}, {}
         for ind, p in enumerate(obs_manager_params):
-            self.obs_managers[f"agent_{ind+1}"] = ObservationManager(p) 
-            self.token_action_maps[f"agent_{ind+1}"] = TokenToActionMapper(agent_id = f"{ind}", a1_tok=p.a1_tok, a2_tok=p.a2_tok) 
+            self.obs_managers[f"agent_{ind+1}"] = ObservationManager(p)
+            action_toks = [p.a1_tok, p.a2_tok]
+            if getattr(p, "a3_tok", None) is not None:
+                action_toks.append(p.a3_tok)
+            assert len(action_toks) == self.n_actions, (
+                f"Observation manager has {len(action_toks)} action tokens but reward matrix is {self.n_actions}×{self.n_actions}"
+            )
+            self.token_action_maps[f"agent_{ind+1}"] = TokenToActionMapper(
+                agent_id=f"{ind}", action_toks=action_toks
+            )
 
         # Convert the input reward matrix into an outcome reward matrix
         self.r_matrix = self._reshape_reward_matrix(game_params.r_matrix, game_params.penalty)
-        self.action_pair_lookup = torch.tensor([[0, 1, 5], [2, 3, 5], [4, 4, 4]]) # Maps action pairs to outcomes
+        self.action_pair_lookup = _build_action_pair_lookup(self.n_actions)
         self.outcomes = [] # Initalise containers to track outcomes of the games
 
 
     def _reshape_reward_matrix(self, r_matrix:List[List[float]], penalty:float) -> torch.Tensor:
         """Converts game reward matrix into an outcome matrix that accounts for illegal actions from both players."""
-        outcome_matrix = torch.full((2, 6), float('nan')) # Initialise outcome matrix. If opponent plays illegal action, and player plays legal, the result is nan. 
-        outcome_matrix[:, :4] = torch.tensor(r_matrix).view(2, -1) 
-        outcome_matrix[:, 4] = penalty  
+        n = self.n_actions
+        n_legal = n * n
+        # Columns: n² legal outcomes, then self-illegal (penalty), then opp-illegal (nan)
+        outcome_matrix = torch.full((2, n_legal + 2), float('nan'))
+        outcome_matrix[:, :n_legal] = torch.tensor(r_matrix).view(2, -1)
+        outcome_matrix[:, n_legal] = penalty
 
         return outcome_matrix
 
@@ -124,7 +175,7 @@ class IteratedMatrixGame:
         t, e = env_state.inner_t, env_state.outer_t
         t += 1
 
-        # Map token IDs (response_tensors) to actions (0,1,2)
+        # Map token IDs (response_tensors) to actions
         a1 = self.token_action_maps["agent_1"].map(response_tensor1)
         a2 = self.token_action_maps["agent_2"].map(response_tensor2)
 
@@ -149,6 +200,23 @@ class IteratedMatrixGame:
         new_obs2 = self.obs_managers["agent_2"].batch_update_obs(obs2, [a2, a1],  new_env_state.inner_t, new_env_state.outer_t) if agent2_learner else []
         
         return StepResults(r1 = list(r1), r2 = list(r2), new_obs1 = new_obs1, new_obs2 = new_obs2, new_env_state = new_env_state)
+
+
+def _format_episode_outcomes(game: "IteratedMatrixGame") -> str:
+    """Pretty-print legal + illegal outcome counts for the latest episode."""
+    episode_outcomes = torch.tensor(game.outcomes[-game.t_max * game.n_games :])
+    n = game.n_actions
+    labels = (
+        ["CC", "CD", "DC", "DD"] if n == 2
+        else ["RR", "RP", "RS", "PR", "PP", "PS", "SR", "SP", "SS"]
+    )
+    parts = [
+        f"{lab}: {(episode_outcomes == i).sum().item()}"
+        for i, lab in enumerate(labels)
+    ]
+    self_illegal = n * n
+    illegal_count = (episode_outcomes == self_illegal).sum().item()
+    return f"In this episode - {', '.join(parts)}.\n I: {illegal_count}"
 
 
 def inner_rollout_fixed_opponent(game:IteratedMatrixGame, env_state: EnvState, traj_data1: TrajectoryData, agent1: PPOAgent, agent2: FixedAgent) -> Tuple[TrajectoryData, EnvState]:
@@ -183,9 +251,7 @@ def inner_rollout_fixed_opponent(game:IteratedMatrixGame, env_state: EnvState, t
 
     traj_data1.last_observation = obs1 # Update last obseration 
 
-    # Print the current counts
-    episode_outcomes = torch.tensor(game.outcomes[-game.t_max*game.n_games:]) 
-    print(f"In this episode - CC: {(episode_outcomes == 0).sum().item()}, CD: {(episode_outcomes == 1).sum().item()}, DC: {(episode_outcomes == 2).sum().item()}, DD: {(episode_outcomes == 3).sum().item()}.\n I: {(episode_outcomes == 4).sum().item()}")
+    print(_format_episode_outcomes(game))
 
     assert(env_state.inner_t == 0) # Check a full episode has been completed
     return (traj_data1, env_state)
@@ -218,9 +284,7 @@ def inner_rollout(game: IteratedMatrixGame, env_state: EnvState, traj_data1: Tra
         
     traj_data1.last_observation, traj_data2.last_observation = obs1, obs2 # Update last obseration 
    
-    # Print the current counts
-    episode_outcomes = torch.tensor(game.outcomes[-game.t_max*game.n_games:]) 
-    print(f"In this episode - CC: {(episode_outcomes == 0).sum().item()}, CD: {(episode_outcomes == 1).sum().item()}, DC: {(episode_outcomes == 2).sum().item()}, DD: {(episode_outcomes == 3).sum().item()}.\n I: {(episode_outcomes == 4).sum().item()}")
+    print(_format_episode_outcomes(game))
     
     assert(env_state.inner_t == 0) # Check a full episode has been completed
     return (traj_data1, traj_data2, env_state)

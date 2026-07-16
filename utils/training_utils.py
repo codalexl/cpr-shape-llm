@@ -12,12 +12,15 @@ from trl.core import clip_by_value, entropy_from_logits, flatten_dict, masked_me
 from trl.trainer.utils import get_global_statistics
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
+from utils.device_utils import get_device
 
 
-def entropy_from_masked_logits(logits: torch.Tensor, a1_tok:int=7, a2_tok:int=8) -> torch.Tensor:
-    """Calculate entropy from logits."""
-    pd = torch.nn.functional.softmax(logits[:,:,[a1_tok,a2_tok]], dim=-1)
-    entropy = torch.logsumexp(logits[:,:,[a1_tok,a2_tok]], axis=-1) - torch.sum(pd * logits[:,:,[a1_tok,a2_tok]], axis=-1)
+def entropy_from_masked_logits(logits: torch.Tensor, legal_tokens: List[int]) -> torch.Tensor:
+    """Calculate entropy from logits restricted to legal action tokens."""
+    pd = torch.nn.functional.softmax(logits[:, :, legal_tokens], dim=-1)
+    entropy = torch.logsumexp(logits[:, :, legal_tokens], axis=-1) - torch.sum(
+        pd * logits[:, :, legal_tokens], axis=-1
+    )
     return entropy
 
 
@@ -72,9 +75,14 @@ class RunningMoments:
 
 class CustomPPOTrainer(PPOTrainer):
     """Added functionality - considers full episode in GAE, and allows for non-zero masked entropy term"""
-    def __init__(self, *args, track_gradients:bool=False, init_entropy_coef:float=0., final_entropy_coef:float=0., entropy_coef_horizon:int=1000, a1_tok:int=235288, a2_tok:int=235299, **kwargs): 
+    def __init__(self, *args, track_gradients:bool=False, init_entropy_coef:float=0., final_entropy_coef:float=0., entropy_coef_horizon:int=1000, legal_tokens:Optional[List[int]]=None, a1_tok:int=235288, a2_tok:int=235299, a3_tok:Optional[int]=None, **kwargs): 
         super().__init__(*args, **kwargs)
-        self.a1_tok, self.a2_tok = a1_tok, a2_tok 
+        if legal_tokens is not None:
+            self.legal_tokens = list(legal_tokens)
+        else:
+            self.legal_tokens = [a1_tok, a2_tok] + ([a3_tok] if a3_tok is not None else [])
+        self.a1_tok, self.a2_tok = self.legal_tokens[0], self.legal_tokens[1]
+        self.a3_tok = self.legal_tokens[2] if len(self.legal_tokens) > 2 else None
         self.env_ids, self.n = None, None 
         self.track_gradients = track_gradients
 
@@ -112,7 +120,7 @@ class CustomPPOTrainer(PPOTrainer):
             delta = rewards[target_positions[t], -1] + self.config.gamma * v_next - values[target_positions[t], -1]
             adv_next = advantages[target_positions[t+1], -1] if t < (time_steps-1) else 0.0
             advantages[target_positions[t], -1] = delta + self.config.gamma * self.config.lam * adv_next
-        advantages = advantages.to("cuda:0")
+        advantages = advantages.to(get_device())
 
         returns = advantages + values
         advantages = masked_whiten(advantages, mask) # (* mask) This was the previous version 
@@ -184,7 +192,7 @@ class CustomPPOTrainer(PPOTrainer):
         pg_loss = masked_mean(torch.max(pg_losses, pg_losses2), mask)
         pg_clipfrac = masked_mean(torch.gt(pg_losses2, pg_losses).float(), mask)
 
-        entropy = masked_mean(entropy_from_masked_logits(logits, self.a1_tok, self.a2_tok), mask) # Before calculated masked mean of full logits
+        entropy = masked_mean(entropy_from_masked_logits(logits, self.legal_tokens), mask) # Before calculated masked mean of full logits
         loss = pg_loss + self.config.vf_coef * vf_loss - self.entropy_coef * entropy
 
         avg_ratio = masked_mean(ratio, mask).item()

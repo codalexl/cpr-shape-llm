@@ -5,11 +5,13 @@ from agents import AgentConfig, FixedAgent, FixedAgentConfig, PPOAgent
 from environment import EnvState, GameParams, inner_rollout_fixed_opponent, IteratedMatrixGame, TrajectoryData 
 from observation_managers import ObservationManagerConfig
 from utils.file_management_utils import load_from_json, save_to_json, validate_config
+from utils.device_utils import empty_device_cache, get_device_str
 from utils.training_utils import set_seed
 
 def main(): 
 
     print("Packages imported")
+    print(f"Using device: {get_device_str()}")
     parser = argparse.ArgumentParser()
     parser.add_argument('config_path', type=str, help='Path to the configuration file')
     parser.add_argument('saving_path', type=str, help='Saving path')
@@ -67,7 +69,7 @@ def main():
         save_to_json(game.outcomes, experiment_path(ind) + "all_round_outcomes")
 
         del agent1
-        torch.cuda.empty_cache()
+        empty_device_cache()
         print(f"Experiment {ind} completed.")
 
 if __name__ == "__main__":

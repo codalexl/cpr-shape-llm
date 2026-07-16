@@ -1,0 +1,89 @@
+{
+  "game_parameters": {
+    "t_max": 20,
+    "e_max": 5,
+    "n_games": 5,
+    "r_matrix": [
+      [[0.0, -1.0, 1.0], [1.0, 0.0, -1.0], [-1.0, 1.0, 0.0]],
+      [[0.0, -1.0, 1.0], [1.0, 0.0, -1.0], [-1.0, 1.0, 0.0]]
+    ],
+    "penalty": -1.0
+  },
+  "obs_manager_parameters1": {
+    "a1_tok": 235294,
+    "a2_tok": 235295,
+    "a3_tok": 235277,
+    "a1_string": "R",
+    "a2_string": "P",
+    "a3_string": "S",
+    "reward_matrix": [
+      [[0.0, -1.0, 1.0], [1.0, 0.0, -1.0], [-1.0, 1.0, 0.0]],
+      [[0.0, -1.0, 1.0], [1.0, 0.0, -1.0], [-1.0, 1.0, 0.0]]
+    ],
+    "is_shaper": false,
+    "game_description": "table",
+    "instruction_prompt": "\nChoose an action for the current round. Reply only with {a1_tok}, {a2_tok}, or {a3_tok}.",
+    "model_name": "gemma-2b",
+    "additional_info_type": "state_only"
+  },
+  "obs_manager_parameters2": {
+    "a1_tok": 235294,
+    "a2_tok": 235295,
+    "a3_tok": 235277,
+    "a1_string": "R",
+    "a2_string": "P",
+    "a3_string": "S",
+    "reward_matrix": [
+      [[0.0, -1.0, 1.0], [1.0, 0.0, -1.0], [-1.0, 1.0, 0.0]],
+      [[0.0, -1.0, 1.0], [1.0, 0.0, -1.0], [-1.0, 1.0, 0.0]]
+    ],
+    "is_shaper": true,
+    "game_description": "table",
+    "instruction_prompt": "\nChoose an action for the current round. Reply only with {a1_tok}, {a2_tok}, or {a3_tok}.",
+    "model_name": "gemma-2b",
+    "additional_info_type": "state_occurrence"
+  },
+  "ppo_agent_parameters1": {
+    "agent_id": 1,
+    "is_shaper": false,
+    "model_path": "google/gemma-2-2b-it",
+    "adapter_path": "adapter/ipd_opponent_r2",
+    "a1_tok": 235294,
+    "a2_tok": 235295,
+    "a3_tok": 235277,
+    "ppo_params": {
+      "learning_rate": 1.41e-06,
+      "batch_size": 100,
+      "mini_batch_size": 10,
+      "ppo_epochs": 1,
+      "vf_coef": 0.2,
+      "use_score_scaling": true,
+      "use_score_norm": false
+    },
+    "init_entropy_coef": 0.0,
+    "final_entropy_coef": 0.0,
+    "entropy_coef_horizon": 30
+  },
+  "ppo_agent_parameters2": {
+    "agent_id": 2,
+    "is_shaper": true,
+    "model_path": "google/gemma-2-2b-it",
+    "adapter_path": "adapter/ipd_shaper_r2",
+    "a1_tok": 235294,
+    "a2_tok": 235295,
+    "a3_tok": 235277,
+    "ppo_params": {
+      "learning_rate": 1.41e-07,
+      "batch_size": 100,
+      "mini_batch_size": 10,
+      "ppo_epochs": 1,
+      "vf_coef": 0.001,
+      "cliprange": 0.0001,
+      "use_score_scaling": true,
+      "use_score_norm": false
+    },
+    "init_entropy_coef": 0.0,
+    "final_entropy_coef": 0.0,
+    "entropy_coef_horizon": 30
+  }
+}

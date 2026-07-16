@@ -1,0 +1,107 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{titlesec}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!60!black,
+  urlcolor=blue!60!black,
+  citecolor=blue!60!black
+}
+
+\titleformat{\section}{\large\bfseries}{\thesection}{0.75em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{0.75em}{}
+
+\title{%
+  Extending ShapeLLM to Stochastic\\
+  Common-Pool Resource Games\\[0.5em]
+  \large Research Direction and Plan
+}
+\author{}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section{Connection to ShapeLLM and overall goal}
+
+The ShapeLLM framework (Segura, Hailes \& Musolesi, ICLR 2026) shows that LLM agents can perform opponent shaping using asymmetric trial-level updates and natural-language history compression. The paper notes that the approach generalises to partially observable stochastic games, though experiments were limited to repeated matrix games.
+
+The goal of this project is to extend opponent shaping into richer stochastic multi-agent environments and investigate whether it can influence long-term collective outcomes such as cooperation and resource sustainability.
+
+\section{Why stochastic common-pool resource games?}
+
+While the ShapeLLM paper indicates general extendability to stochastic games, I chose the CPR setting for several specific reasons:
+
+\begin{itemize}[leftmargin=*, itemsep=0.35em]
+  \item CPR games are a canonical benchmark in multi-agent reinforcement learning for studying social dilemmas under stochastic dynamics and partial observability (P\'{e}rolat et al., 2017). This provides a well-motivated and established testbed rather than an arbitrary stochastic environment.
+  \item The setting features shared, depletable resources and a ``tragedy of the commons'' structure. This allows direct examination of whether opponent shaping can affect long-term collective outcomes such as sustainability---questions that are difficult to study in simple matrix games.
+  \item It includes state-dependent stochastic transitions (resource level affects future growth and harvesting opportunities) and longer time horizons. These characteristics better stress-test trial-level shaping and history compression mechanisms.
+  \item There is already an established MARL literature on CPR appropriation that provides clear baselines and social outcome metrics (sustainability, efficiency, equality, and resource depletion trajectories) against which the effects of opponent shaping can be evaluated.
+\end{itemize}
+
+In short, stochastic CPR offers a structured way to study how opponent shaping interacts with cooperation and sustainability in stochastic social dilemmas, while remaining grounded in existing research.
+
+\section{Core hypotheses}
+
+\begin{itemize}[leftmargin=*, itemsep=0.35em]
+  \item A ShapeLLM-style shaper can reduce collapse rates and improve long-term collective harvest by steering a learner toward sustainable behaviour.
+  \item The same architecture can also be used to create exploitative advantage.
+  \item Trial-level updates and compressed history give the shaper an advantage in navigating stochastic shocks and tipping points compared with episode-level learners.
+\end{itemize}
+
+\section{Current progress and challenges}
+
+\begin{itemize}[leftmargin=*, itemsep=0.35em]
+  \item A basic stochastic CPR environment has been implemented (logistic growth + noise on a shared stock with discrete harvesting actions).
+  \item A key practical challenge is high variance in policy updates when moving to stochastic environments with LLM agents. I have begun exploring stabilisation approaches such as paired seeds and common random numbers, but have not yet run full experiments.
+  \item Targeted reading across the relevant literatures is underway.
+\end{itemize}
+
+\section{Proposed plan and scope}
+
+Given the timeline, I propose keeping the scope focused and achievable while still delivering a coherent extension of ShapeLLM. A realistic scope could include:
+
+\begin{itemize}[leftmargin=*, itemsep=0.35em]
+  \item A concise literature review positioning the work in ShapeLLM and the CPR MARL literature.
+  \item Finalising the environment formulation.
+  \item A limited but informative set of proof-of-concept experiments with LLM agents, focusing on the effect of opponent shaping on cooperation and sustainability metrics.
+  \item Clear discussion of design choices, challenges, and implications.
+\end{itemize}
+
+I am happy to narrow the scope further (e.g., more conceptual emphasis or fewer experiments) if that better aligns with what is appropriate.
+
+\section{Literature grounding}
+
+I have been mapping connections across four main areas:
+
+\begin{itemize}[leftmargin=*, itemsep=0.35em]
+  \item Opponent shaping methods (including ShapeLLM and earlier model-free approaches such as M-FOS; Lu et al., 2022).
+  \item Multi-agent reinforcement learning in stochastic and partially observable games.
+  \item Common-pool resource games and social dilemmas in MARL (particularly P\'{e}rolat et al., 2017 and subsequent benchmarks such as Melting Pot Commons Harvest).
+  \item LLM-based agents in multi-agent and strategic environments.
+\end{itemize}
+
+My reading so far has been targeted. I would value your input on which papers or angles you consider most important to emphasise.
+
+\section{Questions for guidance}
+
+I would greatly appreciate your feedback on the following:
+
+\begin{enumerate}[leftmargin=*, itemsep=0.35em]
+  \item Does the motivation and literature grounding above address your main concerns?
+  \item What scope and depth of experiments would you consider sufficient for submission?
+\end{enumerate}
+
+\vspace{1em}
+Thank you both again for your supervision and feedback. I'm keen to align on a feasible and well-grounded plan.
+
+\end{document}
