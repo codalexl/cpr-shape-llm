@@ -54,7 +54,7 @@
     "ppo_params": {
       "learning_rate": 1.41e-06,
       "batch_size": 100,
-      "mini_batch_size": 10,
+      "mini_batch_size": 5,
       "ppo_epochs": 1,
       "vf_coef": 0.2,
       "use_score_scaling": true,
@@ -75,7 +75,7 @@
     "ppo_params": {
       "learning_rate": 1.41e-07,
       "batch_size": 100,
-      "mini_batch_size": 10,
+      "mini_batch_size": 5,
       "ppo_epochs": 1,
       "vf_coef": 0.001,
       "cliprange": 0.0001,
