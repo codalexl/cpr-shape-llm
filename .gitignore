@@ -214,3 +214,11 @@ models/
 adapter/
 bitsandbytes/
 Experiments/
+checkpoints/
+
+# LaTeX build artifacts
+*.aux
+*.out
+*.toc
+*.log
+*.synctex.gz
