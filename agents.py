@@ -12,7 +12,7 @@ from typing import List, Dict, Optional
 from utils.dataset_utils import simple_collator
 from utils.device_utils import get_device, get_device_str
 from utils.file_management_utils import StatsLogger
-from utils.training_utils import CustomPPOTrainer
+from utils.training_utils import AllowedTokensLogitsProcessor, CustomPPOTrainer, mask_illegal_logits
 
 
 @dataclass 
@@ -101,6 +101,9 @@ class PPOAgent():
         legal_tokens = [config.a1_tok, config.a2_tok]
         if config.a3_tok is not None:
             legal_tokens.append(config.a3_tok)
+        self.legal_tokens = legal_tokens
+        self.action_logits_processor = AllowedTokensLogitsProcessor(legal_tokens)
+        self.min_valid_transitions = 2  # skip PPO updates when filtered batch collapses
         self.trainer_config = PPOConfig(model_name = config.model_path, **config.ppo_params)
         self.trainer = CustomPPOTrainer(init_entropy_coef = config.init_entropy_coef, final_entropy_coef = config.final_entropy_coef, entropy_coef_horizon = config.entropy_coef_horizon, \
                  legal_tokens=legal_tokens, track_gradients = config.track_gradients, model=self.model, config=self.trainer_config, dataset=None, tokenizer=self.tokenizer, data_collator=simple_collator)
@@ -114,12 +117,19 @@ class PPOAgent():
         return input_ids
     
     def take_action(self, query_tensors: List[int]) -> List[torch.Tensor]: 
-        """Generate model response. Ensure it is restricted to one token."""
-        response_tensors = self.trainer.generate(query_tensors, return_prompt = False, **self.generation_kwargs)
+        """Generate model response. Ensure it is restricted to one legal action token."""
+        generation_kwargs = {
+            **self.generation_kwargs,
+            "logits_processor": [self.action_logits_processor],
+        }
+        response_tensors = self.trainer.generate(query_tensors, return_prompt = False, **generation_kwargs)
         
         # Ensure the model only replied with one token
         for response in response_tensors:
             assert response.shape == (1, )
+            assert response.item() in self.legal_tokens, (
+                f"Generated illegal token {response.item()}; expected one of {self.legal_tokens}"
+            )
 
         return response_tensors
     
@@ -129,6 +139,15 @@ class PPOAgent():
         query_tensors = list(itertools.chain(*traj_data.query_tensors)) 
         response_tensors = list(itertools.chain(*traj_data.response_tensors)) 
         rewards = list(itertools.chain(*traj_data.rewards)) 
+
+        # Soft NaN-filter can still shrink the batch (e.g. opponent illegal). Skip rather than
+        # run score scaling / PPO on a degenerate sample size.
+        if len(query_tensors) < self.min_valid_transitions:
+            print(
+                f"\nSkipping parameter update for model {self.agent_id}: "
+                f"only {len(query_tensors)} valid transitions (need ≥ {self.min_valid_transitions})."
+            )
+            return
         
         self.trainer.config.batch_size = len(query_tensors) # Adjust batch size
         self.trainer.env_ids, self.trainer.n = list(itertools.chain(*traj_data.env_ids)), len(set(itertools.chain(*traj_data.env_ids))) # Update environment ids for multi-turn advantage calculation
@@ -217,6 +236,8 @@ class EvaluationAgent():
         self.model.eval()
         self.device = get_device()
         self.model = self.model.to(self.device)
+        # Legal tokens are resolved per call in extract_probabilities; take_action can
+        # optionally receive them via generation_kwargs["allowed_token_ids"].
     
     def extract_probabilities(self, prompts:List[str], a1_strs:List[str], a2_strs:List[str], device:str=None, a3_strs:List[str]=None):
         device = device or get_device_str()
@@ -228,19 +249,25 @@ class EvaluationAgent():
         # Get token IDs of the legal strings
         a1_tokens = self.tokenizer(a1_strs, padding=True, return_tensors="pt")["input_ids"][:, -1].tolist()
         a2_tokens = self.tokenizer(a2_strs, padding=True, return_tensors="pt")["input_ids"][:, -1].tolist()
+        a3_tokens = None
+        if a3_strs is not None:
+            a3_tokens = self.tokenizer(a3_strs, padding=True, return_tensors="pt")["input_ids"][:, -1].tolist()
 
         padded_inputs = self.tokenizer(prompts, padding=True, return_tensors="pt").to(device)
         result = self.model(**padded_inputs) # Forward pass 
-        probs = torch.softmax(result["logits"], axis =-1) # Convert logits to probabilities
-
-        a1_probs = probs[list(range(len(prompts))), -1, a1_tokens].tolist() 
-        a2_probs = probs[list(range(len(prompts))), -1, a2_tokens].tolist() 
+        logits = result["logits"][:, -1, :]
+        # Renormalize over the legal set so reported probs match the constrained policy.
+        a1_probs, a2_probs, a3_probs = [], [], []
+        for i in range(len(prompts)):
+            legal = [a1_tokens[i], a2_tokens[i]] + ([a3_tokens[i]] if a3_tokens is not None else [])
+            probs = torch.softmax(mask_illegal_logits(logits[i : i + 1], legal), dim=-1)
+            a1_probs.append(probs[0, legal[0]].item())
+            a2_probs.append(probs[0, legal[1]].item())
+            if a3_tokens is not None:
+                a3_probs.append(probs[0, legal[2]].item())
 
         if a3_strs is None:
             return (a1_probs, a2_probs)
-
-        a3_tokens = self.tokenizer(a3_strs, padding=True, return_tensors="pt")["input_ids"][:, -1].tolist()
-        a3_probs = probs[list(range(len(prompts))), -1, a3_tokens].tolist()
         return (a1_probs, a2_probs, a3_probs)
     
     def tokenize_observation(self, obs: List[str]) -> torch.Tensor:
@@ -248,8 +275,11 @@ class EvaluationAgent():
         input_ids = self.tokenizer(obs, padding=True, return_tensors="pt")["input_ids"].to(self.device)
         return input_ids
 
-    def take_action(self, query_tensors: torch.Tensor) -> torch.Tensor: 
-        """Generate model response. Ensure it is restricted to one token."""
-        response_tensors = self.model.generate(query_tensors, **self.generation_kwargs).to("cpu")
+    def take_action(self, query_tensors: torch.Tensor, allowed_token_ids: Optional[List[int]] = None) -> torch.Tensor: 
+        """Generate model response. Ensure it is restricted to one token (optionally hard-masked)."""
+        generation_kwargs = dict(self.generation_kwargs)
+        if allowed_token_ids is not None:
+            generation_kwargs["logits_processor"] = [AllowedTokensLogitsProcessor(allowed_token_ids)]
+        response_tensors = self.model.generate(query_tensors, **generation_kwargs).to("cpu")
         return list(response_tensors[:, -1])
 

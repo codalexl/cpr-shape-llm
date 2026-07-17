@@ -1,3 +1,4 @@
+import math
 import numpy as np 
 import random 
 import torch
@@ -7,12 +8,30 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from accelerate import Accelerator
+from transformers import LogitsProcessor
 from trl import PPOTrainer
 from trl.core import clip_by_value, entropy_from_logits, flatten_dict, masked_mean, masked_var, masked_whiten, PPODecorators, convert_to_scalar, stats_to_np, stack_dicts, WANDB_PADDING, logprobs_from_logits
 from trl.trainer.utils import get_global_statistics
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
 from utils.device_utils import get_device
+
+
+def mask_illegal_logits(logits: torch.Tensor, legal_tokens: List[int]) -> torch.Tensor:
+    """Hard-mask logits so the policy support is exactly the legal action set."""
+    banned = torch.ones(logits.shape[-1], dtype=torch.bool, device=logits.device)
+    banned[legal_tokens] = False
+    return logits.masked_fill(banned, float("-inf"))
+
+
+class AllowedTokensLogitsProcessor(LogitsProcessor):
+    """Force generation to sample only from the legal action tokens."""
+
+    def __init__(self, allowed_token_ids: List[int]):
+        self.allowed_token_ids = list(allowed_token_ids)
+
+    def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor) -> torch.FloatTensor:
+        return mask_illegal_logits(scores, self.allowed_token_ids)
 
 
 def entropy_from_masked_logits(logits: torch.Tensor, legal_tokens: List[int]) -> torch.Tensor:
@@ -48,14 +67,20 @@ class RunningMoments:
     @torch.no_grad()
     def update(self, xs: torch.Tensor) -> Tuple[float, float]:
         """
-        Updates running moments from batch's moments computed across ranks
+        Updates running moments from batch's moments computed across ranks.
+
+        Batches with fewer than 2 scores are skipped for the variance update so
+        score scaling never hits the 0/0 path (std undefined for n < 2).
         """
         if self.accelerator.use_distributed:
             xs_mean, xs_var, xs_count = get_global_statistics(self.accelerator, xs)
         else:
             xs_count = xs.numel()
             xs_var, xs_mean = torch.var_mean(xs, unbiased=False)
-        xs_mean, xs_var = xs_mean, xs_var
+
+        # Keep a usable scale factor when the filtered legal batch collapses.
+        if xs_count < 2:
+            return xs_mean, torch.ones((), device=xs.device, dtype=xs.dtype)
 
         delta = xs_mean - self.mean
         tot_count = self.count + xs_count
@@ -67,7 +92,9 @@ class RunningMoments:
 
         self.mean += (delta * xs_count / tot_count)
         new_var = tot_sum / tot_count
-        self.std = (new_var * tot_count / (tot_count - 1)).sqrt()
+        # tot_count starts near 0; guard the Bessel correction until we have ≥2 scores.
+        bessel = max(tot_count - 1.0, 1.0)
+        self.std = (new_var * tot_count / bessel).sqrt()
         self.var = new_var.item()
         self.count = tot_count
 
@@ -98,6 +125,75 @@ class CustomPPOTrainer(PPOTrainer):
         """Updates the entropy coefficient in place"""
         self.entropy_coef = max(self.final_entropy_coef, self.entropy_coef + self.entropy_change_per_step)
 
+
+    def batched_forward_pass(
+        self,
+        model,
+        queries: torch.Tensor,
+        responses: torch.Tensor,
+        model_inputs: dict,
+        return_logits: bool = False,
+        response_masks: Optional[torch.Tensor] = None,
+    ):
+        """Same as TRL's forward pass, but hard-masks illegal action logits before log-probs / KL."""
+        bs = len(queries)
+        fbs = self.config.mini_batch_size
+        all_logprobs = []
+        all_logits = []
+        all_masks = []
+        all_values = []
+
+        model.eval()
+
+        for i in range(math.ceil(bs / fbs)):
+            input_kwargs = {key: value[i * fbs : (i + 1) * fbs] for key, value in model_inputs.items()}
+            query_batch = queries[i * fbs : (i + 1) * fbs]
+            response_batch = responses[i * fbs : (i + 1) * fbs]
+            if response_masks is not None:
+                response_masks_batch = response_masks[i * fbs : (i + 1) * fbs]
+            logits, _, values = model(**input_kwargs)
+            logits = mask_illegal_logits(logits, self.legal_tokens)
+
+            if self.is_encoder_decoder:
+                input_ids = input_kwargs["decoder_input_ids"]
+                attention_mask = input_kwargs["decoder_attention_mask"]
+            else:
+                input_ids = input_kwargs["input_ids"]
+                attention_mask = input_kwargs["attention_mask"]
+
+            logprobs = logprobs_from_logits(logits[:, :-1, :], input_ids[:, 1:])
+            masks = torch.zeros_like(attention_mask)
+            masks[:, :-1] = attention_mask[:, 1:]
+
+            for j in range(len(query_batch)):
+                if self.is_encoder_decoder:
+                    start = 1
+                    end = attention_mask[j, :].sum() - 1
+                else:
+                    start = len(query_batch[j]) - 1
+                    if attention_mask[j, 0] == 0:
+                        start += attention_mask[j, :].nonzero()[0]
+                    end = start + len(response_batch[j])
+
+                masks[j, :start] = 0
+                masks[j, end:] = 0
+                if response_masks is not None:
+                    masks[j, start:end] = masks[j, start:end] * response_masks_batch[j]
+
+            if return_logits:
+                all_logits.append(logits)
+            else:
+                del logits
+            all_values.append(values)
+            all_logprobs.append(logprobs)
+            all_masks.append(masks)
+
+        return (
+            torch.cat(all_logprobs),
+            torch.cat(all_logits)[:, :-1] if return_logits else None,
+            torch.cat(all_values)[:, :-1],
+            torch.cat(all_masks)[:, :-1],
+        )
 
     def compute_advantages(self, values: torch.FloatTensor, rewards: torch.FloatTensor, mask: torch.FloatTensor,):
         """Custom function to compute advantages - Multi-Turn PPO"""
