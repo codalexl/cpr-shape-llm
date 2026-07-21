@@ -21,7 +21,30 @@ def mask_illegal_logits(logits: torch.Tensor, legal_tokens: List[int]) -> torch.
     """Hard-mask logits so the policy support is exactly the legal action set."""
     banned = torch.ones(logits.shape[-1], dtype=torch.bool, device=logits.device)
     banned[legal_tokens] = False
-    return logits.masked_fill(banned, float("-inf"))
+    # Prefer a large finite floor over -inf: safer for bf16 softmax / MPS sampling.
+    return logits.masked_fill(banned, torch.finfo(logits.dtype).min)
+
+
+def legal_action_logprobs(
+    shift_logits: torch.Tensor,
+    labels: torch.Tensor,
+    legal_tokens: List[int],
+) -> torch.Tensor:
+    """
+    Next-token log-probs under the categorical restricted to `legal_tokens`.
+
+    `shift_logits` is [B, S, V] (already time-shifted); `labels` is [B, S].
+    Positions whose label is not legal get 0 (caller must mask those out of the loss).
+    """
+    legal = torch.as_tensor(legal_tokens, device=shift_logits.device, dtype=torch.long)
+    legal_logits = shift_logits.index_select(-1, legal)
+    # Upcast softmax for numerical stability on bf16 / MPS, then cast back.
+    log_sm = torch.log_softmax(legal_logits.float(), dim=-1).to(dtype=shift_logits.dtype)
+    matches = labels.unsqueeze(-1) == legal.view(1, 1, -1)
+    is_legal = matches.any(dim=-1)
+    legal_index = matches.float().argmax(dim=-1)
+    logp = log_sm.gather(-1, legal_index.unsqueeze(-1)).squeeze(-1)
+    return torch.where(is_legal, logp, torch.zeros_like(logp))
 
 
 class AllowedTokensLogitsProcessor(LogitsProcessor):
@@ -135,7 +158,12 @@ class CustomPPOTrainer(PPOTrainer):
         return_logits: bool = False,
         response_masks: Optional[torch.Tensor] = None,
     ):
-        """Same as TRL's forward pass, but hard-masks illegal action logits before log-probs / KL."""
+        """Same as TRL's forward pass, with legal-set log-probs only on response tokens.
+
+        Important: do NOT hard-mask the full vocabulary on prompt positions. That makes
+        prompt log-probs -inf; then (-inf)-(-inf) → NaN in the PPO ratio, and
+        masked_mean cannot recover (NaN*0 is still NaN).
+        """
         bs = len(queries)
         fbs = self.config.mini_batch_size
         all_logprobs = []
@@ -152,7 +180,6 @@ class CustomPPOTrainer(PPOTrainer):
             if response_masks is not None:
                 response_masks_batch = response_masks[i * fbs : (i + 1) * fbs]
             logits, _, values = model(**input_kwargs)
-            logits = mask_illegal_logits(logits, self.legal_tokens)
 
             if self.is_encoder_decoder:
                 input_ids = input_kwargs["decoder_input_ids"]
@@ -161,7 +188,12 @@ class CustomPPOTrainer(PPOTrainer):
                 input_ids = input_kwargs["input_ids"]
                 attention_mask = input_kwargs["attention_mask"]
 
-            logprobs = logprobs_from_logits(logits[:, :-1, :], input_ids[:, 1:])
+            shift_logits = logits[:, :-1, :]
+            labels = input_ids[:, 1:]
+            # Unconstrained logprobs on the prompt; constrained on the action tokens.
+            unconstrained = logprobs_from_logits(shift_logits, labels)
+            constrained = legal_action_logprobs(shift_logits, labels, self.legal_tokens)
+
             masks = torch.zeros_like(attention_mask)
             masks[:, :-1] = attention_mask[:, 1:]
 
@@ -179,6 +211,9 @@ class CustomPPOTrainer(PPOTrainer):
                 masks[j, end:] = 0
                 if response_masks is not None:
                     masks[j, start:end] = masks[j, start:end] * response_masks_batch[j]
+
+            response_mask = masks[:, :-1].bool()
+            logprobs = torch.where(response_mask, constrained, unconstrained)
 
             if return_logits:
                 all_logits.append(logits)
