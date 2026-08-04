@@ -53,6 +53,26 @@ def validate_config(config: Dict, simulation_type:str = "fixed_opponent") -> Non
         assert config["obs_manager_parameters1"]["is_shaper"] == config["ppo_agent_parameters1"]["is_shaper"], "The is_shaper parameter must have the same value in observation manager 1 and agent config 1"
         assert config["obs_manager_parameters2"]["is_shaper"] == config["ppo_agent_parameters2"]["is_shaper"], "The is_shaper parameter must have the same value in observation manager 2 and agent config 2"
 
+    elif simulation_type == "cpr_two_learners":
+        # CPR rewards come from environment dynamics, so there is no reward matrix to
+        # cross-check. That absence is deliberate: it removes the r_matrix orientation
+        # bug class entirely (see THESIS_NOTES.md).
+        obs1, obs2 = config["obs_manager_parameters1"], config["obs_manager_parameters2"]
+        assert obs1["action_toks"] == obs2["action_toks"], "Both observation managers must use the same action tokens"
+        assert obs1["action_strings"] == obs2["action_strings"], "Both observation managers must use the same action strings"
+        assert len(obs1["action_toks"]) == len(obs1["action_strings"]), "action_toks and action_strings must have the same length"
+        for i in (1, 2):
+            assert config[f"obs_manager_parameters{i}"]["is_shaper"] == config[f"ppo_agent_parameters{i}"]["is_shaper"], \
+                f"The is_shaper parameter must have the same value in observation manager {i} and agent config {i}"
+            assert config[f"ppo_agent_parameters{i}"]["action_toks"] == obs1["action_toks"], \
+                f"Agent {i} action tokens must match the observation managers"
+        assert config["obs_manager_parameters1"]["R0"] == config["game_parameters"]["R0"], \
+            "R0 must be the same in the game parameters and the observation managers"
+        assert config["obs_manager_parameters2"]["R0"] == config["game_parameters"]["R0"], \
+            "R0 must be the same in the game parameters and the observation managers"
+        assert len(obs1["action_toks"]) == config["game_parameters"]["n_actions"], \
+            "n_actions must match the number of action tokens"
+
     elif simulation_type == "eval_two_learners":
         assert config["game_parameters"]["r_matrix"] == config["obs_manager_parameters1"]["reward_matrix"], "The reward matrices in the game parameters and observation manager 1 must be the same"
         assert [config["game_parameters"]["r_matrix"][-1], config["game_parameters"]["r_matrix"][0]] == config["obs_manager_parameters2"]["reward_matrix"], "The reward matrices in the game parameters and observation manager 2 must be the same"

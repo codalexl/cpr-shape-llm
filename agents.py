@@ -47,6 +47,7 @@ class AgentConfig():
     a1_tok: Optional[int] = 235288
     a2_tok: Optional[int] = 235299
     a3_tok: Optional[int] = None
+    action_toks: Optional[List[int]] = None  # overrides a1/a2/a3_tok when set (e.g. CPR's 4 actions)
 
 @dataclass
 class EvalAgentConfig():
@@ -98,12 +99,16 @@ class PPOAgent():
             self.model.load_state_dict(value_head_state, strict=False)  # strict=False to only load value head
 
         # Initialise PPO Trainer
-        legal_tokens = [config.a1_tok, config.a2_tok]
-        if config.a3_tok is not None:
-            legal_tokens.append(config.a3_tok)
+        if config.action_toks is not None:      # games with >3 actions pass an explicit list
+            legal_tokens = list(config.action_toks)
+        else:
+            legal_tokens = [config.a1_tok, config.a2_tok]
+            if config.a3_tok is not None:
+                legal_tokens.append(config.a3_tok)
         self.legal_tokens = legal_tokens
         self.action_logits_processor = AllowedTokensLogitsProcessor(legal_tokens)
         self.min_valid_transitions = 2  # skip PPO updates when filtered batch collapses
+        self.max_sampling_retries = 4   # see _resample_illegal: works around an MPS multinomial bug
         self.trainer_config = PPOConfig(model_name = config.model_path, **config.ppo_params)
         self.trainer = CustomPPOTrainer(init_entropy_coef = config.init_entropy_coef, final_entropy_coef = config.final_entropy_coef, entropy_coef_horizon = config.entropy_coef_horizon, \
                  legal_tokens=legal_tokens, track_gradients = config.track_gradients, model=self.model, config=self.trainer_config, dataset=None, tokenizer=self.tokenizer, data_collator=simple_collator)
@@ -116,14 +121,39 @@ class PPOAgent():
         input_ids = [self.tokenizer.encode(new_sent, return_tensors="pt").squeeze() for new_sent in obs]
         return input_ids
     
-    def take_action(self, query_tensors: List[int]) -> List[torch.Tensor]: 
+    def _resample_illegal(self, query_tensors: List[torch.Tensor], response_tensors: List[torch.Tensor], generation_kwargs: Dict) -> List[torch.Tensor]:
+        """Redraw responses that fall outside the legal set.
+
+        The logits processor already masks every illegal token to finfo.min, so the
+        sampled distribution has exactly len(legal_tokens) non-zero entries and sums to 1.
+        Nonetheless torch.multinomial on MPS occasionally returns a zero-probability index:
+        measured at ~0.03% for a 1k vocabulary and ~0.9% for gemma's 256k one, while CPU
+        and CUDA are exact. Over a 30-step episode with several parallel games that is a
+        near-certain crash, and it is a platform bug rather than anything the mask can fix.
+
+        Redrawing only the offending entries is rejection sampling against a sampler whose
+        errors are independent of the intended draw, so the retained distribution is the
+        correct one. A no-op wherever multinomial is exact.
+        """
+        legal = set(self.legal_tokens)
+        for _ in range(self.max_sampling_retries):
+            bad = [i for i, r in enumerate(response_tensors) if r.numel() != 1 or r.item() not in legal]
+            if not bad:
+                break
+            redrawn = self.trainer.generate([query_tensors[i] for i in bad], return_prompt=False, **generation_kwargs)
+            for i, response in zip(bad, redrawn):
+                response_tensors[i] = response
+        return response_tensors
+
+    def take_action(self, query_tensors: List[int]) -> List[torch.Tensor]:
         """Generate model response. Ensure it is restricted to one legal action token."""
         generation_kwargs = {
             **self.generation_kwargs,
             "logits_processor": [self.action_logits_processor],
         }
         response_tensors = self.trainer.generate(query_tensors, return_prompt = False, **generation_kwargs)
-        
+        response_tensors = self._resample_illegal(query_tensors, response_tensors, generation_kwargs)
+
         # Ensure the model only replied with one token
         for response in response_tensors:
             assert response.shape == (1, )
