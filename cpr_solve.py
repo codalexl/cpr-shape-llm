@@ -27,6 +27,7 @@ from __future__ import annotations
 import argparse
 import sys
 from dataclasses import dataclass, field
+from fractions import Fraction
 from functools import cmp_to_key
 from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 
@@ -177,6 +178,77 @@ def opening_action_values(params: CPRParams, opponent_policy: OpponentSpec,
         int(recv1[R, a, b]) + int(policy.values[2, r_next[R, a, b]])
         for a in range(params.n_actions)
     )
+
+
+# 90% on the modal action 2; remaining 10% split equally across {0,1,3}.
+# Stated explicitly because the remainder is not specified in the brief, and
+# the milligain is mixture-dependent (pure always-2 has milligain 0).
+MIXED_WEIGHTS = (1, 1, 27, 1)
+
+
+def best_response_mixed(params: CPRParams, weights: Sequence[int] = MIXED_WEIGHTS,
+                        *, tables=None):
+    """Optimal Markov reply to an iid mixed opponent with integer weights.
+
+    Returns (value, policy) where value is a Fraction: expected return from (R0, t=1).
+    """
+    if len(weights) != params.n_actions:
+        raise ValueError(f"need {params.n_actions} weights, got {len(weights)}")
+    if any(w < 0 for w in weights) or sum(weights) == 0:
+        raise ValueError(f"weights must be non-negative and not all zero: {weights}")
+    W = sum(int(w) for w in weights)
+    wF = [Fraction(int(w), W) for w in weights]
+    recv1, _, r_next = tables if tables is not None else transition_tables(params)
+    n_r = params.ceiling + 1
+    n_a = params.n_actions
+    H = params.horizon
+
+    V = [[Fraction(0) for _ in range(n_r)] for _ in range(H + 2)]
+    PI = np.zeros((H + 2, n_r), dtype=np.int64)
+    for t in range(H, 0, -1):
+        for R in range(n_r):
+            best, arg = None, 0
+            for a in range(n_a):
+                q = Fraction(0)
+                for b in range(n_a):
+                    q += wF[b] * (int(recv1[R, a, b]) + V[t + 1][int(r_next[R, a, b])])
+                if best is None or q > best:
+                    best, arg = q, a
+            V[t][R] = best
+            PI[t][R] = arg
+
+    # Store integer floors of values for the MarkovPolicy table; the returned
+    # value is the exact Fraction. Policy actions are exact (argmax of Q).
+    V_int = np.zeros((H + 2, n_r), dtype=np.int64)
+    policy = MarkovPolicy(table=PI, values=V_int, horizon=H, ceiling=params.ceiling)
+    return V[1][params.R0], policy
+
+
+def mixed_match_value(params: CPRParams, weights: Sequence[int] = MIXED_WEIGHTS,
+                      match: Optional[int] = None, *, tables=None) -> Fraction:
+    """Expected return of always playing `match` (default: modal weight) vs the mix."""
+    if match is None:
+        match = max(range(len(weights)), key=lambda a: weights[a])
+    W = sum(int(w) for w in weights)
+    wF = [Fraction(int(w), W) for w in weights]
+    recv1, _, r_next = tables if tables is not None else transition_tables(params)
+    n_r = params.ceiling + 1
+    H = params.horizon
+    V = [[Fraction(0) for _ in range(n_r)] for _ in range(H + 2)]
+    for t in range(H, 0, -1):
+        for R in range(n_r):
+            q = Fraction(0)
+            for b in range(params.n_actions):
+                q += wF[b] * (int(recv1[R, match, b]) + V[t + 1][int(r_next[R, match, b])])
+            V[t][R] = q
+    return V[1][params.R0]
+
+
+def milligain(br: Fraction, match: Fraction) -> int:
+    """floor(1000 * (br - match) / match). Extra expected units per thousand of match."""
+    if match == 0:
+        raise ZeroDivisionError("match value is 0")
+    return int((br - match) * 1000 / match)
 
 
 # --------------------------------------------------------------------------
@@ -698,6 +770,198 @@ def sweep(top: Optional[int] = None) -> List[SweepRow]:
 
 
 # --------------------------------------------------------------------------
+# g-sweep (handoff 07)
+# --------------------------------------------------------------------------
+
+G_RANGE = range(1, 6)
+G_R0 = range(10, 45, 2)
+G_T = range(16, 45, 2)
+
+
+@dataclass
+class ConstantScreen:
+    R0: int
+    g: int
+    ceiling: int
+    horizon: int
+    constant_0: int
+    constant_1: int
+    both_play_2: int
+    constant_3: int
+    coop_action: int
+    dilemma_depth: int
+    temptation_gap: int
+    collapse_33: Optional[int]
+    f5_tied: Tuple[int, ...]
+    passed_f14: bool
+    passed_f5: bool
+    passed_f8: bool
+    dp_tied: Tuple[int, ...] = ()
+    mix_milligain: Optional[int] = None
+
+
+def _coop_action_and_depth(M, n_actions: int) -> Tuple[int, int, bool]:
+    """Return (coop action, dilemma depth, F8 pass).
+
+    Cooperative action = unique maximiser of the symmetric diagonal.
+    F8 fails if 2 is among the maximisers (prior already sits there).
+    Depth = best symmetric payoff minus highest strict-NE payoff.
+    """
+    diag = [M[(a, a)][0] for a in range(n_actions)]
+    best = max(diag)
+    modes = [a for a, v in enumerate(diag) if v == best]
+    coop_a = modes[0]
+    f8 = 2 not in modes
+    strict = _strict_nash(M, n_actions)
+    max_strict = max((M[e][0] for e in strict), default=0)
+    return coop_a, best - max_strict, f8
+
+
+def screen_constants(params: CPRParams) -> ConstantScreen:
+    """F1–F5, F8, F9 from the constant-strategy matrix only. No MPE."""
+    M = constant_matrix(params)
+    n_a = params.n_actions
+    coop = M[(1, 1)][0]
+    weak = _weak_nash(M, n_a)
+    strict = _strict_nash(M, n_a)
+    c33 = M[(3, 3)][2]
+    bd = max(M[(x, 1)][0] for x in range(n_a))
+    f1 = (1, 1) not in weak
+    f2 = bool(strict) and all(M[e][0] < coop for e in strict)
+    f3 = c33 is not None and c33 * 5 <= params.horizon * 2
+    f4 = 10 * (bd - coop) >= coop
+    tied = []
+    for b in range(n_a):
+        col = [M[(a, b)][0] for a in range(n_a)]
+        if not _unique_argmax(col):
+            tied.append(b)
+    coop_a, depth, f8 = _coop_action_and_depth(M, n_a)
+    return ConstantScreen(
+        R0=params.R0, g=params.g, ceiling=params.ceiling, horizon=params.horizon,
+        constant_0=M[(0, 0)][0], constant_1=coop, both_play_2=M[(2, 2)][0],
+        constant_3=M[(3, 3)][0],
+        coop_action=coop_a, dilemma_depth=depth, temptation_gap=bd - coop,
+        collapse_33=c33, f5_tied=tuple(tied),
+        passed_f14=f1 and f2 and f3 and f4,
+        passed_f5=len(tied) == 0,
+        passed_f8=f8,
+    )
+
+
+def task_b(params: CPRParams, screen: ConstantScreen) -> ConstantScreen:
+    """DP unique-opening check vs each constant opponent, plus mixed milligain."""
+    tables = transition_tables(params)
+    dp_tied = []
+    for b in range(params.n_actions):
+        qs = opening_action_values(params, b, tables=tables)
+        if not _unique_argmax(list(qs)):
+            dp_tied.append(b)
+    br, _ = best_response_mixed(params, MIXED_WEIGHTS, tables=tables)
+    match = mixed_match_value(params, MIXED_WEIGHTS, tables=tables)
+    screen.dp_tied = tuple(dp_tied)
+    screen.mix_milligain = milligain(br, match)
+    return screen
+
+
+def iter_g_candidates(*, ceiling_multiple: int = 1):
+    for g in G_RANGE:
+        for R0 in G_R0:
+            for T in G_T:
+                yield CPRParams(R0=R0, g=g, ceiling=ceiling_multiple * R0,
+                                horizon=T, n_actions=4)
+
+
+def sweep_g(top: Optional[int] = None) -> List[ConstantScreen]:
+    """Screen g in 1..5, R0=C in 10..44 step 2, T in 16..44 step 2."""
+    n_cand = len(list(G_RANGE)) * len(list(G_R0)) * len(list(G_T))
+    print("=" * 78)
+    print(f"SWEEP-G  {n_cand} candidates  g=1..5, R0=C in 10..44 step 2, T in 16..44 step 2")
+    print("=" * 78)
+    print("""
+  F1–F4  as verify_cpr.py (integer forms of F3, F4).
+  F5     unique maximum in every constant-strategy column. Strict.
+  F8     cooperative action is NOT 2 (best symmetric outcome must not be mutual-2).
+  F9     dilemma depth = best symmetric payoff − highest strict-NE payoff. Rank on this.
+  F6     retired. MPE is not used for ranking.
+  Task B on every F1–F5–F8 survivor: DP opening uniqueness vs each
+  constant opponent, and milligain vs a 90%-on-2 mix (weights (1,1,27,1)).
+""")
+
+    rows: List[ConstantScreen] = []
+    by_g_f5 = {g: 0 for g in G_RANGE}
+    by_g_f8 = {g: 0 for g in G_RANGE}
+    n = 0
+    for params in iter_g_candidates():
+        n += 1
+        row = screen_constants(params)
+        rows.append(row)
+        if row.passed_f14 and row.passed_f5:
+            by_g_f5[row.g] += 1
+            if row.passed_f8:
+                by_g_f8[row.g] += 1
+        if n % 270 == 0:
+            print(f"  ... {n}/{n_cand} screened", flush=True)
+    assert n == n_cand
+
+    print(f"  F1–F4+F5 by g: {by_g_f5}  total {sum(by_g_f5.values())}")
+    print(f"  F1–F4+F5+F8 by g: {by_g_f8}  total {sum(by_g_f8.values())}")
+
+    survivors = [r for r in rows if r.passed_f14 and r.passed_f5 and r.passed_f8]
+    survivors.sort(key=lambda r: (-r.dilemma_depth, r.horizon, r.R0, r.g))
+
+    shown = survivors if top is None else survivors[:top]
+    print(f"\n  F1–F5–F8 survivors ranked by F9 (dilemma depth), then shorter T")
+    print(f"  {'rk':>3} {'g':>2} {'R0':>4} {'T':>4} | {'coopA':>5} {'(1,1)':>5} {'(2,2)':>5} "
+          f"{'(3,3)':>5} {'depth':>5} {'tempt':>5}")
+    for i, r in enumerate(shown, 1):
+        print(f"  {i:>3} {r.g:>2} {r.R0:>4} {r.horizon:>4} | {r.coop_action:>5} "
+              f"{r.constant_1:>5} {r.both_play_2:>5} {r.constant_3:>5} "
+              f"{r.dilemma_depth:>5} {r.temptation_gap:>5}")
+
+    # Brief said top ~10; check every F1–F5–F8 survivor so a lower-ranked
+    # unique-DP config cannot hide.
+    shortlist = survivors
+    print(f"\n  Task B on all {len(shortlist)} F1–F5–F8 survivors "
+          f"(DP unique opening vs constant 0–3; mix milligain, weights {MIXED_WEIGHTS})")
+    n_task_b_pass = 0
+    if shortlist:
+        print(f"  {'rk':>3} {'g':>2} {'R0':>4} {'T':>4} | {'DP tied':<12} {'mix mG':>6}  B-pass")
+    for i, r in enumerate(shortlist, 1):
+        params = CPRParams(R0=r.R0, g=r.g, ceiling=r.ceiling, horizon=r.horizon)
+        task_b(params, r)
+        ok = len(r.dp_tied) == 0
+        n_task_b_pass += int(ok)
+        tied = ",".join(str(b) for b in r.dp_tied) or "-"
+        print(f"  {i:>3} {r.g:>2} {r.R0:>4} {r.horizon:>4} | {tied:<12} {r.mix_milligain:>6}  {ok}")
+    print(f"  Task B unique-opening pass: {n_task_b_pass} / {len(shortlist)}")
+    if n_task_b_pass == 0:
+        print("  NO configuration on this grid passes F1–F5–F8 and Task B.")
+        print("  Recommendation reverts to R0=20 T=30 g=2, documenting the flat landscape.")
+
+    # ceiling probe: g=1, C=2*R0. Does not expand the primary grid.
+    print("\n  ceiling probe  g=1, C=2*R0, same R0/T (not part of the primary ranking)")
+    n5 = n8 = 0
+    for R0 in G_R0:
+        for T in G_T:
+            row = screen_constants(CPRParams(R0=R0, g=1, ceiling=2 * R0, horizon=T))
+            if row.passed_f14 and row.passed_f5:
+                n5 += 1
+                n8 += int(row.passed_f8)
+    print(f"    F1–F4+F5: {n5}   plus F8: {n8}   (primary g=1 C=R0 was "
+          f"{by_g_f5[1]} / {by_g_f8[1]})")
+    print("    C=2*R0 reopens the abstain-then-dump exploit (verify_cpr section 2); "
+          "not recommended even if counts match.")
+
+    # reference mixed milligain at the current config
+    cur = CHOSEN
+    br, _ = best_response_mixed(cur)
+    match = mixed_match_value(cur)
+    print(f"\n  current R0=20 T=30 g=2 mix milligain vs always-matching-2: "
+          f"{milligain(br, match)}  (weights {MIXED_WEIGHTS}; pure always-2 milligain is 0)")
+    return rows
+
+
+# --------------------------------------------------------------------------
 # cli
 # --------------------------------------------------------------------------
 
@@ -705,15 +969,18 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--reproduce", action="store_true",
-                        help="only recompute the handoff numbers")
+                        help="only recompute the handoff-06 numbers")
     parser.add_argument("--sweep", action="store_true",
-                        help="only run the 208-config screen")
+                        help="only run the g-sweep (handoff 07)")
+    parser.add_argument("--sweep-g2", action="store_true",
+                        help="only run the original g=2 208-config screen")
     parser.add_argument("--top", type=int, default=0,
                         help="rows of the survivor table to print (0 = all)")
     args = parser.parse_args(argv)
 
-    run_repro = args.reproduce or not args.sweep
-    run_sweep = args.sweep or not args.reproduce
+    run_repro = args.reproduce or not (args.sweep or args.sweep_g2)
+    run_g = args.sweep or not (args.reproduce or args.sweep_g2)
+    run_g2 = args.sweep_g2
 
     if run_repro:
         failures = reproduce()
@@ -724,7 +991,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             return 1
         print("\nAll handoff numbers reproduced.")
 
-    if run_sweep:
+    if run_g:
+        sweep_g(top=args.top or None)
+    if run_g2:
         sweep(top=args.top or None)
     return 0
 
