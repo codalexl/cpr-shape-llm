@@ -108,6 +108,40 @@ Seed 2 last epoch is almost all opening **0**, not 1. Same frozen hawk, same cen
 
 ---
 
+## Test A whitened extra seeds (RNG 1–2) — RunPod L40S
+
+Folder: `checkpoints/cpr_log_testA_whiten_s12`. Config `configs/legacy/cpr_testA_always2.json`. `exp1_` seed 1, `exp2_` seed 2. Seed 0 remains `checkpoints/cpr_log_testA_a0` (leave-2 last3 **16%**, last epoch 14×2, surv last 1/15, return 11.3, whole 28/225).
+
+| | Seed 0 (local) | Seed 1 | Seed 2 |
+|---|---|---|---|
+| Surv e1 / e15 | 2/15 / 1/15 | 2/15 / **15/15** | 2/15 / **15/15** |
+| Surv last3 | 5/45 | 35/45 | 33/45 |
+| Survived | 28/225 | 97/225 | 80/225 |
+| Leave-2 last3 | 16% | **87%** | **82%** |
+| Last-epoch openings | 14×2, 1×1 | **15×1** | **12×0, 3×1** |
+| Ret last | 11.3 | 69.5 | 69.7 |
+
+Whitened seeds 1–2 **left opening 2**. Seed 0 staying on 2 is not the whole seed family. Do not write “whitening always keeps the death-open.”
+
+---
+
+## Test A center + growth noise, seed 0 — RunPod L40S
+
+Folder: `checkpoints/cpr_log_testA_center_noise`. Config `configs/cpr_testA_center_noise.json`. `noise_tenths=5` (±1 on post-growth stock with p=0.5; never revives R=0). Frozen always-2, centre, 15 epochs, seed 0.
+
+| | Deterministic center s0 | Noise s0 |
+|---|---|---|
+| Surv e1 / e15 | 2/15 / 13/15 | 2/15 / **15/15** |
+| Surv last3 | 41/45 | 32/45 |
+| Survived | 134/225 | 76/225 |
+| Leave-2 last3 | 93% | 80% |
+| Last-epoch openings | 13×1, 2×2 | **14×0, 1×1** |
+| Ret last | 60.3 | 72.4 |
+
+Leave-2 still rose (22%→80%). Last epoch left 2 via **0**, like deterministic center seed 2. Whole-run survival is lower (76 vs 134). One seed. Not a noise-null and not a noise-success.
+
+---
+
 ## Centred naive–naive, 15 epochs, seeds 0–2
 
 Both agents naive. Config `configs/cpr_naive_naive_center.json`. Folders:
