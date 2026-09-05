@@ -1,0 +1,230 @@
+\chapter{Environment}
+\label{ch:env}
+
+Two environments live in this repository.
+Only one is the live training game.
+The other is a linear fixture that must not be quoted as the thesis CPR.
+
+\section{Shared rules (linear and logistic)}
+
+Two agents, simultaneous requests \(a_i \in \{0,1,2,3\}\), fixed horizon
+\(T\).
+Reward is units \textbf{received} that step.
+All arithmetic is integer.
+No float reaches a prompt.
+
+Order within a step (\texttt{cpr\_env.py}):
+
+\begin{enumerate}
+\item Both agents request.
+\item If \(a_1+a_2 \le R\): each receives its request;
+  \(R \leftarrow R-(a_1+a_2)\).
+  Else (\textbf{scarcity}): each receives
+  \(\min(a_i, \lfloor R/2 \rfloor)\); remainder wasted; \(R \leftarrow 0\).
+\item If \(R>0\): regenerate, capped at the ceiling.
+  Else: \(R\) stays 0 (\textbf{absorbing zero}).
+\end{enumerate}
+
+Two load-bearing edges, both deliberate:
+
+\begin{itemize}
+\item \textbf{Exact depletion} (\(a_1+a_2=R\)) takes the \emph{normal}
+  branch, drives \(R\) to 0, then absorbing zero kills regeneration.
+  Regenerating before the \(R>0\) check would lose this path.
+\item At \(R=1\), two agents both requesting 1 hit \(\mathrm{cap}=0\),
+  receive nothing, and wipe the last unit.
+  Constant-profile matrices never visit this cell; tests cover it
+  separately.
+\end{itemize}
+
+A training step is \textbf{masked} iff \(R_{\mathrm{start}}=0\) (the pool
+was already dead).
+The collapse step itself is a real decision and is not masked.
+\texttt{collapse\_step} is 1-indexed; \texttt{None}/\(-1\) means the pool
+survived.
+
+Episodes always run the full horizon.
+A dead pool pays 0.
+
+\section{Linear fixture --- \texttt{verify\_cpr.py}, not the live game}
+
+Linear regeneration is \(R \leftarrow \min(C, R+g)\) when
+\texttt{rate\_tenths} is unset.
+\texttt{CPRParams} defaults and \path{verify_cpr.py} use \(R_0=20\),
+\(g=2\), ceiling \(C=20\), \(T=30\).
+\path{tests/test_cpr_env.py} requires \texttt{CPRDynamics} to reproduce
+the 16-cell linear payoff matrix exactly.
+
+Headline linear cells (fixture, not training) are in
+Table~\ref{tab:linear-fixture}.
+
+\begin{table}[ht]
+\centering
+\caption{Linear fixture payoffs (\(R_0=20\), \(g=2\), \(T=30\)).
+  These cells are the harvest/scarcity/absorbing-zero ground truth, not a
+  live training config.}
+\label{tab:linear-fixture}
+\begin{tabular}{lrr}
+\toprule
+Profile & Per-agent return & Collapse \\
+\midrule
+\((1,1)\) & 30 & none \\
+\((2,2)\) & 18 & step 9 \\
+\((3,3)\) & 14 & step 5 \\
+\((2,1)\) temptation & 36 & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Written finding (linear grid).}
+When the opponent harvests exactly the regrowth rate \(g\), the pool's only
+net loss is the learner's own harvest.
+Total extractable stock is pinned near \(R_0\); harvesting fast or slow
+does not change how much there is.
+Against an opponent playing \(g\), the payoff column is degenerate (exactly
+flat at \(g=2\) where the arithmetic divides evenly; near-flat at
+neighbouring \(g\)).
+That is why linear \(R_0=20\) is a dead grid for learning against the
+untrained take-2 prior.
+It remains in the repository as the harvest/scarcity/absorbing-zero
+fixture.
+It is not a live training config.
+The launcher refuses to train a config that lacks \texttt{rate\_tenths} or
+that is logistic but not the locked point below.
+
+\section{Live lock --- logistic chicken}
+
+Live training (\texttt{LOGISTIC} in \texttt{cpr\_env.py}; all
+\texttt{configs/cpr\_*.json}):
+\[
+R_0=8,\quad K=40,\quad T=36,\quad \texttt{rate\_tenths}=9.
+\]
+Those integers are a method fact, not a literature calibration.
+Reed \cite{reed1979} constant escapement (publisher abstract: a feedback
+policy on a \emph{stochastic} stock--recruitment model; PDF not obtained)
+is an \textbf{aim-column} citation for planned noise on this same locked
+update, not a source of \((8,40,36,9)\).
+
+Growth after a strictly positive post-harvest stock \(R\):
+\begin{align*}
+\mathrm{growth}
+&=
+\mathrm{round\_half\_even}\bigl(
+\texttt{rate\_tenths}\cdot R\cdot(K-R)/(10\cdot K)
+\bigr),\\
+R_{\mathrm{next}}&=\min(K,\, R+\mathrm{growth}).
+\end{align*}
+Rate is stored as tenths (\(9 \to 0.9\)) so every reported quantity is an
+integer or a \texttt{Fraction}.
+Python binary float \(\texttt{round}(\mathrm{rate}\cdot R\cdot(1-R/K))\)
+disagrees at 27 \((K,R,\mathrm{rate})\) triples on this grid; training does
+not use that float.
+Growth is zero at \(R=0\) and \(R=K\).
+At this lock, there are \textbf{no} interior freeze stocks
+(\(\texttt{zero\_growth\_stocks}(40, 9) = ()\)); \(R=1\) still grows by 1.
+Low-rate freeze (e.g.\ rate 0.2 at \(K=40\)) exists as a logistic analogue
+of the cap-0 trap and was refused for shipping.
+
+The game is \textbf{chicken, not prisoner's dilemma}: \((1,1)\) lives,
+\((2,2)\) dies.
+ShapeLLM already evaluates the Iterated Chicken Game
+\cite{garciasegura2025,rapoport1966}, so this payoff class is on the keep
+list.
+Vault prisoner's-dilemma / tragedy / doubling framing is stale.
+Constant-pair payoffs (matched by \texttt{tests/test\_logistic\_cpr.py} /
+\texttt{CPRDynamics}) are in Table~\ref{tab:chicken}.
+
+\begin{table}[ht]
+\centering
+\caption{Constant-pair payoffs on the locked logistic chicken
+  (\(R_0=8\), \(K=40\), \(T=36\), \(\texttt{rate\_tenths}=9\)).
+  Mutual restraint lasts the horizon.
+  Mutual take-2 collapses around round~4.
+  Hawk versus a frozen dove takes 72 and lives; the dove in that pairing
+  takes 36.
+  Mutual take-3 collapses immediately.}
+\label{tab:chicken}
+\begin{tabular}{lrl}
+\toprule
+Constant pair & Learner return & Lives? \\
+\midrule
+\((1,1)\) & 36 & yes \\
+\((2,2)\) & 7 & no --- dies at round 4 \\
+\((2,1)\) hawk vs dove & 72 & yes \\
+\((3,3)\) & 5 & no --- dies at round 2 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Asymmetric \((2,1)\) / \((1,2)\) are strict Nash of the constant-matrix
+game; \((1,1)\) is not an equilibrium.
+Official F2-as-\texttt{verify\_cpr.py}-wrote-it (every \emph{strict} NE has
+player-1 payoff strictly below \((1,1)\), including asymmetric profiles)
+fails on this chicken.
+That is a labelling of the live game, not a defect of the lock.
+
+DP opening values versus a constant always-2 opponent:
+\(Q=(105, 104, 102, 6)\) for openings \(0,1,2,3\).
+The inner gap \(V(1)-V(2)\) at that opening is 2 on a base of 104.
+The untrained Gemma prior sits on 2 (Chapter~\ref{ch:method}).
+
+After a first 1 against always-2, \(R\colon 8\to 9\) and \((2,2)\) is a
+\textbf{fixed point} of the stock (Figure~\ref{fig:farm}).
+A surviving tape can be mostly 2s even when every game opened 1.
+Experimental readouts that mix live-step take-1 with openings are not
+interchangeable; the design note is in Chapter~\ref{ch:design}.
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[
+  box/.style={draw, rounded corners=2pt, align=center, inner sep=6pt,
+    font=\small, minimum width=3.4cm},
+  arr/.style={-{Latex}, thick},
+]
+\node[box] (r8) {Stock \(R=8\)\\opening};
+\node[box, right=1.6cm of r8] (open) {Learner 1,\\partner 2};
+\node[box, right=1.6cm of open] (r9) {Stock \(R=9\)\\fixed point};
+\node[box, below=1.1cm of r9] (farm) {Mutual 2\\farms the horizon};
+\draw[arr] (r8) -- (open);
+\draw[arr] (open) -- node[above, font=\scriptsize] {\(8\to 9\)} (r9);
+\draw[arr] (r9) -- (farm);
+\end{tikzpicture}
+\caption{Basin switch at the opening against a frozen hawk.
+  A first-step take of 1 (or 0) against take-2 moves stock \(8\to 9\).
+  At \(R=9\), mutual take-2 is a fixed point and the rest of the horizon
+  can be farmed.
+  A tape of later 2s is therefore not evidence of a 36-step dove policy.}
+\label{fig:farm}
+\end{figure}
+
+\section{What is not the live environment}
+
+\begin{itemize}
+\item \texttt{stochastic\_cpr\_env.py}.
+  Orphan: float stock, 9 actions, horizon 120, gym-style API.
+  The planned noise arm is noise on the \textbf{locked} integer logistic
+  update, not this file.
+\item An older linear note of a ``pool of 20, regrows by 2.''
+  Not the live method.
+  Not citable as the current environment.
+\item MPE / \texttt{cpr\_solve.py} ranking as a training target.
+  Scout and tests exist; MPE is not the live objective.
+\end{itemize}
+
+\section{Observation surface (prompts)}
+
+\texttt{CPRObservationManager} renders every prompt from structured state.
+It never parses a previous prompt string.
+Reset observations are
+\texttt{game\_description + instruction\_prompt} (rules, Gemma turn tags,
+initial resource line at \(R_0\), ``Reply with only one number'').
+Subsequent steps add the current resource and a previous-round line that
+reports \textbf{requests and receipts} separately, so scarcity is visible.
+The shaper, if \texttt{transmit\_info}, also sees joint-request counts and
+episode summaries that survive episode boundaries inside a trial and clear
+at trial start.
+Naive learners reset every episode.
+Parallel games render independently.
+
+Integer resource levels only.
+Action strings \texttt{"0"}--\texttt{"3"}.

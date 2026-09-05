@@ -1,39 +1,23 @@
 #!/usr/bin/env bash
-# Deterministic CPR launcher.
+# Logistic CPR launcher. Live lock: R0=8, K=40, T=36, rate_tenths=9.
+# Center advantages, entropy 0.05. Whitened / entropy-0.15 aliases are gone;
+# those JSONs live under configs/legacy/ for cited-run reproducibility only.
+#
 # Usage:
-#   ./scripts/run_cpr.sh smoke          # 2 epochs, 1 seed, n_games=2 — does it run at all
-#   ./scripts/run_cpr.sh stageA         # 1 seed, 15 epochs — is there any learning signal?
-#   ./scripts/run_cpr.sh stageA_shaper  # same calibration for the shaping condition
-#   ./scripts/run_cpr.sh testA          # learner vs frozen always-2, 15 epochs, 1 seed
-#   ./scripts/run_cpr.sh testA_a0       # Test A again, log neural opening A0
-#   ./scripts/run_cpr.sh testA_center   # Test A, center advantages (no /std), log A0
-#   ./scripts/run_cpr.sh testA_center_s12  # Test A center, RNG seeds 1 and 2
-#   ./scripts/run_cpr.sh testB_center   # Test B, center advantages, log A0
-#   ./scripts/run_cpr.sh testB_a0       # Test B again, log neural opening A0
-#   ./scripts/run_cpr.sh naive_naive_center     # two learners, center, ent 0.05, 15 ep, seed 0
-#   ./scripts/run_cpr.sh naive_naive_center_s12 # extra seeds 1–2
-#   ./scripts/run_cpr.sh naive_shaper_center    # naive vs shaper, 15 ep, seed 0
-#   ./scripts/run_cpr.sh naive_shaper_center_s012 # 3 seeds × 15 epochs (fair vs naive 0–2)
-#   ./scripts/run_cpr.sh naive_shaper_center_info_off_s012  # 3×15, trial update, no extra prompt history
-#   ./scripts/run_cpr.sh naive_naive_slow2_s012  # 3×15, both naive; agent2 LR 3e-7 only
-#   ./scripts/run_cpr.sh naive_shaper_center_e50 # one seed, 50 epochs — compare to naive at epoch 15 only
-#   ./scripts/run_cpr.sh naive_naive_center_e50  # matched long naive, 1 seed × 50 — RunPod, not MPS
-#   ./scripts/run_cpr.sh baseline               # legacy 3×50, entropy 0.15, whitened — do not use for live CPR
-#   ./scripts/run_cpr.sh shaper         # legacy 3×50, entropy 0.15 — do not use for live CPR
+#   ./scripts/run_cpr.sh smoke                                 # 2 epochs — does it run
+#   ./scripts/run_cpr.sh testA_center                          # frozen always-2, seed 0
+#   ./scripts/run_cpr.sh testA_center_s12                      # Test A center, seeds 1–2
+#   ./scripts/run_cpr.sh testB_center                          # frozen always-1, seed 0
+#   ./scripts/run_cpr.sh naive_naive_center                    # two naive, 15 ep, seed 0
+#   ./scripts/run_cpr.sh naive_naive_center_s12                # extra seeds 1–2
+#   ./scripts/run_cpr.sh naive_naive_center_e50                # matched long naive — RunPod
+#   ./scripts/run_cpr.sh naive_naive_slow2_s012                # both naive; agent-2 LR 3e-7
+#   ./scripts/run_cpr.sh naive_shaper_center                   # naive vs shaper, 15 ep, seed 0
+#   ./scripts/run_cpr.sh naive_shaper_center_s012              # 3 seeds × 15
+#   ./scripts/run_cpr.sh naive_shaper_center_info_off_s012     # 3×15, no extra prompt history
+#   ./scripts/run_cpr.sh naive_shaper_center_e50               # one seed, 50 epochs
 #
-# RunPod longer grids: use naive_naive_center / naive_shaper_center (or the same
-# *_center.json with a higher --no_epochs). Do not point a long job at baseline/shaper.
-#
-# Two-GPU box (RunPod). Calibrate first, then commit to the full grid:
-#   CUDA_VISIBLE_DEVICES=0 ./scripts/run_cpr.sh stageA & \
-#   CUDA_VISIBLE_DEVICES=1 ./scripts/run_cpr.sh stageA_shaper & wait
-#   CUDA_VISIBLE_DEVICES=0 ./scripts/run_cpr.sh baseline & \
-#   CUDA_VISIBLE_DEVICES=1 ./scripts/run_cpr.sh shaper & wait
-# Output dirs are already distinct, so checkpoints do not clash.
-#
-# One GPU is enough per run: both agents share a device (~10.5 GB of weights, no separate
-# reference model since is_peft_model=True). A second GPU cannot speed up a single run —
-# there is no model/data-parallel path — so use it for a second condition instead.
+# One GPU per run. A second GPU is a second condition, not data-parallel.
 
 set -euo pipefail
 
@@ -57,60 +41,6 @@ case "$MODE" in
     CONFIG="configs/cpr_smoke.json"
     OUT="checkpoints/cpr_log_smoke"
     SEEDS=1; EPOCHS=2; CKPT_FREQ=0
-    ;;
-  stageA)
-    # Calibration run before committing ~15 GPU-hours to the full grid. One seed, short.
-    # Gate on three things in exp1_model1_training_metrics.txt:
-    #   1. std_score is non-zero in MOST updates  (zero = the batch had no reward variance
-    #      at all, which is what the first smoke run showed on every live step)
-    #   2. value_loss is flat or falling, not compounding
-    #   3. the action distribution has moved off the preflight baseline (~90% on "2")
-    # If 1 fails, raise init_entropy_coef before anything else.
-    CONFIG="configs/cpr_naive_naive.json"
-    OUT="checkpoints/cpr_log_stageA_ent15"
-    SEEDS=1; EPOCHS=15; CKPT_FREQ=0
-    ;;
-  stageA_shaper)
-    # Same calibration for the shaping condition. Not covered by `stageA`: the shaper runs
-    # a different learning rate (3e-7) and cliprange (0.1), so its signal can be dead while
-    # the naive-naive one is healthy. Cheap to learn that now, expensive to learn it after
-    # committing to the full grid. Run concurrently on a second GPU:
-    #   CUDA_VISIBLE_DEVICES=0 ./scripts/run_cpr.sh stageA &
-    #   CUDA_VISIBLE_DEVICES=1 ./scripts/run_cpr.sh stageA_shaper &
-    #   wait
-    CONFIG="configs/cpr_naive_shaper.json"
-    OUT="checkpoints/cpr_log_stageA_shaper_ent15"
-    SEEDS=1; EPOCHS=15; CKPT_FREQ=0
-    ;;
-  testA)
-    # Frozen always-2 partner, one PPO learner. Entropy 0.05. 15 epochs, 1 seed.
-    CONFIG="configs/cpr_testA_always2.json"
-    OUT="checkpoints/cpr_log_testA_always2"
-    SEEDS=1; EPOCHS=15; CKPT_FREQ=0
-    ENTRY="finetuning_cpr_fixed.py"
-    ;;
-  testB)
-    # Frozen always-1 partner, one PPO learner. Entropy 0.05. 15 epochs, 1 seed.
-    # Vs a dove, constant-2 pays 72 and lives; constant-1 pays 36. Prior on 2 is
-    # already the best constant reply — watch survival, not whether they copy 1.
-    CONFIG="configs/cpr_testB_always1.json"
-    OUT="checkpoints/cpr_log_testB_always1"
-    SEEDS=1; EPOCHS=15; CKPT_FREQ=0
-    ENTRY="finetuning_cpr_fixed.py"
-    ;;
-  testA_a0)
-    # Same as testA, new folder, neural A0 on the opening step is logged.
-    CONFIG="configs/cpr_testA_always2.json"
-    OUT="checkpoints/cpr_log_testA_a0"
-    SEEDS=1; EPOCHS=15; CKPT_FREQ=0
-    ENTRY="finetuning_cpr_fixed.py"
-    ;;
-  testB_a0)
-    # Same as testB, new folder, neural A0 on the opening step is logged.
-    CONFIG="configs/cpr_testB_always1.json"
-    OUT="checkpoints/cpr_log_testB_a0"
-    SEEDS=1; EPOCHS=15; CKPT_FREQ=0
-    ENTRY="finetuning_cpr_fixed.py"
     ;;
   testA_center)
     # Same Test A seed family, advantage_norm=center (subtract mean, do not /std).
@@ -183,20 +113,8 @@ case "$MODE" in
     OUT="checkpoints/cpr_log_naive_shaper_center_e50"
     SEEDS=1; EPOCHS=50; CKPT_FREQ=0
     ;;
-  baseline)
-    # Legacy launcher: entropy 0.15, default whiten, 3×50. Not the live CPR protocol.
-    CONFIG="configs/cpr_naive_naive.json"
-    OUT="checkpoints/cpr_log_naive_naive"
-    SEEDS=3; EPOCHS=50; CKPT_FREQ=10
-    ;;
-  shaper)
-    # Must match `baseline` on seeds and epochs — the two are compared directly.
-    CONFIG="configs/cpr_naive_shaper.json"
-    OUT="checkpoints/cpr_log_naive_shaper"
-    SEEDS=3; EPOCHS=50; CKPT_FREQ=10
-    ;;
   *)
-    echo "Usage: $0 {smoke|stageA|stageA_shaper|testA|testB|testA_a0|testA_center|testA_center_s12|testB_center|testB_a0|naive_naive_center|naive_naive_center_s12|naive_naive_center_e50|naive_naive_slow2_s012|naive_shaper_center|naive_shaper_center_s012|naive_shaper_center_info_off_s012|naive_shaper_center_e50|baseline|shaper}"
+    echo "Usage: $0 {smoke|testA_center|testA_center_s12|testB_center|naive_naive_center|naive_naive_center_s12|naive_naive_center_e50|naive_naive_slow2_s012|naive_shaper_center|naive_shaper_center_s012|naive_shaper_center_info_off_s012|naive_shaper_center_e50}"
     exit 1
     ;;
 esac

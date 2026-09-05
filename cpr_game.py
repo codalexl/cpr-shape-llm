@@ -2,7 +2,7 @@
 CPRGame — the duck-typed wrapper that lets the deterministic CPR environment reuse the
 existing rollout machinery unmodified.
 
-environment.inner_rollout / outer_rollout (and utils.evaluation_utils.game_play) only ever
+environment.inner_rollout / outer_rollout only ever
 touch this surface on the game object:
 
     t_max · e_max · n_games · n_actions · obs_managers · token_action_maps · outcomes · step()

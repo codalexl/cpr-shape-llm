@@ -12,7 +12,7 @@ pip install -r requirements.txt
 
 `requirements.txt` pins **trl 0.11.4** and a cu121 torch. Hugging Face needs a token for `google/gemma-2-2b-it`.
 
-Live lock: logistic **R0=8, K=40, T=36, rate_tenths=9**. Do not launch `baseline` / `shaper` (entropy 0.15, whitened).
+Live lock: logistic **R0=8, K=40, T=36, rate_tenths=9**. Only `*_center` modes (and `smoke`). Whitened / entropy-0.15 JSONs are under `configs/legacy/` and are not launched.
 
 ```bash
 # matched long naive (seed 0, 50 epochs)

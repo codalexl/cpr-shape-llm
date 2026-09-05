@@ -1,0 +1,146 @@
+\chapter{Method}
+\label{ch:method}
+
+Training reuses the ShapeLLM PPO loop
+(\texttt{environment.outer\_rollout}, \texttt{PPOAgent},
+\texttt{CustomPPOTrainer}) on the logistic CPR in Chapter~\ref{ch:env}
+\cite{garciasegura2025}.
+The scientific object is that game's reward, not a new optimiser.
+
+\section{Model, tokens, generation}
+
+Base model: \texttt{google/gemma-2-2b-it}, \texttt{torch.bfloat16}, eager
+attention.
+Actions are single digit tokens (Table~\ref{tab:tokens}).
+
+\begin{table}[ht]
+\centering
+\caption{Legal action tokens for Gemma-2-2b-it.
+  \texttt{AllowedTokensLogitsProcessor} masks every other vocabulary
+  entry.}
+\label{tab:tokens}
+\begin{tabular}{rr}
+\toprule
+Action & Token id \\
+\midrule
+0 & 235276 \\
+1 & 235274 \\
+2 & 235284 \\
+3 & 235304 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Generation is one new token (\texttt{max\_new\_tokens=1},
+\texttt{do\_sample=True}, \texttt{top\_p=1.0}).
+Temperature is not a config key.
+Illegal draws (observed under MPS multinomial, not under the mask) are
+rejection-sampled up to four times.
+
+Untrained prior on this prompt: about \textbf{90~percent on 2}.
+That is an executed observation, not a literature citation; no paper is
+used for a digit/harvest-token prior.
+Entropy coefficient in all live CPR configs:
+\texttt{init\_entropy\_coef=0.05}, decaying to \(0.01\) over 150 updates.
+Entropy \(0.15\) bought smash-3, not restraint.
+The method does \textbf{not} flatten the prior, does \textbf{not} turn on
+\texttt{use\_score\_scaling} / \texttt{use\_score\_norm}, and does
+\textbf{not} add a take-1 bonus.
+
+\section{LoRA and PPO}
+
+Rank-2 LoRA (\(r=2\), \(\texttt{lora\_alpha}=32\), dropout 0.05, targets
+\texttt{q\_proj} and \texttt{v\_proj}), created by
+\texttt{init\_lora\_adapters.py} and loaded as a trainable
+\texttt{PeftModel} under a TRL value head.
+\texttt{trl==0.11.4} is required (\texttt{trl.core}).
+No separate reference model is held (\texttt{is\_peft\_model=True}).
+
+Learner PPO (Tests~A/B and naive two-learner agents): learning rate
+\(1.41\times 10^{-6}\), \texttt{batch\_size=100},
+\texttt{mini\_batch\_size=5}, \texttt{ppo\_epochs=1}, \(\gamma=1\),
+\(\lambda=0.97\), \texttt{vf\_coef=0.01}.
+Shaper agents use learning rate \(3\times 10^{-7}\) and
+\texttt{cliprange=0.1}.
+KL against the adapter-disabled base remains TRL's default path.
+
+Multi-turn advantages are GAE over the trial/episode ids already in
+ShapeLLM (\texttt{compute\_advantages}).
+Post-collapse rewards handed to PPO are NaN and are filtered before the
+loss; \texttt{game.records} store the true zero.
+Masked positions are zeroed after normalisation.
+
+\section{Advantage normalisation (machinery)}
+
+\texttt{advantage\_norm} is a trainer flag, default \texttt{"whiten"}
+(TRL \texttt{masked\_whiten}:
+\((x-\mu)\cdot(\mathrm{var}+\varepsilon)^{-1/2}\) on the live mask,
+default \texttt{shift\_mean=True}).
+\texttt{"center"} subtracts the masked mean and leaves the scale.
+\texttt{"none"} passes GAE through.
+
+Huang et al.\ \cite{huang2024} document the OpenAI
+\texttt{lm-human-preferences} convention: advantages whitened with mean
+and \texttt{/std}; rewards whitened with \texttt{shift\_mean=False}.
+Engstrom et al.\ \cite{engstrom2020} show that PPO's measured behaviour is
+driven by such code-level extras, not only the clip.
+Schulman et al.\ (2017) is not cited for whitening (PDF not fetched).
+
+This is a scaling choice for what the policy loss sees.
+Batch \texttt{/std} compressed a large raw opening-1 advantage;
+mean-subtract left the sign and scale usable.
+It is not a claim about whether shaping works.
+Numbers that differ under the two modes are listed in
+Chapter~\ref{ch:design} as outcomes to interpret later.
+
+Opening-step neural advantage (A0) is logged from the first index of each
+parallel game in the flattened batch
+(\texttt{first\_index\_by\_env\_id}).
+Raw GAE and post-norm A0 are both stored.
+Live-step raw GAE is logged separately so smear on later 2s can be compared
+with the opening photograph.
+
+\section{Frozen-bot tests (executed path)}
+
+Before any shaper-versus-naive grid, one PPO learner is trained against a
+non-learning partner:
+
+\begin{itemize}
+\item \textbf{Test A.} \texttt{ConstantActionAgent} always requests 2
+  (frozen hawk).
+\item \textbf{Test B.} Same bot always requests 1 (frozen dove).
+\end{itemize}
+
+The bot has no Gemma weights.
+\texttt{is\_shaper=False} so \texttt{outer\_rollout} calls a no-op
+\texttt{update\_parameters} once per episode.
+Only the learner's LoRA and value head train.
+Records still include both request columns.
+
+Trial geometry in the Test~A/B configs: \(T=36\), \(\texttt{e\_max}=5\)
+episodes per trial, \(\texttt{n\_games}=3\) parallel games, 15 epochs, one
+seed family (\texttt{set\_seed(0)}).
+That is 15 games per epoch and 225 games per run.
+
+Versus always-2, a constant take-1 scores 36 and lives; constant take-2
+scores 7 and dies.
+Versus always-1, constant take-2 scores 72 and lives; constant take-1
+scores 36; take-3 dies.
+Test~B does not treat ``copy 1'' as the unique high-return reply.
+
+\section{Two-learner / shaper path}
+
+\texttt{finetuning\_cpr.py} trains two \texttt{PPOAgent}s through the same
+\texttt{outer\_rollout}.
+Naive agents update each episode; shapers update once per trial on the
+concatenated trajectory.
+When \texttt{transmit\_info=true}, the shaper prompt also keeps joint-request
+counts and episode summaries for the trial.
+Live protocol:
+\path{cpr_naive_naive_center.json},
+\path{cpr_naive_shaper_center.json},
+\path{cpr_naive_shaper_center_info_off.json}.
+Executed numbers are in Chapter~\ref{ch:design}.
+The method description of the shaper is the code path, not a result.
+
+\texttt{finetuning\_fixed\_opponent.py} is not used for CPR.

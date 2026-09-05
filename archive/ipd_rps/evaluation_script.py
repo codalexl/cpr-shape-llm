@@ -1,10 +1,17 @@
 import argparse
-import torch 
+import os
+import sys
+
+import torch
+
+_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
 
 from agents import EvalAgentConfig, EvaluationAgent
 from environment import GameParams, IteratedMatrixGame, outer_rollout
 from observation_managers import ObservationManagerConfig
-from utils.evaluation_utils import game_play
+from evaluation_utils import game_play
 from utils.training_utils import set_seed
 from utils.file_management_utils import load_from_json, save_to_json, validate_config
 

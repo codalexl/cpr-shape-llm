@@ -234,8 +234,11 @@ thesis/*.lof
 thesis/*.lot
 thesis/*.synctex.gz
 
-# RPS dump (tens of MB). Smoke summaries live under archive/ipd_rps/.
-analysis/rps_gate50/
+# Local-only / regenerated
+logs/
+notebooks/
+.claude/
+analysis/
 
 # LaTeX build artifacts
 *.aux

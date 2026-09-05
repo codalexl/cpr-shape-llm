@@ -1,22 +1,21 @@
 #!/usr/bin/env python3
 """
-Read out a CPR run against the Stage-A gate criteria.
+Read out a CPR run: learning-signal / value-loss / live-step mix.
 
-    python scripts/analyse_cpr_run.py checkpoints/cpr_stageA
-    python scripts/analyse_cpr_run.py checkpoints/cpr_stageA checkpoints/cpr_stageA_shaper
+    python scripts/analyse_cpr_run.py checkpoints/cpr_log_testA_center
+    python scripts/analyse_cpr_run.py checkpoints/cpr_log_naive_naive_center
 
 The three gates, in priority order:
 
-  1. Is there a learning signal at all? 
-     The first smoke run hit this on half its updates because the live-state policy was
-     deterministic (every request was "2").  `std_score == 0` means every reward in that
-     batch was identical, so the whitened advantage is ~0 and the update did nothing.
-     If this still fails, raise init_entropy_coef before touching anything else.
+  1. Is there a learning signal at all?
+     `std_score == 0` means every reward in that batch was identical (often an
+     already-dead pool), so the advantage is ~0 and the update did nothing.
+     Do not raise entropy; see docs/LIVE_FACTS.md.
 
-  2. Is the value function stable?  It was compounding (424 -> 1118 over four updates)
-     under score scaling, because dividing by a ~0.35 reward std inflated the targets.
+  2. Is the value function stable (not compounding)?
 
-  3. Has the policy actually moved off the untrained prior (~90% on "2")?
+  3. Has the live-step mix moved off the untrained prior (~90% on "2")?
+     For Test A, the claim statistic is openings (`opening_a0`), not this mix.
 
 """
 
@@ -58,7 +57,7 @@ def gate_learning_signal(metrics, label):
     print(f"\n  [{verdict}] {label} — dead updates: {len(dead)}/{len(std)} ({frac:.0%})")
     print(f"          std_score {_fmt(std[:12], 3)}{' ...' if len(std) > 12 else ''}")
     if frac > 0.2:
-        print("          -> batches with identical rewards. Raise init_entropy_coef.")
+        print("          -> batches with identical rewards (often already-dead pool).")
     return verdict
 
 
@@ -180,7 +179,7 @@ def analyse(run_dir):
 def main():
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("run_dirs", nargs="+", help="checkpoint dirs, e.g. checkpoints/cpr_stageA")
+    p.add_argument("run_dirs", nargs="+", help="checkpoint dirs, e.g. checkpoints/cpr_log_testA_center")
     args = p.parse_args()
     for d in args.run_dirs:
         analyse(d)

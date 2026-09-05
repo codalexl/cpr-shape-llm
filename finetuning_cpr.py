@@ -1,14 +1,14 @@
 """
 Training entry point for the deterministic CPR game.
 
-Structurally a copy of finetuning_two_learners.py, kept separate so the RPS/IPD entry
-point stays frozen while the CPR path stabilises. The PPO/LoRA machinery underneath
+Structurally a copy of the archived matrix-game entry
+(`archive/ipd_rps/finetuning_two_learners.py`). The PPO/LoRA machinery underneath
 (outer_rollout, PPOAgent, StatsLogger) is reused unchanged.
 
-The one substantive addition is serializing `game.records`. finetuning_two_learners.py
+The one substantive addition is serializing `game.records`. The matrix-game entry
 saves only the logger stats and the outcome indices, so nothing in the reused machinery
 writes per-step resource levels, requests or receipts. Every CPR metric — survival curves,
-horizon-30 truncated return, the conditionality table — is computed from records, so if
+truncated return, the conditionality table — is computed from records, so if
 this file does not write them they are silently lost.
 """
 

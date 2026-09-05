@@ -198,9 +198,9 @@ Watch `Epoch * agent{id} open A0` and both live mix lines. Three seeds × 15 ≈
 
 - Raise entropy. Raise a 1-bonus. Swap the base model to escape the 2-prior.
 - Rewrite `verify_cpr.py` as live logistic.
-- Reuse `finetuning_fixed_opponent.py` (matrix-game ShapeLLM entry, not CPR).
+- Reuse `archive/ipd_rps/finetuning_fixed_opponent.py` (matrix-game ShapeLLM entry, not CPR).
 - Claim the shaper taught take-1 then exploited. Claim joint leave-2. Claim a two-phase teaching policy.
-- Mention an IPD reproduction, an “IPD gate,” or any claim that a published IPD result was or was not reproduced. That episode is out of the thesis and out of this file. Hygiene may delete the matrix-game launchers later. Writers never bring it up.
+- Mention an IPD reproduction, an “IPD gate,” or any claim that a published IPD result was or was not reproduced. That episode is out of the thesis and out of this file. Matrix-game launchers live under `archive/ipd_rps/`. Writers never bring it up.
 
 ---
 

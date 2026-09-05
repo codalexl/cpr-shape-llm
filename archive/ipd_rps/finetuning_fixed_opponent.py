@@ -1,5 +1,12 @@
 import argparse
+import os
+import sys
+
 import torch
+
+_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
 
 from agents import AgentConfig, FixedAgent, FixedAgentConfig, PPOAgent
 from environment import EnvState, GameParams, inner_rollout_fixed_opponent, IteratedMatrixGame, TrajectoryData 

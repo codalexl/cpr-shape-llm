@@ -1,0 +1,320 @@
+\chapter{Experimental design}
+\label{ch:design}
+
+All executed CPR training below is on the locked logistic chicken
+(\(R_0=8\), \(K=40\), \(T=36\), \(\texttt{rate\_tenths}=9\)).
+Gemma-2-2b-it, entropy 0.05, \texttt{use\_score\_scaling=false}.
+15 epochs unless noted, \(\texttt{e\_max}=5\), \(\texttt{n\_games}=3\)
+(225 games per 15-epoch run).
+
+The first block is \textbf{learner versus frozen constant bot}.
+The second block is \textbf{two PPO learners}.
+Centre moved opening-1 share against a frozen hawk; that fact is not read
+here as ``shaping works.''
+Two-learner tables are outcomes.
+They are not followed by a claim in this chapter.
+
+Numbers in this chapter are \textbf{outcomes to interpret later}.
+They are not followed by a claim.
+
+\section{Executed runs}
+
+\subsection{Test A, whitened (\texttt{advantage\_norm=whiten})}
+
+Config: \path{configs/cpr_testA_always2.json}.
+Partner: frozen always-2.
+Folders: \path{checkpoints/cpr_log_testA_always2} (run) and
+\path{checkpoints/cpr_log_testA_a0} (same Test~A with opening A0
+logged --- the A0 photograph).
+
+Outcomes:
+\begin{itemize}
+\item Opening-step critic: raw A0 \(\mathbf{+39.8}\) on 1 versus
+  \(\mathbf{+6.2}\) on 2.
+\item After batch whitening, A0 \(\mathbf{+1.38}\) versus
+  \(\mathbf{+0.75}\).
+\item Policy still peaked on 2.
+  Take-1 live-step \(\mathbf{6\% \to 3\%}\).
+  Survival \(\mathbf{28/225}\).
+\item Open-1 share: about \(\mathbf{27\%}\) floor, falling
+  (epoch \(1 \to 15\)).
+\item Take-1 live-step at epoch 15: \(\mathbf{3\%}\).
+\end{itemize}
+
+Read \textbf{openings}, not only live-step mix: after a first 1,
+\(R\colon 8\to 9\) and \((2,2)\) is a fixed point, so a surviving policy
+can be mostly 2s on the tape while every game opened 1.
+
+\subsection{Test B, whitened}
+
+Config: \texttt{configs/cpr\_testB\_always1.json}.
+Partner: frozen always-1.
+Opening A0 also logged (\texttt{testB\_a0}).
+
+Outcomes: survival \(\mathbf{219/225}\); opening 1 and opening 2 received
+the same star; mix \(\mathbf{80\% \to 38\%}\) on 2,
+\(\mathbf{18\% \to 62\%}\) on 3.
+
+Versus a dove, constant-2 pays 72 and lives; constant-1 pays 36.
+There is no 64-versus-7 basin that would force copy-1.
+
+\subsection{Test A, centered (\texttt{advantage\_norm=center})}
+
+Config: \texttt{configs/cpr\_testA\_center.json}.
+Same seed family as whitened Test~A.
+Mean-subtract, no \texttt{/std}.
+Folder: \texttt{checkpoints/cpr\_log\_testA\_center}.
+15 epochs, frozen always-2.
+
+Table~\ref{tab:whiten-vs-center} is the whitened-versus-centre contrast on
+that seed family.
+
+\begin{table}[ht]
+\centering
+\small
+\caption{Test~A outcomes under batch whitening versus centre-only
+  advantages (same seed family, frozen always-2).
+  Open-1 share is the primary readout; live-step take-1 is not.}
+\label{tab:whiten-vs-center}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.4cm}XX}
+\toprule
+ & Whitened Test A & Center Test A \\
+\midrule
+Take-1 live-step, epoch 15 & 3\% & 9\% \\
+Open-1 share, epoch \(1 \to 15\) &
+  \(\sim 27\%\) floor, falling &
+  \(\mathbf{27\% \to 87\%}\) (100\% at epoch 12) \\
+Survival & 28/225 &
+  epoch 1: 2/15; epoch 12: \(\mathbf{15/15}\); epoch 15: 13/15 \\
+Open-1 A0 (what PPO saw) & +1.38 whitened &
+  \(\mathbf{+16.7}\) centered (raw still \(\sim +40\)) \\
+Open-2 A0 & +0.75 & \(\mathbf{-5.7}\) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Later 2s still have large \emph{raw} GAE (smear).
+After centering they sit near 0; openings of 1 do not.
+
+Run extras: take-3 live-step \(\mathbf{8.5\% \to 0\%}\); survival
+\(\mathbf{134/225}\); last three epochs \(\mathbf{41/45}\) openings were
+1.
+
+\subsection{Test B, centered}
+
+Config: \path{configs/cpr_testB_center.json}.
+Folder: \path{checkpoints/cpr_log_testB_center}.
+Frozen always-1, seed 0.
+
+Outcomes: survival \(\mathbf{223/225}\); live mix \(\mathbf{98\%}\) on 2;
+open-1 share \(\mathbf{13\% \to 13\%}\) (2/15 last epoch).
+Did not copy-1.
+Opening A0 on 1 and 2 both large and similar (centred \(\sim +20\) /
+\(+22\)).
+
+\subsection{Test A center, extra seeds}
+
+Folder: \texttt{checkpoints/cpr\_log\_testA\_center\_s12}
+(\texttt{exp1\_} seed 1, \texttt{exp2\_} seed 2).
+
+\begin{itemize}
+\item Seed 1: open-1 \(\mathbf{27\% \to 93\%}\), survival
+  \(\mathbf{113/225}\), last epoch 14/15 opened 1.
+\item Seed 2: open-1 \(\mathbf{27\% \to 7\%}\), survival
+  \(\mathbf{160/225}\), last epoch \(\mathbf{14/15}\) opened 0.
+\end{itemize}
+
+Same center flag, same frozen hawk.
+Heterogeneity is a recorded outcome, not a claim.
+
+Figure~\ref{fig:openings} plots the first-to-last open-1 share for
+whitened Test~A and the three centred seeds, using only those endpoint
+numbers.
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  ybar,
+  bar width=8pt,
+  width=0.92\textwidth,
+  height=7.2cm,
+  ylabel={Open-1 share (\%)},
+  ymin=0, ymax=100,
+  symbolic x coords={Whitened, Center 0, Center 1, Center 2},
+  xtick=data,
+  xticklabel style={font=\small},
+  legend style={at={(0.5,1.05)}, anchor=south, legend columns=2,
+    font=\small, draw=none},
+  nodes near coords,
+  nodes near coords style={font=\scriptsize, /pgf/number format/fixed},
+  every node near coord/.append style={yshift=1pt},
+]
+\addplot coordinates {(Whitened,27) (Center 0,27) (Center 1,27) (Center 2,27)};
+\addplot coordinates {(Whitened,27) (Center 0,87) (Center 1,93) (Center 2,7)};
+\legend{Epoch 1, Epoch 15}
+\end{axis}
+\end{tikzpicture}
+\caption{Test~A open-1 share at the first and last epoch against a frozen
+  hawk.
+  Whitened last-epoch share is not recorded as a separate number; the
+  executed note is a \(\sim 27\%\) floor, falling, so the last bar repeats
+  that floor rather than inventing a lower point.
+  Centre seeds~0 and~1 rise to \(87\%\) and \(93\%\).
+  Centre seed~2 falls to \(7\%\) (last epoch almost all opening~0, not~1).
+  Survival: whitened \(28/225\); seeds \(0/1/2\): \(134/225\),
+  \(113/225\), \(160/225\).}
+\label{fig:openings}
+\end{figure}
+
+\section{Executed runs --- two learners}
+
+Same lock, \texttt{advantage\_norm=center}, entropy 0.05.
+Claim statistic: share of episodes that do \textbf{not} open 2.
+Do not put unmatched epoch lengths in one versus-naive table.
+
+\subsection{Centred naive--naive, 15 epochs, seeds 0--2}
+
+Config \path{configs/cpr_naive_naive_center.json}.
+Folders \path{checkpoints/cpr_log_naive_naive_center} (seed 0) and
+\path{checkpoints/cpr_log_naive_naive_center_s12} (seeds 1--2).
+
+\begin{table}[ht]
+\centering
+\small
+\caption{Centred naive--naive, 15 epochs.
+  Who leaves opening 2 swaps across seeds.
+  Live mix at epoch 15 is still mostly 2s on the tape.}
+\label{tab:nn}
+\begin{tabular}{llll}
+\toprule
+ & Seed 0 & Seed 1 & Seed 2 \\
+\midrule
+Surv e1 / e15 & 2/15 / 15/15 & 2/15 / 13/15 & 2/15 / 14/15 \\
+Survived & 119/225 & 98/225 & 115/225 \\
+A1 last openings & \(15\times 0\) & \(9\times 1\), \(5\times 2\), \(1\times 3\) &
+  \(1\times 0\), \(8\times 1\), \(6\times 2\) \\
+A2 last openings & \(3\times 1\), \(12\times 2\) &
+  \(1\times 0\), \(14\times 1\) & \(13\times 1\), \(2\times 2\) \\
+A1 leave-2 first3\(\to\)last3 & \(11\%\to 96\%\) & \(7\%\to 53\%\) &
+  \(7\%\to 64\%\) \\
+A2 leave-2 first3\(\to\)last3 & \(11\%\to 29\%\) & \(16\%\to 84\%\) &
+  \(20\%\to 84\%\) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Centred naive--shaper, three seeds by 15 epochs}
+
+Config \path{configs/cpr_naive_shaper_center.json}.
+Folder \path{checkpoints/cpr_log_naive_shaper_center}.
+Agent 2: trial update, LR \(3\times 10^{-7}\), \texttt{cliprange=0.1},
+extra trial prompt on.
+
+\begin{table}[ht]
+\centering
+\small
+\caption{Centred naive--shaper, 15 epochs.
+  Who leaves 2 did not swap: agent 1 dove, agent 2 hawk on all three seeds.}
+\label{tab:ns}
+\begin{tabular}{llll}
+\toprule
+ & Seed 0 & Seed 1 & Seed 2 \\
+\midrule
+Surv e15 & 13/15 & 9/15 & 13/15 \\
+Survived & 113/225 & 120/225 & 100/225 \\
+A1 last openings & \(1\times 0\), \(13\times 1\), \(1\times 2\) &
+  \(1\times 0\), \(14\times 1\) & \(7\times 0\), \(8\times 1\) \\
+A2 last openings & \(14\times 2\), \(1\times 3\) &
+  \(2\times 1\), \(9\times 2\), \(4\times 3\) & \(14\times 2\), \(1\times 3\) \\
+A1 / A2 leave-2 last3 & \(96\%\) / \(0\%\) & \(93\%\) / \(7\%\) &
+  \(87\%\) / \(2\%\) \\
+A2 leave-2 whole run & 5\% & 5\% & 4\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Shaper 50 epochs, seed 0}
+
+Folder \path{checkpoints/cpr_log_naive_shaper_center_e50}.
+Compare to naive at epoch 15 only.
+
+Epoch 15: 13/15 survived, agent 1 \(13\times 1\), agent 2 \(14\times 2\).
+Epoch 50: 15/15, agent 1 \(15\times 1\), agent 2 \(15\times 2\).
+Whole run 572/750.
+Agent 2 opened 0 or 1 on 25/750 (3.3\%).
+No epoch with agent-2 leave-2 majority.
+
+\subsection{Info-off shaper, three seeds by 15 epochs}
+
+Config \path{configs/cpr_naive_shaper_center_info_off.json}.
+Trial update and LR unchanged; \texttt{transmit\_info=false}.
+
+\begin{table}[ht]
+\centering
+\small
+\caption{Centred naive--shaper with \texttt{transmit\_info=false}.
+  Who leaves 2 did not swap.
+  Agent-2 leave-2 over the whole run is 16--19\% versus 4--5\% with the
+  extra prompt.}
+\label{tab:infooff}
+\begin{tabular}{llll}
+\toprule
+ & Seed 0 & Seed 1 & Seed 2 \\
+\midrule
+Surv e15 & 14/15 & 13/15 & 14/15 \\
+Survived & 118/225 & 107/225 & 89/225 \\
+A1 last openings & \(14\times 0\) & \(1\times 0\), \(14\times 1\) &
+  \(14\times 0\), \(1\times 1\) \\
+A2 last openings & \(13\times 2\) & \(12\times 2\) & \(12\times 2\) \\
+A1 / A2 leave-2 last3 & \(96\%\) / \(18\%\) & \(89\%\) / \(22\%\) &
+  \(89\%\) / \(13\%\) \\
+A2 leave-2 whole run & 16\% & 19\% & 16\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Planned arm --- noise on the locked logistic (not yet run)}
+
+Add noise to the \textbf{same} integer update
+(\(R_0=8\), \(K=40\), \(T=36\), \(\texttt{rate\_tenths}=9\)).
+Not a revival of \texttt{stochastic\_cpr\_env.py}.
+Not a new \((R_0,K,T,\mathrm{rate})\) hunt.
+Deterministic logistic is the substrate that can already be measured;
+noise on that update is the increment.
+A null on this arm is still a result.
+This chapter lists the arm.
+It does not report a number for it.
+
+When the arm exists, three lines (folder, mix/openings/survival, anything
+for the experimental record) come back from experiment chats.
+They are not filled in here.
+
+\section{Not run (launcher exists)}
+
+\texttt{baseline} / \texttt{shaper} (3 seeds \(\times\) 50 epochs) and
+\texttt{stageA} / \texttt{stageA\_shaper} still point at
+\texttt{cpr\_naive\_naive.json} / \texttt{cpr\_naive\_shaper.json}
+(\textbf{entropy 0.15}, default \textbf{whiten}).
+They are not the live CPR protocol.
+Long jobs must use the centred JSON files under \texttt{configs/}, not
+those two.
+
+\section{Locked two-learner ladder (remaining)}
+
+\begin{enumerate}
+\item \textbf{Slow-agent-2 naive--naive}
+  (three seeds, 15 epochs; both episode-update; agent 2 LR
+  \(3\times 10^{-7}\)).
+\item \textbf{Matched long naive} (\texttt{naive\_naive\_center\_e50}) ---
+  RunPod.
+\item \textbf{Stochastic regen} on the locked logistic remains the thesis
+  increment.
+\end{enumerate}
+
+\section{Student-owned Results}
+
+Prose that answers the opening-statistic, Test~B, seed-2, grid
+success/null, two-learner, and noise-null questions is in
+Chapter~\ref{ch:results}.
+This chapter does not repeat those claims.

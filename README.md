@@ -13,7 +13,7 @@ CPR training on top of ShapeLLM (ICLR 2026), used with permission. See `ATTRIBUT
 
 Experimental record: [`docs/LIVE_FACTS.md`](docs/LIVE_FACTS.md). CUDA box: [`docs/RUNPOD.md`](docs/RUNPOD.md).
 
-Do **not** use `baseline` / `shaper` for live CPR (legacy entropy 0.15 + whitening). Do **not** reuse `finetuning_fixed_opponent.py` for CPR.
+Do **not** reuse `archive/ipd_rps/finetuning_fixed_opponent.py` for CPR.
 
 ## Installation
 
@@ -26,4 +26,4 @@ Pin **trl 0.11.4**. Hugging Face access is required for `google/gemma-2-2b-it`. 
 
 ## Upstream ShapeLLM (matrix games)
 
-The original IPD/RPS entries still exist (`finetuning_two_learners.py`, `finetuning_fixed_opponent.py`). Launchers and configs for that path live under `archive/ipd_rps/`. They are not the thesis training protocol.
+The original IPD/RPS entries live under `archive/ipd_rps/`. They are not the thesis training protocol.

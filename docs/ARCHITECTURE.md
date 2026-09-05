@@ -156,4 +156,4 @@ Test B (frozen always-1): **219/225** lived. Opening 1 and 2 got the same star. 
 4. **Whitening vs center.** Whitening crushed opening-1’s star (+39.8 raw → +1.38). Center keeps scale (Open-1 A0 +16.7, Open-2 −5.7). Same seed family; folder `checkpoints/cpr_log_testA_center`.
 5. **Test B greed.** Frozen always-1: 219/225 lived. Mix moved **off** 2 onto 3 (80%→38% on 2, 18%→62% on 3). Not copy-1. No 64-vs-7 basin vs a dove.
 6. **Openings vs tape.** After open-1, R=8→9 and (2,2) is a fixed point, so live-step mix stays mostly 2s. Photograph is `opening_a0`, not `analyse_cpr_run` live mix.
-7. **Stochastic aim.** Noise on this locked logistic update, not `stochastic_cpr_env.py`. Shaping is unrun on this env. Do not discuss an IPD reproduction.
+7. **Stochastic aim.** Noise on this locked logistic update, not `stochastic_cpr_env.py`. Two-learner numbers live in LIVE_FACTS. Do not discuss an IPD reproduction.

@@ -1,64 +1,64 @@
 #!/usr/bin/env bash
 # Iterated RPS (3×3) shaping launcher.
 # Usage:
-#   ./scripts/run_rps_shaping.sh smoke
+#   ./archive/ipd_rps/run_rps_shaping.sh smoke
 #   ./scripts/run_rps_shaping.sh smoke_active
 #   ./scripts/run_rps_shaping.sh mid
 #   ./scripts/run_rps_shaping.sh mid_active
-#   ./scripts/run_rps_shaping.sh gate50_baseline   # naive vs naive, 50 ep
+#   ./archive/ipd_rps/run_rps_shaping.sh gate50_baseline   # naive vs naive, 50 ep
 #   ./scripts/run_rps_shaping.sh gate50_shaper     # naive vs shaper, 50 ep
 #
 # Parallel two-GPU example (RunPod / multi-GPU box):
-#   CUDA_VISIBLE_DEVICES=0 ./scripts/run_rps_shaping.sh gate50_baseline &
-#   CUDA_VISIBLE_DEVICES=1 ./scripts/run_rps_shaping.sh gate50_shaper &
+#   CUDA_VISIBLE_DEVICES=0 ./archive/ipd_rps/run_rps_shaping.sh gate50_baseline &
+#   CUDA_VISIBLE_DEVICES=1 ./archive/ipd_rps/run_rps_shaping.sh gate50_shaper &
 #   wait
 # Use different output dirs (already distinct) so checkpoints don't clash.
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO_ROOT"
 
 MODE="${1:-smoke}"
 
 case "$MODE" in
   smoke)
-    CONFIG="configs/rps_shaping.json"
+    CONFIG="archive/ipd_rps/rps_shaping.json"
     OUT="checkpoints/rps_shaping_smoke"
     SEEDS=1
     EPOCHS=20
     CKPT_FREQ=10
     ;;
   smoke_active)
-    CONFIG="configs/rps_shaping_active.json"
+    CONFIG="archive/ipd_rps/rps_shaping_active.json"
     OUT="checkpoints/rps_shaping_active_smoke"
     SEEDS=1
     EPOCHS=20
     CKPT_FREQ=10
     ;;
   mid)
-    CONFIG="configs/rps_shaping.json"
+    CONFIG="archive/ipd_rps/rps_shaping.json"
     OUT="checkpoints/rps_shaping_mid"
     SEEDS=1
     EPOCHS=100
     CKPT_FREQ=25
     ;;
   mid_active)
-    CONFIG="configs/rps_shaping_active.json"
+    CONFIG="archive/ipd_rps/rps_shaping_active.json"
     OUT="checkpoints/rps_shaping_active_mid"
     SEEDS=1
     EPOCHS=100
     CKPT_FREQ=25
     ;;
   gate50_baseline)
-    CONFIG="configs/rps_naive_naive.json"
+    CONFIG="archive/ipd_rps/rps_naive_naive.json"
     OUT="checkpoints/rps_gate50_naive_naive"
     SEEDS=1
     EPOCHS=50
     CKPT_FREQ=25
     ;;
   gate50_shaper)
-    CONFIG="configs/rps_naive_shaper.json"
+    CONFIG="archive/ipd_rps/rps_naive_shaper.json"
     OUT="checkpoints/rps_gate50_naive_shaper"
     SEEDS=1
     EPOCHS=50
@@ -92,7 +92,7 @@ echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-<unset>}"
 echo "Device:    $(python -c 'from utils.device_utils import get_device_str; print(get_device_str())')"
 echo ""
 
-python finetuning_two_learners.py \
+python archive/ipd_rps/finetuning_two_learners.py \
   "$CONFIG" \
   "$OUT" \
   --n_seeds "$SEEDS" \

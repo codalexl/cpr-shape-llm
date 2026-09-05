@@ -1,0 +1,104 @@
+\documentclass[12pt,a4paper]{report}
+
+\usepackage{setspace}
+\usepackage[a4paper,margin=25mm,left=30mm]{geometry}
+\usepackage{amssymb,amsfonts,amsmath}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{hyperref}
+\usepackage{xurl}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usetikzlibrary{arrows.meta,positioning,calc}
+
+\pagestyle{plain}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=black,
+  citecolor=black,
+  urlcolor=blue,
+  pdftitle={COMP0158 project report},
+}
+
+\title{%
+  {\includegraphics[scale=.5]{ucl_logo.png}}\\[1.5em]
+  {{\Huge Opponent shaping for language-model agents\\[0.25em]
+  in a sequential common-pool resource}}\\[0.6em]
+  {\large Working title --- confirm before submission}%
+}
+\date{Submission date: [Day Month Year]}
+\author{[Author name]\thanks{%
+{\bf Disclaimer:}
+This report is submitted as part requirement for the MSc Data Science and
+Machine Learning at UCL. It is substantially the result of my own work except
+where explicitly indicated in the text.
+The report will be distributed to the internal and external examiners, but
+thereafter may not be copied or distributed except with permission from the
+author.}
+\\[1.2em]
+MSc Data Science and Machine Learning\\[1.2em]
+Supervisor: [Supervisor's name]}
+
+\begin{document}
+\onehalfspacing
+\maketitle
+
+\begin{abstract}
+This report asks whether ShapeLLM-style opponent shaping can be applied to a
+sequential common-pool resource (CPR) game played by language-model agents.
+The executed substrate is a two-player, integer, deterministic logistic CPR
+(\(R_0=8\), \(K=40\), \(T=36\), \(\texttt{rate\_tenths}=9\)).
+The game is chicken, not a prisoner's dilemma: mutual take-1 lives (return 36);
+mutual take-2 dies around round~4 (return 7); hawk versus a frozen dove scores
+72 and the pool lives.
+Training reuses Gemma-2-2b-it, rank-2 LoRA, and trial PPO from ShapeLLM, with
+permission.
+The intended increment is noise on that locked update; the increment has not
+been run.
+A null remains reportable.
+
+The untrained prior sits near 90~percent on take-2.
+Against a frozen hawk, batch whitening crushed opening-1 advantage
+(\(+39.8\) raw to \(+1.38\)) and the policy stayed on the death-open
+(survival \(28/225\)).
+Centre-only advantages left the opening star: seed~0 open-1 share
+\(27\%\to 87\%\), survival \(134/225\).
+Seeds~1 and~2 also left opening~2; seed~2 opened~0 rather than~1.
+Against a frozen dove the learner did not copy take-1.
+Two centred PPO learners then split hawk--dove.
+Who doves swapped across three naive--naive seeds and did not swap under
+naive--shaper (info-on and info-off).
+That is not a clear shaping success, and it is not a two-phase teaching
+policy (shaper leave-2 on the 50-epoch seed: \(25/750\)).
+\end{abstract}
+
+\noindent
+The implementation is intended to be available at
+\url{https://github.com/OWNER/cpr-shape-llm}\,.
+The repository URL will be confirmed at submission, as COMP0158 requires
+access details for the code.
+
+\tableofcontents
+\listoffigures
+\listoftables
+\setcounter{page}{1}
+
+\input{chapters/01_aims}
+\input{chapters/02_related_work}
+\input{chapters/03_environment}
+\input{chapters/04_method}
+\input{chapters/05_implementation}
+\input{chapters/06_experimental_design}
+\input{chapters/07_results}
+\input{chapters/08_limitations}
+\input{chapters/09_conclusion}
+
+\bibliographystyle{plain}
+\bibliography{refs}
+
+\end{document}

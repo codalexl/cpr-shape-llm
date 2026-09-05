@@ -1,0 +1,13 @@
+\chapter{Conclusion}
+\label{ch:conc}
+
+This report measured ShapeLLM-style PPO on a two-player logistic chicken
+CPR (\(R_0=8\), \(K=40\), \(T=36\), \(\texttt{rate\_tenths}=9\)).
+Against a frozen hawk, centre-only advantages left the death-open;
+batch whitening did not.
+Two centred learners split hawk--dove: who doves swapped under
+naive--naive and did not under the shaper configs.
+That is not a clear shaping success, and it is not a two-phase teaching
+policy.
+Stochastic regeneration on the locked update has not been run; a null on
+that arm remains reportable.

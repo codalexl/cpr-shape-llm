@@ -18,7 +18,7 @@ from structured state held on this object, and **no prompt string is ever parsed
 is the invariant; keep it.
 
 Duck-typed surface used by the reused rollout machinery (environment.inner_rollout /
-outer_rollout, utils.evaluation_utils.game_play):
+outer_rollout):
 
   * `game_description` and `instruction_prompt` — concatenated by those functions to
     build the reset observation. `game_description` therefore ends with the initial
