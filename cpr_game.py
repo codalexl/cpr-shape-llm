@@ -55,6 +55,7 @@ class CPRGameParams:
     ceiling: int = 20
     n_actions: int = 4
     rate_tenths: Optional[int] = None
+    noise_tenths: Optional[int] = None
 
     def __post_init__(self):
         assert self.t_max > 0 and self.e_max > 0 and self.n_games > 0, \
@@ -63,7 +64,8 @@ class CPRGameParams:
     def to_dynamics_params(self) -> CPRParams:
         return CPRParams(R0=self.R0, g=self.g, ceiling=self.ceiling,
                          horizon=self.t_max, n_actions=self.n_actions,
-                         rate_tenths=self.rate_tenths)
+                         rate_tenths=self.rate_tenths,
+                         noise_tenths=self.noise_tenths)
 
 
 class CPRGame:

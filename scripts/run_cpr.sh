@@ -56,6 +56,26 @@ case "$MODE" in
     SEEDS=2; SEED_START=1; EPOCHS=15; CKPT_FREQ=0
     ENTRY="finetuning_cpr_fixed.py"
     ;;
+  testA_whiten_s12)
+    # Whitened Test A extra seeds (seed 0 is checkpoints/cpr_log_testA_a0).
+    CONFIG="configs/legacy/cpr_testA_always2.json"
+    OUT="checkpoints/cpr_log_testA_whiten_s12"
+    SEEDS=2; SEED_START=1; EPOCHS=15; CKPT_FREQ=0
+    ENTRY="finetuning_cpr_fixed.py"
+    ;;
+  testA_center_noise)
+    # Centre Test A + integer ±1 noise on growth (p=0.5). Does not revive R=0.
+    CONFIG="configs/cpr_testA_center_noise.json"
+    OUT="checkpoints/cpr_log_testA_center_noise"
+    SEEDS=1; EPOCHS=15; CKPT_FREQ=0
+    ENTRY="finetuning_cpr_fixed.py"
+    ;;
+  testA_center_noise_s012)
+    CONFIG="configs/cpr_testA_center_noise.json"
+    OUT="checkpoints/cpr_log_testA_center_noise"
+    SEEDS=3; SEED_START=0; EPOCHS=15; CKPT_FREQ=0
+    ENTRY="finetuning_cpr_fixed.py"
+    ;;
   testB_center)
     # Same as testB, advantage_norm=center. New folder.
     CONFIG="configs/cpr_testB_center.json"
@@ -114,7 +134,7 @@ case "$MODE" in
     SEEDS=1; EPOCHS=50; CKPT_FREQ=0
     ;;
   *)
-    echo "Usage: $0 {smoke|testA_center|testA_center_s12|testB_center|naive_naive_center|naive_naive_center_s12|naive_naive_center_e50|naive_naive_slow2_s012|naive_shaper_center|naive_shaper_center_s012|naive_shaper_center_info_off_s012|naive_shaper_center_e50}"
+    echo "Usage: $0 {smoke|testA_center|testA_center_s12|testA_whiten_s12|testA_center_noise|testA_center_noise_s012|testB_center|naive_naive_center|naive_naive_center_s12|naive_naive_center_e50|naive_naive_slow2_s012|naive_shaper_center|naive_shaper_center_s012|naive_shaper_center_info_off_s012|naive_shaper_center_e50}"
     exit 1
     ;;
 esac

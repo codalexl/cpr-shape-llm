@@ -81,6 +81,9 @@ class CPRParams:
     horizon: int = 30
     n_actions: int = 4
     rate_tenths: Optional[int] = None
+    # Probability in tenths of applying ±1 after growth. None/0 = deterministic.
+    # Never applied when the post-growth stock is already 0 (absorbing zero stays absorbing).
+    noise_tenths: Optional[int] = None
 
     def __post_init__(self):
         assert self.R0 >= 0 and self.g >= 0 and self.horizon > 0, "R0, g must be >= 0; horizon > 0"
@@ -90,6 +93,8 @@ class CPRParams:
         assert self.n_actions >= 2, f"need at least 2 actions; got {self.n_actions}"
         if self.rate_tenths is not None:
             assert self.rate_tenths > 0, f"rate_tenths must be > 0; got {self.rate_tenths}"
+        if self.noise_tenths is not None:
+            assert 1 <= self.noise_tenths <= 10, f"noise_tenths in 1..10; got {self.noise_tenths}"
 
     @property
     def logistic(self) -> bool:
@@ -171,8 +176,16 @@ class CPRDynamics:
             grown = R_harvested + self._growth[R_harvested]
         R_end = np.where(alive, np.minimum(self.params.ceiling, grown), 0)
 
+        if self.params.noise_tenths:
+            live = R_end > 0
+            apply = live & (np.random.randint(0, 10, size=self.n_games) < self.params.noise_tenths)
+            sign = np.where(np.random.random(self.n_games) < 0.5, 1, -1)
+            noisy = np.clip(R_end + sign, 0, self.params.ceiling)
+            R_end = np.where(apply, noisy, R_end)
+
         self.t += 1
-        newly_dead = (~alive) & (self.collapse_step == NO_COLLAPSE)
+        now_dead = R_end == 0
+        newly_dead = now_dead & (self.collapse_step == NO_COLLAPSE)
         self.collapse_step[newly_dead] = self.t
         self.R = R_end
 
@@ -182,7 +195,7 @@ class CPRDynamics:
             received_1=received_1, received_2=received_2,
             R_end=R_end.copy(),
             scarcity=scarcity,
-            depleted=~alive,
+            depleted=R_end == 0,
             masked=R_start == 0,
             step_index=self.t,
         )

@@ -1,33 +1,21 @@
-provenance: agent-drafted from LIVE_FACTS / LIT_CATCHUP
-status: provisional
-student-must-defend: yes
-sync: LIT_AUDIT + LIT_CLOSE
-
 # Aims
 
-This thesis asks whether ShapeLLM-style opponent shaping can be applied to a sequential common-pool resource (CPR) game played by LLM agents. The executed substrate is a two-player, integer, deterministic logistic CPR. The live increment is **stochastic regeneration on that locked update**. The increment has not been run. A null on the increment remains a result the thesis can report.
+This report studies PPO fine-tuning of a small instruction-tuned language model on a two-player integer common-pool resource (CPR) with a fully solvable structure.
 
-The project reuses the ShapeLLM training stack (Gemma-2-2b-it, rank-2 LoRA, trial PPO, interaction-only prompts) with the authors’ permission. The contribution is a new environment and its own reward definition, not a re-run of the published matrix games as the scientific object.
+## Research questions
 
-## What has been locked
+1. **Environment.** Can a sequential CPR be specified with integer dynamics such that (a) a linear-regrowth grid is a dead learning problem against a take-2 opponent, and (b) a logistic lock has an interior dilemma that a peaked digit prior will actually hit?
+2. **Advantage normalisation.** Against a frozen take-2 partner, does batch whitening of advantages keep Gemma-2-2b-it on the opening that collapses the pool, and does mean-centring let it leave that opening?
+3. **Opponent shaping.** Does a ShapeLLM-style shaper (trial-level update, slower learning rate, optional trial prompt) change openings or returns relative to two naive learners, once learning-rate asymmetry is controlled?
 
-- **Live training environment.** Logistic integer regen, chicken not PD: \(R_0=8\), \(K=40\), \(T=36\), `rate_tenths=9`. Constant-pair payoffs are in `03_environment.md`.
-- **Linear fixture.** `verify_cpr.py` remains the linear ground-truth script (\(R_0=20\), \(g=2\), \(T=30\)). Linear was a dead grid against an opponent playing \(g\). It is not the live game.
-- **Executed training so far.** Learner versus frozen constant bots (Tests A/B, whitened and centred). Two centred PPO learners: naive–naive (3 seeds × 15), naive–shaper (3×15 and one 50-epoch seed), and the same shaper with `transmit_info=false` (3×15). Remaining on the ladder: slow-LR naive–naive and a matched 50-epoch naive control.
-- **Planned increment.** Noise on the **locked** logistic update (same integers as above). Not a revival of `stochastic_cpr_env.py`. Not a new parameter hunt.
+A fourth arm — integer noise on the locked logistic growth — is specified and may be run; it is not required for (1)–(3).
 
-## What this thesis is not claiming yet
+## Contributions
 
-No sentence here asserts that shaping works. Center already moved opening-1 share against a frozen hawk. Two-learner tables exist. Student-owned Results wording is that this is **not a clear shaping success** and not a two-phase teaching policy. Those sentences are in `07_results.md`. They are not strengthened here.
+- An integer logistic CPR (\(R_0=8\), \(K=40\), \(T=36\), growth rate 0.9) whose constant-strategy matrix and dynamic-programming opening values are reported, and whose linear fixture is kept only as a harvest/scarcity test.
+- A centre-versus-whiten contrast on that lock: whitened Test A stays on opening 2 and dies (survival 28/225, last-epoch return 11.3); centred Test A leaves opening 2 on three seeds (last-epoch returns 60–70).
+- A negative shaping result after a slow-LR naive–naive control: who-leaves-2 does not swap when agent 2 is merely slower, matching the naive–shaper pattern without trial PPO.
 
-Stochastic regeneration is an aim, not a measurement. Writers must not describe noise as already present in the executed path, and must not describe the increment as abandoned.
+The training stack (Gemma-2-2b-it, rank-2 LoRA, trial PPO) is reused from ShapeLLM with permission. The scientific object is this environment and these contrasts, not a re-run of the published matrix games.
 
-## Sub-goals (frozen vs live)
-
-1. Formalise a sequential CPR that is a real dilemma under integer dynamics, and record why the linear grid was not that dilemma against \(g\).
-2. Put a Gemma agent on that game with the ShapeLLM PPO/LoRA machinery, without flattening the digit prior, without score scaling, and without a take-1 bonus.
-3. Measure learner-versus-frozen-bot behaviour (Tests A/B; whitening versus centering as **machinery**) before reading any two-learner table as shaping.
-4. Compare centred naive–naive to centred naive–shaper on the opening statistic. Report a null if the shaper does not move that statistic relative to the control.
-5. Try noise on the locked logistic update. Trying is the contribution of that arm even if the arm is null.
-
-Related Work lives in `02_related_work.md` (provisional).
+Code: https://github.com/codalexl/cpr-shape-llm/tree/feat/deterministic-cpr

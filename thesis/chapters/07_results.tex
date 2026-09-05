@@ -246,15 +246,21 @@ It is not a clear shaping success.
 This report does not claim that the shaper taught the naive to take 1
 and then exploited by taking 2.
 Who-doves did not swap under info-on or info-off; it did swap under
-naive--naive.
-That contrast is not an isolation of the trial prompt: naive--shaper also
-uses trial-level update, LR \(3\times 10^{-7}\), and \texttt{cliprange=0.1}.
-The isolation run named in the record (slow-LR naive--naive) is not in
-this chapter.
-Info-off raises shaper leave-2 (4--5\% to 16--19\% whole-run), so the
-extra prompt is not irrelevant to leave-2 even if who-doves stays locked.
-Chicken explains a hawk--dove split; naive--naive already showed who doves
-is not fixed by the env alone.
+matched-LR naive--naive.
+
+\textbf{Slow-LR naive--naive, \(3\times 15\).}
+Both episode-update; agent 2 learning rate \(3\times 10^{-7}\).
+Last epoch agent 2 opened 2 on \(12/15\) every seed.
+Agent 1 leave-2 in the last three epochs: \(78\%\), \(84\%\), \(62\%\);
+agent 2: \(33\%\), \(18\%\), \(27\%\).
+Who-leaves-2 did not swap.
+The same pattern as naive--shaper, without trial update or extra prompt.
+
+Last-epoch returns under naive--naive seed 0 are \(70.7\) and \(75.3\),
+near the \(71/72\) open-then-2 split, not the dynamic-program joint
+\(210\).
+No stock-conditioned 0-then-3 policy appears in last-epoch action
+frequencies by stock.
 
 \begin{itemize}
 \item \textbf{Grid success (still the bar).}

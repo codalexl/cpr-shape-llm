@@ -61,26 +61,34 @@ R_{\text{next}} = \min(K,\, R+\text{growth}).
 
 Rate is stored as tenths (9 → 0.9) so every reported quantity is an integer or a `Fraction`. Python binary float `round(rate * R * (1-R/K))` disagrees at 27 \((K,R,\text{rate})\) triples on this grid; training does not use that float. Growth is zero at \(R=0\) and \(R=K\). At this lock, there are **no** interior freeze stocks (`zero_growth_stocks(40, 9) == ()`); \(R=1\) still grows by 1. Low-rate freeze (e.g. rate 0.2 at \(K=40\)) exists as a logistic analogue of the cap-0 trap and was refused for shipping.
 
-The game is **chicken, not PD**: \((1,1)\) lives, \((2,2)\) dies. ShapeLLM already evaluates the Iterated Chicken Game, so this payoff class is on the keep list. Vault PD / tragedy / doubling framing is stale. Constant-pair payoffs (LIVE_FACTS; matched by `tests/test_logistic_cpr.py` / `CPRDynamics`):
+### Constant-strategy reduction
+
+If both agents play a **constant** action, the empirical payoff matrix (Leibo et al. 2017) is chicken in the weak sense that mutual 2 dies and mutual 1 lives:
 
 | Constant pair | Learner return | Lives? |
 |---|---|---|
 | (1,1) | 36 | yes |
 | (2,2) | 7 | no — dies at round 4 |
-| (2,1) hawk vs dove | 72 | yes |
+| (2,1) | 72 | yes |
 | (3,3) | 5 | no — dies at round 2 |
 
-Mutual restraint lasts the horizon. Mutual 2 collapses. Hawk versus a frozen dove takes 72 and lives; the dove in that pairing takes 36. Mutual 3 collapses immediately. Asymmetric (2,1) / (1,2) are strict Nash of the constant-matrix game; (1,1) is not an equilibrium. Official F2-as-`verify_cpr.py`-wrote-it (every *strict* NE has player-1 payoff strictly below (1,1), including asymmetric profiles) fails on this chicken. That is a labelling of the live game, not a defect of the lock.
+Asymmetric (2,1)/(1,2) are strict Nash of this reduction; (1,1) is not. Mutual 1 is **not** the joint optimum: one round of (0,0) then mutual 3 forever returns **105** each, with a fixed point at \(R=14\). Take-3 is the efficient sustainable harvest once the stock is high enough. \(R_0=8\) is one unit below the mutual-2 survival threshold \(R=9\).
 
-DP opening values versus a constant always-2 opponent: \(Q=(105, 104, 102, 6)\) for openings \(0,1,2,3\). The inner gap \(V(1)-V(2)\) at that opening is 2 on a base of 104. The untrained Gemma prior sits on 2 (see `04_method.md`).
+### Dynamic program versus a frozen take-2 partner
 
-After a first 1 against always-2, \(R: 8\to 9\) and (2,2) is a **fixed point** of the stock. A surviving tape can be mostly 2s even when every game opened 1. Experimental readouts that mix live-step take-1 with openings are not interchangeable; the design note is in `06_experimental_design.md`.
+Opening values against always-2: \(Q=(105, 104, 102, 6)\) for openings 0, 1, 2, 3. Best continuation after opening 0 is take-3 thereafter (return 105). Opening 1 then 2 forever is the \(R=8\to 9\) fixed point and returns **71**. Opening 2 then remaining on 2 dies at round 4 (return 7). Opening 2 is recoverable if the continuer then leaves 2 (0, then 1, then 3s lives, return ~102). So “death-open” is a property of a **near-constant take-2 policy**, which is the untrained prior, not of the opening in isolation.
+
+Opening 0 versus always-2 moves stock \(8\to 11\), not onto the \(R=9\) fixed point. Leave-2 (open 0 or 1) is therefore one statistic covering two basins.
+
+### What the trained policies actually do
+
+Last-epoch \(\pi(a\mid R)\) from the executed centred Test A seed 0: at \(R=8\), 87% open 1; at \(R=9\), 90% take 2 (\(n=125\)). Test B last-epoch return 72.4 against a frozen 1 (partner 36) is the constant hawk–dove cell, not the DP best response 107. No run in LIVE_FACTS learned 0-then-3 as a stock-conditioned policy.
+
+Primary experimental statistic: **leave-2** = share of episodes whose first action is not 2. Supporting: last-three-epoch survival, mean return. Live-step mix after a good opening is not the claim.
 
 ## What is not the live environment
 
-- **`stochastic_cpr_env.py`.** Orphan: float stock, 9 actions, horizon 120, gym-style API. The planned noise arm is noise on the **locked** integer logistic update, not this file.
-- **Obsidian `Opponent Shaping/` hub.** History of a linear \(R_0=20\), \(g=2\) “pool of 20, regrows by 2” note. Not the live method. Not citable as current env.
-- **MPE / `cpr_solve.py` ranking as a training target.** Scout and tests exist; MPE is not the live objective.
+Linear \(R_0=20\), \(g=2\) is the harvest fixture only. An older float stochastic park is not used. Noise, if run, is \(\pm 1\) on the locked logistic growth with \(p=0.5\), never reviving a dead pool.
 
 ## Observation surface (prompts)
 

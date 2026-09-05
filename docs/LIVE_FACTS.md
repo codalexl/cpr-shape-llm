@@ -184,13 +184,49 @@ Who leaves 2 did not swap. A2 leave-2 is higher than info-on (4–5% whole run) 
 
 ---
 
-## Next protocol
+## Returns (from records)
 
-Slow-LR naive–naive: `naive_naive_slow2_s012` (3×15, both episode-update; agent 2 LR `3e-7`). Folder `checkpoints/cpr_log_naive_naive_slow2`. If who-doves still swaps, slow LR is not enough and trial-level update is next. If agent 2 locks hawk, timescale in chicken is enough without shaping machinery.
+Mean learner return, last epoch (15 games). PPO maximises return. Constant-pair vs hawk: open-1-then-2s = 71; BR 0-then-3s = 105; stay-on-2 = 7.
 
-Matched long naive: `naive_naive_center_e50` on RunPod, not MPS.
+| Run | Last-epoch return (agent 1) | Last-epoch survival |
+|---|---|---|
+| Test A whitened (a0) | 11.3 | 1/15 |
+| Test A center s0 | 60.3 | 13/15 |
+| Test A center s1 | 62.1 | 12/15 |
+| Test A center s2 | 69.8 | 15/15 |
+| Test B center | 72.4 (partner 36.0) | 15/15 |
+| Naive–naive s0 last | 70.7 / 75.3 | 15/15 |
 
-Watch `Epoch * agent{id} open A0` and both live mix lines. Three seeds × 15 ≈ ~4–6h on MPS if they live. Detach + `caffeinate`.
+Test B last-epoch return 72.4 vs dove 36 is the constant hawk–dove cell, not the DP best response 107 (open 2 then 3s). Last-epoch \(\pi(a\mid R)\) at high stock is still peaked on 2.
+
+At \(R=9\) after a centre Test A open-1, last-epoch take-2 is 90% (\(n=125\) live steps). Nobody in these folders learned 0-then-3 as a stock-conditioned policy.
+
+Whitened Test A last-epoch leave-2: 2/15 (14×2, 1×1). Last-three-epoch survival 5/45.
+
+---
+
+## Slow-LR naive–naive, 3×15 (isolation)
+
+Both naive, episode update. Agent 2 LR `3e-7`, cliprange 0.1. Agent 1 LR `1.41e-6`. Config `configs/cpr_naive_naive_slow2_center.json`. Folder `checkpoints/cpr_log_naive_naive_slow2`. `exp1_` seed 0, `exp2_` seed 1, `exp3_` seed 2.
+
+| | Seed 0 | Seed 1 | Seed 2 |
+|---|---|---|---|
+| Surv e1 / e15 | 1/15 / 8/15 | 1/15 / 12/15 | 1/15 / 13/15 |
+| Surv last3 | 28/45 | 36/45 | 29/45 |
+| Survived | 86/225 | 92/225 | 64/225 |
+| A1 last openings | 4×0, 6×1, 4×2, 1×3 | 3×0, 10×1, 2×2 | 1×0, 10×1, 4×2 |
+| A2 last openings | 1×1, **12×2**, 2×3 | 2×1, **12×2**, 1×3 | 3×1, **12×2** |
+| A1 leave-2 last3 | 78% | 84% | 62% |
+| A2 leave-2 last3 | 33% | 18% | 27% |
+| Ret last (a1/a2) | 43.9 / 43.9 | 57.0 / 62.9 | 61.6 / 65.8 |
+
+Who leaves 2 did **not** swap: agent 1 leave-2 last3 is higher on every seed; agent 2 last epoch is 12×2 on every seed. Same qualitative pattern as naive–shaper, **without** trial update or extra prompt. Timescale / LR asymmetry is enough for that pattern.
+
+---
+
+## Next protocol (RunPod)
+
+See `docs/RUNPOD.md`. Remaining GPU: whitened Test A seeds 1–2; centred Test A + growth noise (`noise_tenths=5`); matched long naive `naive_naive_center_e50` if not already copied off the box.
 
 ---
 

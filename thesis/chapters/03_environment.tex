@@ -127,22 +127,18 @@ of the cap-0 trap and was refused for shipping.
 
 The game is \textbf{chicken, not prisoner's dilemma}: \((1,1)\) lives,
 \((2,2)\) dies.
-ShapeLLM already evaluates the Iterated Chicken Game
-\cite{garciasegura2025,rapoport1966}, so this payoff class is on the keep
-list.
-Vault prisoner's-dilemma / tragedy / doubling framing is stale.
-Constant-pair payoffs (matched by \texttt{tests/test\_logistic\_cpr.py} /
-\texttt{CPRDynamics}) are in Table~\ref{tab:chicken}.
+If both agents play a constant action, the empirical payoff matrix
+is Table~\ref{tab:chicken}.
+ShapeLLM already evaluates iterated chicken
+\cite{garciasegura2025,rapoport1966}.
+Mutual take-1 is not the joint optimum: one round of \((0,0)\) then
+mutual 3 forever returns 105 each, with a fixed point at \(R=14\).
+\(R_0=8\) is one unit below the mutual-2 survival threshold \(R=9\).
 
 \begin{table}[ht]
 \centering
-\caption{Constant-pair payoffs on the locked logistic chicken
-  (\(R_0=8\), \(K=40\), \(T=36\), \(\texttt{rate\_tenths}=9\)).
-  Mutual restraint lasts the horizon.
-  Mutual take-2 collapses around round~4.
-  Hawk versus a frozen dove takes 72 and lives; the dove in that pairing
-  takes 36.
-  Mutual take-3 collapses immediately.}
+\caption{Constant-action payoffs on the locked logistic CPR.
+  This is a reduction, not the sequential optimum.}
 \label{tab:chicken}
 \begin{tabular}{lrl}
 \toprule
@@ -156,23 +152,18 @@ Constant pair & Learner return & Lives? \\
 \end{tabular}
 \end{table}
 
-Asymmetric \((2,1)\) / \((1,2)\) are strict Nash of the constant-matrix
-game; \((1,1)\) is not an equilibrium.
-Official F2-as-\texttt{verify\_cpr.py}-wrote-it (every \emph{strict} NE has
-player-1 payoff strictly below \((1,1)\), including asymmetric profiles)
-fails on this chicken.
-That is a labelling of the live game, not a defect of the lock.
-
-DP opening values versus a constant always-2 opponent:
-\(Q=(105, 104, 102, 6)\) for openings \(0,1,2,3\).
-The inner gap \(V(1)-V(2)\) at that opening is 2 on a base of 104.
-The untrained Gemma prior sits on 2 (Chapter~\ref{ch:method}).
-
-After a first 1 against always-2, \(R\colon 8\to 9\) and \((2,2)\) is a
-\textbf{fixed point} of the stock (Figure~\ref{fig:farm}).
-A surviving tape can be mostly 2s even when every game opened 1.
-Experimental readouts that mix live-step take-1 with openings are not
-interchangeable; the design note is in Chapter~\ref{ch:design}.
+Asymmetric \((2,1)\) / \((1,2)\) are strict Nash of this reduction;
+\((1,1)\) is not.
+Opening values against always-2 are \(Q=(105, 104, 102, 6)\) for
+openings \(0,1,2,3\).
+Opening 1 then 2 forever returns 71 at the \(R=9\) fixed point
+(Figure~\ref{fig:farm}).
+Opening 2 then remaining on 2 dies at round 4 (return 7).
+Opening 0 versus always-2 moves stock \(8\to 11\), not onto that
+fixed point.
+The untrained prior sits on 2 (Chapter~\ref{ch:method}).
+Leave-2 (first action not 2) is the experimental statistic for that
+prior-dominated class, not a claim that 0 and 1 are the same basin.
 
 \begin{figure}[ht]
 \centering
@@ -201,17 +192,9 @@ interchangeable; the design note is in Chapter~\ref{ch:design}.
 
 \section{What is not the live environment}
 
-\begin{itemize}
-\item \texttt{stochastic\_cpr\_env.py}.
-  Orphan: float stock, 9 actions, horizon 120, gym-style API.
-  The planned noise arm is noise on the \textbf{locked} integer logistic
-  update, not this file.
-\item An older linear note of a ``pool of 20, regrows by 2.''
-  Not the live method.
-  Not citable as the current environment.
-\item MPE / \texttt{cpr\_solve.py} ranking as a training target.
-  Scout and tests exist; MPE is not the live objective.
-\end{itemize}
+Linear \(R_0=20\), \(g=2\) is the harvest fixture only.
+Noise, if run, is \(\pm 1\) on the locked logistic growth with
+probability \(1/2\), and never revives a dead pool.
 
 \section{Observation surface (prompts)}
 

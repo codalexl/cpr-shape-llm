@@ -1,75 +1,47 @@
 \chapter{Aims}
+\label{ch:aims}
 
-This thesis asks whether ShapeLLM-style opponent shaping can be applied to a
-sequential common-pool resource (CPR) game played by LLM agents.
-The executed substrate is a two-player, integer, deterministic logistic CPR.
-The live increment is \textbf{stochastic regeneration on that locked update}.
-The increment has not been run.
-A null on the increment remains a result the thesis can report.
+This report studies PPO fine-tuning of a small instruction-tuned language
+model on a two-player integer common-pool resource (CPR) with a fully
+solvable structure.
 
-The project reuses the ShapeLLM training stack (Gemma-2-2b-it, rank-2 LoRA,
-trial PPO, interaction-only prompts) with the authors' permission
-\cite{garciasegura2025}.
-The contribution is a new environment and its own reward definition, not a
-re-run of the published matrix games as the scientific object.
-
-\section{What has been locked}
-
-\paragraph{Live training environment.}
-Logistic integer regeneration, chicken not prisoner's dilemma:
-\(R_0=8\), \(K=40\), \(T=36\), \(\texttt{rate\_tenths}=9\).
-Constant-pair payoffs are in Chapter~\ref{ch:env}.
-
-\paragraph{Linear fixture.}
-\texttt{verify\_cpr.py} remains the linear ground-truth script
-(\(R_0=20\), \(g=2\), \(T=30\)).
-Linear was a dead grid against an opponent playing \(g\).
-It is not the live game.
-
-\paragraph{Executed training so far.}
-Learner versus frozen constant bots (Tests~A/B, whitened and centred).
-Two centred PPO learners: naive--naive (3~seeds \(\times\) 15),
-naive--shaper (3\(\times\)15 and one 50-epoch seed), and the same shaper with
-\texttt{transmit\_info=false} (3\(\times\)15).
-Remaining on the ladder: slow-LR naive--naive and a matched 50-epoch naive
-control.
-
-\paragraph{Planned increment.}
-Noise on the \textbf{locked} logistic update (same integers as above).
-Not a revival of \texttt{stochastic\_cpr\_env.py}.
-Not a new parameter hunt.
-
-\section{What this thesis is not claiming yet}
-
-No sentence here asserts that shaping works.
-Centre already moved opening-1 share against a frozen hawk.
-Two-learner tables exist.
-Student-owned wording in Chapter~\ref{ch:results} is that this is
-\textbf{not a clear shaping success} and not a two-phase teaching policy.
-Those sentences are not strengthened here.
-
-Stochastic regeneration is an aim, not a measurement.
-This report does not describe noise as already present in the executed path,
-and does not describe the increment as abandoned.
-
-\section{Sub-goals}
+\section{Research questions}
 
 \begin{enumerate}
-\item Formalise a sequential CPR that is a real dilemma under integer
-  dynamics, and record why the linear grid was not that dilemma against
-  \(g\).
-\item Put a Gemma agent on that game with the ShapeLLM PPO/LoRA machinery,
-  without flattening the digit prior, without score scaling, and without a
-  take-1 bonus.
-\item Measure learner-versus-frozen-bot behaviour (Tests~A/B; whitening
-  versus centering as \textbf{machinery}) before reading any two-learner
-  table as shaping.
-\item Compare centred naive--naive to centred naive--shaper on the opening
-  statistic.
-  Report a null if the shaper does not move that statistic relative to the
-  control.
-\item Try noise on the locked logistic update.
-  Trying is the contribution of that arm even if the arm is null.
+\item \textbf{Environment.}
+  Can a sequential CPR be specified with integer dynamics such that a
+  linear-regrowth grid is a dead learning problem against a take-2
+  opponent, and a logistic lock has an interior dilemma that a peaked
+  digit prior will actually hit?
+\item \textbf{Advantage normalisation.}
+  Against a frozen take-2 partner, does batch whitening of advantages
+  keep Gemma-2-2b-it on the opening that collapses the pool, and does
+  mean-centring let it leave that opening?
+\item \textbf{Opponent shaping.}
+  Does a ShapeLLM-style shaper (trial-level update, slower learning
+  rate, optional trial prompt) change openings or returns relative to
+  two naive learners, once learning-rate asymmetry is controlled?
 \end{enumerate}
 
-Related work is provisional (Chapter~\ref{ch:lit}).
+Integer noise on the locked logistic growth is specified and may be run
+on the same Test~A protocol. It is not required to answer (1)--(3).
+
+\section{Contributions}
+
+\begin{itemize}
+\item An integer logistic CPR (\(R_0=8\), \(K=40\), \(T=36\), growth
+  rate \(0.9\)) whose constant-strategy matrix and dynamic-programming
+  opening values are reported. The linear fixture is kept only as a
+  harvest and scarcity test.
+\item A centre-versus-whiten contrast on that lock: whitened Test~A
+  stays on opening 2 and dies (survival \(28/225\), last-epoch return
+  \(11.3\)); centred Test~A leaves opening 2 on three seeds
+  (last-epoch returns \(60\)--\(70\)).
+\item A negative shaping result after a slow-LR naive--naive control:
+  who-leaves-2 does not swap when agent 2 is merely slower, matching
+  the naive--shaper pattern without trial PPO.
+\end{itemize}
+
+The training stack (Gemma-2-2b-it, rank-2 LoRA, trial PPO) is reused
+from ShapeLLM with permission \cite{garciasegura2025}.
+The scientific object is this environment and these contrasts.

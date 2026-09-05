@@ -67,10 +67,12 @@ Same lock, `advantage_norm=center`, entropy 0.05. Claim statistic remains share 
 
 **Info-off shaper, 3×15.** Same trial update and LR; `transmit_info=false`. Survival 118, 107, 89 out of 225. Who leaves 2 still did not swap. Agent 2 leave-2 last three epochs 18%, 22%, 13%; whole run 16%, 19%, 16% (higher than info-on 4–5%, and not ~0).
 
-**Floor (do not strengthen).** It is not a clear shaping success. Do not claim the shaper taught the naive to take 1 and then exploited by taking 2. Who-doves did not swap under info-on or info-off; it did swap under naive–naive. That contrast is **not** an isolation of the trial prompt: naive–shaper also uses trial-level update, LR \(3\times 10^{-7}\), and `cliprange=0.1`. LIVE_FACTS names slow-LR naive–naive as the isolation run; those numbers are not in this chapter. Info-off raises shaper leave-2 (4–5% → 16–19% whole-run), so the extra prompt is not irrelevant to leave-2 even if who-doves stays locked. Chicken explains a hawk–dove split; naive–naive already showed who doves is not fixed by the env alone.
+**Slow-LR naive–naive, 3×15.** Both episode-update; agent 2 LR \(3\times 10^{-7}\), clip 0.1. Last epoch agent 2 opened 2 on 12/15 every seed. Agent 1 leave-2 last3 78%, 84%, 62%; agent 2 33%, 18%, 27%. Who-leaves-2 did **not** swap. Same pattern as naive–shaper, without trial update or extra prompt.
 
-evidence: LIVE_FACTS § centred naive–naive / naive–shaper / e50 / info-off tables; Next protocol (slow2 not yet merged)
-does-not-license: shaping success; two-phase teaching; prompt-as-assignment; “role lock” as an OS finding
+**Floor.** It is not a clear shaping success. The shaper contrast is confounded with learning speed; the slow-LR control produces the same who-leaves-2 pattern. Last-epoch returns under naive–naive seed 0 are 70.7 and 75.3, near the 71/72 open-then-farm split, not the DP joint 210. No stock-conditioned 0-then-3 policy appears in last-epoch \(\pi(a\mid R)\).
+
+evidence: LIVE_FACTS § slow-LR naive–naive; two-learner tables; Returns
+does-not-license: shaping success; two-phase teaching
 
 - **Grid success (still the bar).** The shaper changes the opening distribution or the outcome bins relative to centred naive–naive, in a way that tracks the learner’s current behaviour.
 - **Grid null.** Same openings, same collapse, same bins as the control. Live-mix will not rescue a null.

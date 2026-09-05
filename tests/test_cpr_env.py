@@ -222,6 +222,22 @@ def test_logistic_capacity_does_not_grow():
     assert int(out.R_end[0]) == 40
 
 
+def test_noise_never_revives_absorbing_zero():
+    np.random.seed(0)
+    params = CPRParams(R0=0, g=0, ceiling=40, horizon=20, rate_tenths=9, noise_tenths=10)
+    env = CPRDynamics(params, n_games=8)
+    for _ in range(20):
+        out = env.step(np.zeros(8, dtype=int), np.zeros(8, dtype=int))
+        assert (out.R_end == 0).all()
+        assert out.masked.all()
+
+
+def test_noise_p0_matches_deterministic():
+    """noise_tenths unset is the live lock; p=0 is not a valid field (1..10)."""
+    assert LOGISTIC.noise_tenths is None
+    assert run_constant(LOGISTIC, 2, 2) == (7, 7, 4)
+
+
 def test_logistic_preserves_absorbing_zero_and_exact_depletion():
     env = CPRDynamics(CPRParams(R0=4, g=0, ceiling=40, horizon=1, rate_tenths=9), n_games=1)
     out = env.step(np.array([2]), np.array([2]))
