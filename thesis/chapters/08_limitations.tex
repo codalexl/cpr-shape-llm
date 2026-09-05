@@ -1,66 +1,98 @@
 \chapter{Limitations}
 \label{ch:lim}
 
-Bodies in this chapter transcribe sentences already owned in
-Chapter~\ref{ch:results} or locked as method facts.
-They are not a new interpretation.
+This chapter is critique.
+Each section names a threat and says whether it takes down a claim
+this report actually makes.
 
 \section{Whitening as a landmine}
 
-Raw opening advantage already starred the \(R=8\to 9\) basin against a
-frozen hawk.
-Under batch whitening the star was compressed until the prior won on
-count: the rare jackpot is the batch standard deviation, so the star
-shrinks itself, and many openings of 2 outvote few openings of 1.
-Centre-only advantages left the opening star.
-That contrast is machinery, not a shaping result.
+\textbf{Threat.}
+If batch \texttt{/std} is treated as ``PPO,'' a reader will think the
+death-open is a credit-assignment mystery.
+It is not.
+Raw opening A0 already starred 1 (\(+39.8\) vs \(+6.2\) on 2).
+Whitening crushed that to \(+1.38\) vs \(+0.75\); the policy stayed on 2
+(survival \(28/225\)).
+Centre-only left the star (open-1 \(27\%\to 87\%\) seed~0).
+
+\textbf{Does not take down.}
+The opening claim is the \emph{centre} contrast against a frozen hawk, not
+a theorem about every PPO implementation.
+Whitening versus centre is machinery, not a shaping result.
 
 \section{Frozen bot is not two learners}
 
-A frozen hawk is not two learning agents.
-Centre-only Test~A does not imply that a shaper works.
+\textbf{Threat.}
+Centre Test~A is the strongest executed opening result and uses a partner
+that does not learn.
+A frozen hawk cannot be shaped.
 
-\section{Seed 2 as the same opening family}
+\textbf{Does not take down.}
+The report does not read Test~A as shaping.
+Two-learner tables are a separate protocol.
+The threat is to over-reading, which Results already forbids.
 
-Seed 2 of centred Test~A is not a failed replicate.
-Openings 0 and 1 are the same opening family: take less than 2 at \(R=8\).
-Which restraint token wins can move with the seed.
-Whitened Test~A never left opening 2 and died.
+\section{Seed 2 left 2 via opening 0}
+
+\textbf{Threat.}
+Seed 2 last epoch is \(14/15\) opening 0, not 1.
+If the claim were ``PPO learns take-1,'' this seed falsifies it.
+Open 0 vs hawk is also a different stock path (\(8\to 11\)), not the
+\(R=9\) farm.
+
+\textbf{Does not take down.}
+The licensed statistic is leave-opening-2.
+Whitened Test~A never left 2 and died.
+This chapter does not treat 0 and 1 as the same basin, and does not
+explain why seed 2 preferred 0.
 
 \section{What would falsify the opening claim}
 
-The executed contrast that already exists: whitened Test~A never left
-opening 2 and died; centred Test~A left opening 2 on three seeds.
-A later centred hawk run that stayed on opening 2 and died would
-falsify ``unflattened GAE is enough for PPO to leave the death-open''
+A later centred hawk run, same lock, that stayed on opening 2 and died
+would falsify ``centre-only advantages moved the policy off opening 2''
 on this lock.
+The executed contrast that already exists is the other way: whitened
+stayed and died; centre left on three seeds.
 
 \section{Two-learner contrast is not a teaching policy}
 
-It is not a clear shaping success.
-This report does not claim that the shaper taught the naive to take 1
-and then exploited by taking 2.
-Extra trial prompt is not what assigns who doves (info-off: who-doves
-still did not swap).
-Chicken explains a hawk--dove split; naive--naive already showed who doves
-is not fixed by the env alone.
-Agent 2 leave-2 on the 50-epoch seed was \(25/750\); epoch 1 the shaper
-opened 2 while the naive still mostly opened 2.
+\textbf{Threat.}
+Who-doves not swapping under naive--shaper looks like opponent shaping
+if the reader wants it to.
+The contrast is also confounded with trial update, slow LR, and cliprange.
+Slow-LR naive--naive is the named isolation run and is not in this
+chapter.
 
-\section{Noise null}
+\textbf{Does not take down the licensed claim.}
+The licensed claim is the negative: not a clear shaping success; not
+two-phase (shaper leave-2 \(25/750\) on the 50-epoch seed; epoch 1 both
+mostly opened 2).
+Info-off raises shaper leave-2, so the extra prompt is not irrelevant
+even if who-doves stays locked.
+Chicken already explains a hawk--dove split.
 
-The planned-arm sentence already written in Results is:
-``If stochastic regeneration leaves \(P(\mathrm{open}\ 0\mathrm{\ or}\ 1)\)
+A remaining weakness: three seeds \(\times\) 15 is small; the matched
+50-epoch naive is not in this chapter unless it finishes before freeze.
+That is a sample-size threat to how firmly the negative is held, not a
+licence to upgrade it.
+
+\section{Noise null (not a finding)}
+
+The planned-arm sentence in Chapter~\ref{ch:results} is:
+if stochastic regeneration leaves \(P(\mathrm{open}\ 0\mathrm{\ or}\ 1)\)
 and survival indistinguishable from the deterministic centred hawk or
 two-learner runs, noise is not doing the work; the basin and the update
-rule are.''
-That sentence is not a finding.
+rule are.
+That sentence is a pre-registered readout, not a result.
 The arm has not been run.
+It is also not abandoned: it remains the stated increment until numbers
+exist or Aims are re-scoped.
 
 \section{The lock is a method fact}
 
-\((R_0,K,T,\texttt{rate\_tenths})=(8,40,36,9)\) is a method lock, not a
-literature calibration.
-Reed (1979) is an aim-column citation for planned noise on this same locked
-update, not a source of those four integers
-(Chapter~\ref{ch:env}).
+\((R_0,K,T,\texttt{rate\_tenths})=(8,40,36,9)\) is a method lock from the
+integer logistic scout, not a literature calibration.
+Reed (1979) is an aim-column citation for planned noise on this same
+update (publisher abstract; PDF not obtained).
+It does not set those four integers (Chapter~\ref{ch:env}).

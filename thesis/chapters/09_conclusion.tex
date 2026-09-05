@@ -1,13 +1,29 @@
 \chapter{Conclusion}
 \label{ch:conc}
 
-This report measured ShapeLLM-style PPO on a two-player logistic chicken
-CPR (\(R_0=8\), \(K=40\), \(T=36\), \(\texttt{rate\_tenths}=9\)).
-Against a frozen hawk, centre-only advantages left the death-open;
+\section{Task}
+
+This report asked whether ShapeLLM-style trial PPO can be run on a
+sequential common-pool resource that is chicken rather than a payoff
+table, and whether a noise increment on that locked update is worth
+trying.
+The executed substrate is integer logistic CPR
+(\(R_0=8\), \(K=40\), \(T=36\), \(\texttt{rate\_tenths}=9\)).
+The noise arm has not been run; a null on that arm remains reportable.
+
+\section{Method}
+
+Against a frozen hawk, centre-only advantages left opening 2;
 batch whitening did not.
+The prior yields on the first action.
+It does not become a habit of take-1 across the tape.
+Against a frozen dove the learner does not copy take-1.
+
+\section{What two learners did not show}
+
 Two centred learners split hawk--dove: who doves swapped under
-naive--naive and did not under the shaper configs.
-That is not a clear shaping success, and it is not a two-phase teaching
-policy.
-Stochastic regeneration on the locked update has not been run; a null on
-that arm remains reportable.
+naive--naive and did not under the shaper configs (info-on and info-off).
+That is a role lock, not a clear shaping success, and not a two-phase
+teaching policy (shaper leave-2 on the 50-epoch seed: \(25/750\)).
+
+Code: \url{https://github.com/codalexl/cpr-shape-llm}.

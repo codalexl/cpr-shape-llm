@@ -56,8 +56,8 @@ Median in this set is ~**89** PDF pages. Floor is Qian at **48**. Our assembled 
 | Discussion / critique | Limitations now transcribe student-owned sentences. Still short. |
 | Figure/table density | Chicken table + farm cartoon + one openings plot |
 | Named method + algorithm box | Partial (env is named; PPO/whitening needs a figure a marker can grade) |
-| Repo URL | Placeholder |
-| Title page | Placeholders |
+| Repo URL | https://github.com/codalexl/cpr-shape-llm (on title leaf) |
+| Title page | Alex Lyu; Musolesi + Segura; 19 Sep 2026 |
 
 Software and tests can already look like distinction **engineering**. The write-up does not yet look like these reports. Closing that gap is: **fill Limitations (Alex-owned)**, **grow Results into analysis with figures**, **write a Discussion that puts chicken + frozen-bot + (later) shaper/null back into ShapeLLM / ICG**, **hit ≥30 pages of real main text without dropping below 12 pt**.
 

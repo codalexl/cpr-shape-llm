@@ -16,11 +16,14 @@ That difference is an implementation default, not a PPO-paper axiom.
 \section{What a claim is allowed to use}
 
 Mutual take-2 from \(R=8\) dies around round~4.
-A first-step take of 0 or 1 against a take-2 partner moves stock
+A first-step take of \textbf{1} against a take-2 partner moves stock
 \(8\to 9\).
 At \(R=9\), mutual take-2 is a fixed point and the rest of the horizon can
 be farmed.
-That is a \textbf{basin switch at the opening}, not a 36-step dove policy.
+A first-step take of \textbf{0} against take-2 moves stock \(8\to 11\),
+not onto that fixed point.
+The opening statistic still counts leave-2 (open 0 or 1).
+Those two tokens are not the same basin.
 
 Statistics:
 
@@ -38,15 +41,11 @@ Under whitening the star was compressed until the prior won on count.
 \section{Test A --- frozen hawk (always 2)}
 
 \textbf{Whitened.}
-Live take-1 fell \(6\%\to 3\%\); take-2 rose \(87\%\to 97\%\).
+Live take-1 fell \(6\%\to 3\%\).
 Survival was \(28/225\); deaths around round~4.
-The critic was not myopic: raw opening A0 was about \(+39.8\) on open 1
-versus \(+6.2\) on open 2 (about \(n=34\) versus \(n=177\) in the A0
-photograph).
+Raw opening A0 was about \(+39.8\) on open 1 versus \(+6.2\) on open 2.
 After whitening those became \(+1.38\) versus \(+0.75\).
 Sign survived; scale did not.
-The rare jackpot is the batch standard deviation, so the star shrinks
-itself, and many openings of 2 outvote few openings of 1.
 
 \textbf{Centre-only, seed 0.}
 Survival \(134/225\).
@@ -82,16 +81,51 @@ Seed & Last-epoch openings & Survived \\
 \end{tabular}
 \end{table}
 
-Seed 2 is not a failed replicate.
-0 and 1 are the same opening family: take less than 2 at \(R=8\).
-Which restraint token wins can move with the seed.
+Seed 2 last epoch left opening 2 via \textbf{0} (\(14/15\)), not 1.
+That is leave-2 on the primary statistic.
+It is not the \(R=8\to 9\) farm (open 0 vs hawk goes \(8\to 11\)).
+This chapter does not explain why seed 2 preferred 0.
 Whitened Test~A never left opening 2 and died.
 
 \textbf{Claim.}
-Against a frozen hawk, unflattened GAE is enough for PPO to leave the
-death-open.
+Against a frozen hawk, centre-only advantages (mean-subtract, no
+\texttt{/std}) moved the policy off opening 2 on three seeds; batch
+whitening did not.
 The prior yields on the first action.
 It does not become a habit of take-1 across the tape.
+This is a centre-versus-whiten contrast, not an ablation of GAE.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.92\textwidth]{figures/fig_openings_testA.pdf}
+\caption{Share of episodes that do not open 2 (open 0 or 1) against a
+  frozen always-2 partner.
+  Whitened Test~A never leaves the death-open.
+  Centre-only seeds 0--2 do.
+  Seed~2's last epochs leave 2 mostly via opening~0, not 1
+  (Table~\ref{tab:seeds}): leave-2, not the \(R=9\) farm.
+  This figure is the opening statistic.
+  It is not a 36-step dove policy and not a shaping result.}
+\label{fig:openingsA}
+\end{figure}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.92\textwidth]{figures/fig_death_rounds_testA.pdf}
+\caption{Collapse step among episodes that die, first three versus last
+  three epochs of Test~A.
+  Whitened runs keep dying near round~4.
+  Centre-only seed~0 last epochs mostly survive (survival in the panel
+  titles).
+  Supporting statistic only; the claim is the opening share in
+  Figure~\ref{fig:openingsA}.}
+\label{fig:deathsA}
+\end{figure}
+
+The live-step mix at epoch 15 is still mostly 2s under centre (take-1
+\(9\%\) on seed~0).
+After open-1 that is the \(R=9\) farm.
+After open-0 it is a different stock path.
 
 \section{Test B --- frozen dove (always 1)}
 
@@ -106,7 +140,8 @@ It did not copy 1 (take-1 stayed in the noise).
 
 \textbf{Centre-only B.}
 Survival \(223/225\).
-Mix locked on take-2 (about \(81\%\to 98\%\)); take-3 died.
+Live mix at the recorded readout: take-2 \(98\%\) (\(n=540\)); take-3
+\(2\%\).
 Open-1 share stuck at \(13\%\).
 The same star sat on open 1 and open 2 (centred about \(+20\) and \(+22\)).
 
@@ -210,8 +245,14 @@ and not \(\sim 0\)).
 It is not a clear shaping success.
 This report does not claim that the shaper taught the naive to take 1
 and then exploited by taking 2.
-Extra trial prompt is not what assigns who doves (info-off: who-doves
-still did not swap).
+Who-doves did not swap under info-on or info-off; it did swap under
+naive--naive.
+That contrast is not an isolation of the trial prompt: naive--shaper also
+uses trial-level update, LR \(3\times 10^{-7}\), and \texttt{cliprange=0.1}.
+The isolation run named in the record (slow-LR naive--naive) is not in
+this chapter.
+Info-off raises shaper leave-2 (4--5\% to 16--19\% whole-run), so the
+extra prompt is not irrelevant to leave-2 even if who-doves stays locked.
 Chicken explains a hawk--dove split; naive--naive already showed who doves
 is not fixed by the env alone.
 
@@ -230,8 +271,9 @@ is not fixed by the env alone.
 
 \section{Noise arm (planned, not run)}
 
-\textbf{Null.}
-If stochastic regeneration leaves \(P(\mathrm{open}\ 0\ \mathrm{or}\ 1)\)
-and survival indistinguishable from the deterministic centred hawk or
-two-learner runs, noise is not doing the work; the basin and the update
-rule are.
+This arm may be listed.
+It is not a result.
+If it is run, the pre-registered readout is: if stochastic regeneration
+leaves \(P(\mathrm{open}\ 0\ \mathrm{or}\ 1)\) and survival
+indistinguishable from the deterministic centred hawk or two-learner
+runs, noise is not doing the work; the basin and the update rule are.

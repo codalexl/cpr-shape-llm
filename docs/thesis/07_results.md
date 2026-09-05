@@ -8,7 +8,7 @@ These first runs are **learner versus a frozen constant partner** on the locked 
 
 ## What a claim is allowed to use
 
-Mutual take-2 from \(R=8\) dies around round 4. A first-step take of 0 or 1 against a take-2 partner moves stock \(8\to 9\). At \(R=9\), mutual take-2 is a fixed point and the rest of the horizon can be farmed. That is a **basin switch at the opening**, not a 36-step dove policy.
+Mutual take-2 from \(R=8\) dies around round 4. A first-step take of **1** against a take-2 partner moves stock \(8\to 9\); at \(R=9\), mutual take-2 is a fixed point and the rest of the horizon can be farmed. A first-step take of **0** against take-2 moves stock \(8\to 11\), not onto that fixed point. The opening statistic still counts leave-2 (open 0 or 1). Those two tokens are not the same basin.
 
 Statistics:
 
@@ -20,7 +20,7 @@ Raw opening advantage already starred that basin. Under whitening the star was c
 
 ## Test A — frozen hawk (always 2)
 
-**Whitened.** Live take-1 fell \(6\%\to 3\%\); take-2 rose \(87\%\to 97\%\). Survival was \(28/225\); deaths around round 4. The critic was not myopic: raw opening A0 was about \(+39.8\) on open 1 versus \(+6.2\) on open 2 (about \(n=34\) versus \(n=177\) in the A0 photograph). After whitening those became \(+1.38\) versus \(+0.75\). Sign survived; scale did not. The rare jackpot is the batch standard deviation, so the star shrinks itself, and many openings of 2 outvote few openings of 1.
+**Whitened.** Live take-1 fell \(6\%\to 3\%\). Survival was \(28/225\); deaths around round 4. Raw opening A0 was about \(+39.8\) on open 1 versus \(+6.2\) on open 2. After whitening those became \(+1.38\) versus \(+0.75\). Sign survived; scale did not.
 
 **Centre-only, seed 0.** Survival \(134/225\). Open-1 share \(27\%\to 87\%\); last epoch \(13/15\) opened 1 (from \(4/15\)). Epoch 12 was \(15/15\) open 1 and \(15/15\) survived. Centred opening A0 stayed loud on 1 (\(+16.7\) versus \(-5.7\) on 2; raw on 1 still \(\sim +40\)). Later 2s in winning games centre near 0: the jackpot stays on the first step. Take-3 died (\(8.5\%\to 0\%\)). Live mix remains mostly take-2 after the opening because that is the fixed-point farm.
 
@@ -32,9 +32,14 @@ Raw opening advantage already starred that basin. Under whitening the star was c
 | 1 | \(14/15\) opened 1 | \(113/225\) |
 | 2 | \(14/15\) opened 0, one opened 1 | \(160/225\) |
 
-Seed 2 is not a failed replicate. 0 and 1 are the same opening family: take less than 2 at \(R=8\). Which restraint token wins can move with the seed. Whitened Test A never left opening 2 and died.
+Seed 2 last epoch left opening 2 via **0** (14/15), not 1. That is leave-2 on the primary statistic. It is **not** the \(R=8\to 9\) farm (open 0 vs hawk goes \(8\to 11\)). This chapter does not explain why seed 2 preferred 0. Whitened Test A never left opening 2 and died.
 
-**Claim.** Against a frozen hawk, unflattened GAE is enough for PPO to leave the death-open. The prior yields on the first action. It does not become a habit of take-1 across the tape.
+**Claim.** Against a frozen hawk, centre-only advantages (mean-subtract, no `/std`) moved the policy off opening 2 on three seeds; batch whitening did not. The prior yields on the first action. It does not become a habit of take-1 across the tape. This is a centre-versus-whiten contrast, not an ablation of GAE.
+
+evidence: LIVE_FACTS § Test A center table + extra seeds; locked env \(8\to 9\) after a first **1** only
+does-not-license: shaping; two learners; a 36-step dove policy; open-0 = open-1 basin; “unflattened GAE” as a named mechanism
+
+The live-step mix at epoch 15 is still mostly 2s under centre (take-1 9% on seed 0). After open-**1** that is the \(R=9\) farm. After open-**0** it is a different stock path. Neither is a 36-step dove.
 
 ## Test B — frozen dove (always 1)
 
@@ -42,7 +47,7 @@ There is no opening basin. Open 1 and open 2 receive the same star.
 
 **Whitened B.** Survival \(219/225\). Mix moved \(80\%\to 38\%\) take-2 and \(18\%\to 62\%\) take-3. The learner farmed the dove, then smash-harvested. It did not copy 1 (take-1 stayed in the noise).
 
-**Centre-only B.** Survival \(223/225\). Mix locked on take-2 (about \(81\%\to 98\%\)); take-3 died. Open-1 share stuck at \(13\%\). The same star sat on open 1 and open 2 (centred about \(+20\) and \(+22\)).
+**Centre-only B.** Survival \(223/225\). Live mix at the recorded readout: 2 **98%** (\(n=540\)); take-3 2%. Open-1 share stuck at \(13\%\). The same star sat on open 1 and open 2 (centred about \(+20\) and \(+22\)).
 
 **Claim.** Unflattening does not invent restraint. Against a dove it suppresses unnecessary smash and leaves the chicken grab: learner 2, partner 1, payoff 72, pool lives. Whitened greed got louder (\(2\to 3\)). Centred greed got cleaner (stay on 2). Neither is a shaping result.
 
@@ -62,7 +67,10 @@ Same lock, `advantage_norm=center`, entropy 0.05. Claim statistic remains share 
 
 **Info-off shaper, 3×15.** Same trial update and LR; `transmit_info=false`. Survival 118, 107, 89 out of 225. Who leaves 2 still did not swap. Agent 2 leave-2 last three epochs 18%, 22%, 13%; whole run 16%, 19%, 16% (higher than info-on 4–5%, and not ~0).
 
-**Alex-owned (do not strengthen).** It is not a clear shaping success. Do not claim the shaper taught the naive to take 1 and then exploited by taking 2. Extra trial prompt is not what assigns who doves (info-off: who-doves still did not swap). Chicken explains a hawk–dove split; naive–naive already showed who doves is not fixed by the env alone.
+**Floor (do not strengthen).** It is not a clear shaping success. Do not claim the shaper taught the naive to take 1 and then exploited by taking 2. Who-doves did not swap under info-on or info-off; it did swap under naive–naive. That contrast is **not** an isolation of the trial prompt: naive–shaper also uses trial-level update, LR \(3\times 10^{-7}\), and `cliprange=0.1`. LIVE_FACTS names slow-LR naive–naive as the isolation run; those numbers are not in this chapter. Info-off raises shaper leave-2 (4–5% → 16–19% whole-run), so the extra prompt is not irrelevant to leave-2 even if who-doves stays locked. Chicken explains a hawk–dove split; naive–naive already showed who doves is not fixed by the env alone.
+
+evidence: LIVE_FACTS § centred naive–naive / naive–shaper / e50 / info-off tables; Next protocol (slow2 not yet merged)
+does-not-license: shaping success; two-phase teaching; prompt-as-assignment; “role lock” as an OS finding
 
 - **Grid success (still the bar).** The shaper changes the opening distribution or the outcome bins relative to centred naive–naive, in a way that tracks the learner’s current behaviour.
 - **Grid null.** Same openings, same collapse, same bins as the control. Live-mix will not rescue a null.
@@ -70,4 +78,7 @@ Same lock, `advantage_norm=center`, entropy 0.05. Claim statistic remains share 
 
 ## Noise arm (planned, not run)
 
-**Null.** If stochastic regeneration leaves \(P(\text{open }0\text{ or }1)\) and survival indistinguishable from the deterministic centred hawk or two-learner runs, noise is not doing the work; the basin and the update rule are.
+Writers may list this arm. They may not write it as a result. The pre-registered readout, if the arm is run, is: if stochastic regeneration leaves \(P(\text{open }0\text{ or }1)\) and survival indistinguishable from the deterministic centred hawk or two-learner runs, noise is not doing the work; the basin and the update rule are.
+
+evidence: LIVE_FACTS § Live aim — not yet run
+does-not-license: a noise finding; abandoned increment
