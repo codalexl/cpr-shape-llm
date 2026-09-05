@@ -12,7 +12,10 @@ from typing import List, Dict, Optional
 from utils.dataset_utils import simple_collator
 from utils.device_utils import get_device, get_device_str
 from utils.file_management_utils import StatsLogger
-from utils.training_utils import AllowedTokensLogitsProcessor, CustomPPOTrainer, mask_illegal_logits
+from utils.training_utils import (
+    AllowedTokensLogitsProcessor, CustomPPOTrainer, first_index_by_env_id,
+    mask_illegal_logits,
+)
 
 
 @dataclass 
@@ -43,6 +46,7 @@ class AgentConfig():
     entropy_coef_horizon: Optional[int] = 1000
     print_training_stats: Optional[bool] = True
     track_gradients: Optional[bool] = False
+    advantage_norm: Optional[str] = "whiten"
     training_cont: Optional[bool] = False
     a1_tok: Optional[int] = 235288
     a2_tok: Optional[int] = 235299
@@ -110,11 +114,16 @@ class PPOAgent():
         self.min_valid_transitions = 2  # skip PPO updates when filtered batch collapses
         self.max_sampling_retries = 4   # see _resample_illegal: works around an MPS multinomial bug
         self.trainer_config = PPOConfig(model_name = config.model_path, **config.ppo_params)
+        self.advantage_norm = config.advantage_norm or "whiten"
         self.trainer = CustomPPOTrainer(init_entropy_coef = config.init_entropy_coef, final_entropy_coef = config.final_entropy_coef, entropy_coef_horizon = config.entropy_coef_horizon, \
-                 legal_tokens=legal_tokens, track_gradients = config.track_gradients, model=self.model, config=self.trainer_config, dataset=None, tokenizer=self.tokenizer, data_collator=simple_collator)
+                 legal_tokens=legal_tokens, track_gradients = config.track_gradients, advantage_norm=self.advantage_norm, model=self.model, config=self.trainer_config, dataset=None, tokenizer=self.tokenizer, data_collator=simple_collator)
 
         # Initialise stats logger
         self.logger = StatsLogger(track_gradients = config.track_gradients)
+        self.opening_log: List[Dict] = []
+        self.live_adv_log: List[Dict] = []
+        self.n_updates = 0
+        self.current_epoch = 0
 
     def tokenize_observation(self, obs: List[str]) -> List[torch.Tensor]:
         """Tokenize observations. returns a List of torch.Tensors as it is the format required by the PPO Trainer"""
@@ -185,10 +194,109 @@ class PPOAgent():
         stats = self.trainer.step(query_tensors, response_tensors, rewards) # Update parameters
         if self.trainer.track_gradients:
             stats["temp_grads"] = self.trainer.gradient_tracker.temp_grad_norm
+        self.n_updates += 1
+        self._record_openings(response_tensors, rewards)
+        self._record_live_advantages(response_tensors)
         self._print_stats(stats) # Print key statistics 
         self.logger.log_stats(stats)
 
         self.trainer.update_entropy_coef()# Update entropy coefficient
+
+    def _record_openings(self, response_tensors, rewards) -> None:
+        """Log neural GAE on the first live step of each parallel game.
+
+        That is A0: same reset prompt, different opening action. Raw GAE is
+        pre-norm; A0 is what the policy loss actually sees after advantage_norm.
+        """
+        trainer = self.trainer
+        env_ids = trainer.env_ids
+        if env_ids is None or getattr(trainer, "last_advantages", None) is None:
+            return
+        tok_to_action = {int(t): a for a, t in enumerate(self.legal_tokens)}
+
+        def _cell(t, i):
+            x = t[i, -1] if t.dim() > 1 else t[i]
+            return float(x.detach().cpu())
+
+        def _token(resp):
+            t = resp if torch.is_tensor(resp) else torch.as_tensor(resp)
+            return int(t.reshape(-1)[-1].item())
+
+        def _reward(r, i):
+            x = r[i]
+            if torch.is_tensor(x):
+                return float(x.reshape(-1)[0].item())
+            return float(x)
+
+        rows = []
+        for gid, i in first_index_by_env_id(list(env_ids)).items():
+            tok = _token(response_tensors[i])
+            action = tok_to_action.get(tok)
+            if action is None:
+                continue
+            row = {
+                "epoch": int(self.current_epoch),
+                "update": int(self.n_updates),
+                "game": int(gid),
+                "action": int(action),
+                "token": tok,
+                "r0": _reward(rewards, i),
+                "A0": _cell(trainer.last_advantages, i),
+                "A0_raw": _cell(trainer.last_advantages_raw, i),
+                "V0": _cell(trainer.last_values, i),
+                "G0": _cell(trainer.last_returns, i),
+            }
+            self.opening_log.append(row)
+            rows.append(row)
+        if not rows:
+            return
+        by = {}
+        for row in rows:
+            by.setdefault(row["action"], []).append(row)
+        bits = []
+        for a in sorted(by):
+            xs = by[a]
+            mean_w = sum(r["A0"] for r in xs) / len(xs)
+            mean_raw = sum(r["A0_raw"] for r in xs) / len(xs)
+            bits.append(f"{a}:{mean_w:+.2f} raw={mean_raw:+.1f} n={len(xs)}")
+        print(f"open A0 {self._adv_norm_label()} | " + " | ".join(bits))
+
+    def _adv_norm_label(self) -> str:
+        return {"whiten": "whitened", "center": "center", "none": "raw"}.get(
+            self.advantage_norm, self.advantage_norm
+        )
+
+    def _record_live_advantages(self, response_tensors) -> None:
+        """Mean raw GAE by action on every live step — smear check for later 2s."""
+        trainer = self.trainer
+        if getattr(trainer, "last_advantages_raw", None) is None:
+            return
+        mask = getattr(trainer, "last_mask", None)
+        tok_to_action = {int(t): a for a, t in enumerate(self.legal_tokens)}
+
+        def _cell(t, i):
+            x = t[i, -1] if t.dim() > 1 else t[i]
+            return float(x.detach().cpu())
+
+        def _token(resp):
+            t = resp if torch.is_tensor(resp) else torch.as_tensor(resp)
+            return int(t.reshape(-1)[-1].item())
+
+        n = len(response_tensors)
+        for i in range(n):
+            if mask is not None and _cell(mask, i) < 0.5:
+                continue
+            tok = _token(response_tensors[i])
+            action = tok_to_action.get(tok)
+            if action is None:
+                continue
+            self.live_adv_log.append({
+                "epoch": int(self.current_epoch),
+                "update": int(self.n_updates),
+                "action": int(action),
+                "A": _cell(trainer.last_advantages, i),
+                "A_raw": _cell(trainer.last_advantages_raw, i),
+            })
     
     def update_vf_coef(self) -> None:
         """Update the value function coefficient in the total PPO loss."""

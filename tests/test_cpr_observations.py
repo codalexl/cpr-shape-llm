@@ -253,11 +253,11 @@ def demo_prompts() -> None:
         print("  ERROR: expected ValueError")
 
     print("\n" + "=" * 72)
-    print("Demo done. Comment out demo_prompts() in __main__ when finished learning.")
+    print("Demo done.")
     print("=" * 72 + "\n")
 
 if __name__ == "__main__":
-    #demo_prompts()
+    demo_prompts()
 
     passed = 0
     for name, fn in sorted(globals().items()):

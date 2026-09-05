@@ -2,8 +2,8 @@
 """
 Integer logistic-regrowth CPR scout.
 
-Does not modify cpr_env.py. Harvest/scarcity/absorbing-zero match CPRDynamics;
-only the regeneration line differs:
+Scout / ranking helper. Growth arithmetic lives in cpr_env.py. Harvest, scarcity
+and absorbing-zero match CPRDynamics. Regeneration:
 
     growth = round_half_even(rate_tenths * R * (K - R) / (10 * K))
     R_next = min(K, R + growth)   if R > 0 after harvest else 0
@@ -29,6 +29,7 @@ from typing import List, Optional, Sequence, Tuple
 
 import numpy as np
 
+from cpr_env import logistic_growth, round_half_even_div, zero_growth_stocks
 from cpr_solve import (
     MIXED_WEIGHTS,
     _strict_nash,
@@ -38,29 +39,6 @@ from cpr_solve import (
 )
 
 NA = 4
-
-
-def round_half_even_div(num: int, den: int) -> int:
-    """Nearest integer to num/den, ties to even. num >= 0, den > 0."""
-    q, r = divmod(num, den)
-    two_r = r * 2
-    if two_r > den:
-        return q + 1
-    if two_r < den:
-        return q
-    return q if q % 2 == 0 else q + 1
-
-
-def logistic_growth(R: int, K: int, rate_tenths: int) -> int:
-    """Integer growth at post-harvest stock R. 0 at R=0 and at R=K."""
-    if R <= 0 or R >= K:
-        return 0
-    return round_half_even_div(rate_tenths * R * (K - R), 10 * K)
-
-
-def zero_growth_stocks(K: int, rate_tenths: int) -> Tuple[int, ...]:
-    """R in 1..K-1 at which rounding makes growth zero (recovery impossible)."""
-    return tuple(R for R in range(1, K) if logistic_growth(R, K, rate_tenths) == 0)
 
 
 def logistic_tables(K: int, rate_tenths: int):

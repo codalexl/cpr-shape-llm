@@ -7,19 +7,17 @@ Read out a CPR run against the Stage-A gate criteria.
 
 The three gates, in priority order:
 
-  1. Is there a learning signal at all?  `std_score == 0` means every reward in that
-     batch was identical, so the whitened advantage is ~0 and the update did nothing.
+  1. Is there a learning signal at all? 
      The first smoke run hit this on half its updates because the live-state policy was
-     deterministic (every request was "2"). If this still fails, raise init_entropy_coef
-     before touching anything else.
+     deterministic (every request was "2").  `std_score == 0` means every reward in that
+     batch was identical, so the whitened advantage is ~0 and the update did nothing.
+     If this still fails, raise init_entropy_coef before touching anything else.
 
   2. Is the value function stable?  It was compounding (424 -> 1118 over four updates)
      under score scaling, because dividing by a ~0.35 reward std inflated the targets.
 
   3. Has the policy actually moved off the untrained prior (~90% on "2")?
 
-Depends only on the stdlib, so it runs anywhere the repo does — including a pod with no
-analysis extras installed.
 """
 
 import argparse

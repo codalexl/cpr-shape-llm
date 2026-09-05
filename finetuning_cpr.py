@@ -13,6 +13,7 @@ this file does not write them they are silently lost.
 """
 
 import argparse
+from collections import Counter, defaultdict
 
 from agents import AgentConfig, PPOAgent
 from cpr_game import CPRGame, CPRGameParams
@@ -31,6 +32,7 @@ def main():
     parser.add_argument('config_path', type=str, help='Path to the configuration file')
     parser.add_argument('saving_path', type=str, help='Saving path')
     parser.add_argument('--n_seeds', type=int, default=3, help='Number of seeds')
+    parser.add_argument('--seed_start', type=int, default=0, help='First RNG seed (exp1 maps to this)')
     parser.add_argument('--no_epochs', type=int, default=20, help='Number of training epochs')
     parser.add_argument('--checkpoint_freq', type=int, default=50, help='Save a model checkpoint every N epochs. If not set, no checkpoints are saved.')
 
@@ -39,6 +41,7 @@ def main():
     validate_config(full_config, "cpr_two_learners")
     saving_path = args.saving_path
     n_seeds, no_epochs, checkpoint_freq = args.n_seeds, args.no_epochs, args.checkpoint_freq
+    seed_start = args.seed_start
 
     print("Arguments parsed")
 
@@ -49,8 +52,7 @@ def main():
     ppo_agent_config1 = AgentConfig(**full_config["ppo_agent_parameters1"])
     ppo_agent_config2 = AgentConfig(**full_config["ppo_agent_parameters2"])
 
-    # Generate n_seeds different seeds for the experiment
-    seeds, exp_ids = list(range(n_seeds)), list(range(1, n_seeds + 1))
+    seeds, exp_ids = list(range(seed_start, seed_start + n_seeds)), list(range(1, n_seeds + 1))
     experiment_path = lambda x: f"{saving_path}/exp{x}_"
 
     print("Ready to start experiments")
@@ -59,6 +61,7 @@ def main():
 
         seed = int(seed)
         set_seed(seed)
+        print(f"RNG seed {seed} → {experiment_path(ind)}")
 
         # Initialise agents
         agent1 = PPOAgent(ppo_agent_config1)
@@ -72,6 +75,8 @@ def main():
 
             print(f"Starting epoch {epoch+1}:")
             game.epoch = epoch  # stamped onto every record row for later alignment
+            agent1.current_epoch = epoch
+            agent2.current_epoch = epoch
             traj_data1, traj_data2, outcomes = outer_rollout(game, agent1, agent2)
 
             for agent, data in zip([agent1, agent2], [traj_data1, traj_data2]):
@@ -80,6 +85,10 @@ def main():
                     agent.update_vf_coef()
 
             _print_epoch_summary(game, epoch)
+            _print_opening_a0(agent1, epoch)
+            _print_opening_a0(agent2, epoch)
+            _print_live_a_raw(agent1, epoch)
+            _print_live_a_raw(agent2, epoch)
 
             if checkpoint_freq and (((epoch + 1) % checkpoint_freq) == 0 or epoch == (no_epochs - 1)):
                 agent1.trainer.save_pretrained(experiment_path(ind) + f"model1_model_checkpoint_{epoch+1}")
@@ -89,7 +98,12 @@ def main():
         agent2.logger.save_stats(experiment_path(ind) + "model2_")
         save_to_json(game.outcomes, experiment_path(ind) + "all_round_outcomes")
         save_to_json(game.records, experiment_path(ind) + "cpr_records")
+        save_to_json(agent1.opening_log, experiment_path(ind) + "model1_opening_a0")
+        save_to_json(agent2.opening_log, experiment_path(ind) + "model2_opening_a0")
+        save_to_json(agent1.live_adv_log, experiment_path(ind) + "model1_live_adv")
+        save_to_json(agent2.live_adv_log, experiment_path(ind) + "model2_live_adv")
         print(f"Per-step records saved to {experiment_path(ind)}cpr_records")
+        print(f"Opening A0 logs saved ({len(agent1.opening_log)} / {len(agent2.opening_log)} rows)")
 
         del agent1, agent2
         empty_device_cache()
@@ -114,10 +128,54 @@ def _print_epoch_summary(game: CPRGame, epoch: int) -> None:
                    if records["step"][i] == game.t_max and not records["depleted"][i])
     episodes = game.e_max * game.n_games
 
+    live = [i for i in rows_this_epoch if not records["masked"][i]]
+    mix = Counter(records["request_1"][i] for i in live)
+    n_live = max(len(live), 1)
+    dist = " ".join(f"{a}:{mix.get(a, 0) / n_live:.0%}" for a in range(game.n_actions))
+
+    mix2 = Counter(records["request_2"][i] for i in live)
+    dist2 = " ".join(f"{a}:{mix2.get(a, 0) / n_live:.0%}" for a in range(game.n_actions))
+
     print(f"\nEpoch {epoch+1} CPR summary — "
           f"survived {survived}/{episodes} episodes | "
           f"returns {reward_1/game.n_games:.1f} / {reward_2/game.n_games:.1f} per game | "
           f"masked {sum(masked)/len(masked):.0%} of steps")
+    print(f"  live request_1 mix  {dist}  (n={len(live)})")
+    print(f"  live request_2 mix  {dist2}  (n={len(live)})")
+
+
+def _print_opening_a0(learner, epoch: int) -> None:
+    """Epoch rollup of neural A0 on the opening step."""
+    rows = [r for r in learner.opening_log if r["epoch"] == epoch]
+    if not rows:
+        return
+    by = defaultdict(list)
+    for r in rows:
+        by[r["action"]].append(r)
+    bits = []
+    for a in sorted(by):
+        xs = by[a]
+        w = sum(r["A0"] for r in xs) / len(xs)
+        raw = sum(r["A0_raw"] for r in xs) / len(xs)
+        bits.append(f"{a}:{w:+.2f} raw={raw:+.1f} n={len(xs)}")
+    print(f"Epoch {epoch + 1} agent{learner.agent_id} open A0 {learner._adv_norm_label()}  " + " | ".join(bits))
+
+
+def _print_live_a_raw(learner, epoch: int) -> None:
+    """Epoch rollup of raw GAE by action on every live step."""
+    rows = [r for r in learner.live_adv_log if r["epoch"] == epoch]
+    if not rows:
+        return
+    by = defaultdict(list)
+    for r in rows:
+        by[r["action"]].append(r)
+    bits = []
+    for a in sorted(by):
+        xs = by[a]
+        raw = sum(r["A_raw"] for r in xs) / len(xs)
+        post = sum(r["A"] for r in xs) / len(xs)
+        bits.append(f"{a}:raw={raw:+.1f} post={post:+.2f} n={len(xs)}")
+    print(f"Epoch {epoch + 1} agent{learner.agent_id} live A_raw  " + " | ".join(bits))
 
 
 if __name__ == "__main__":

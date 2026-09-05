@@ -8,9 +8,13 @@ Rules, in order, per step:
   1. Both agents request a_i in {0, 1, 2, 3}.
   2. If a1 + a2 <= R   -> each receives its request;         R -= (a1 + a2)
      else (scarcity)   -> each receives min(a_i, R // 2);    R  = 0, remainder wasted
-  3. If R > 0          -> R = min(ceiling, R + g)
+  3. If R > 0          -> regenerate, capped at ceiling (see CPRParams)
      else              -> R stays 0 permanently (absorbing zero)
 Reward = units actually received. Episodes run the full horizon; a dead pool simply pays 0.
+
+Regeneration is linear (`R + g`) when `rate_tenths` is None, and integer logistic
+when it is set: growth = round_half_even(rate_tenths * R * (ceiling - R) / (10 * ceiling)).
+The live training configs use logistic; linear remains so the original fixtures still run.
 
 Two edge cases that are easy to lose on a reimplementation, both deliberate:
 
@@ -40,14 +44,43 @@ import numpy as np
 NO_COLLAPSE = -1
 
 
+def round_half_even_div(num: int, den: int) -> int:
+    """Nearest integer to num/den, ties to even. num >= 0, den > 0. Integer only."""
+    q, r = divmod(num, den)
+    two_r = r * 2
+    if two_r > den:
+        return q + 1
+    if two_r < den:
+        return q
+    return q if q % 2 == 0 else q + 1
+
+
+def logistic_growth(R: int, K: int, rate_tenths: int) -> int:
+    """Integer logistic increment at post-harvest stock R. Zero at R=0 and R=K."""
+    if R <= 0 or R >= K:
+        return 0
+    return round_half_even_div(rate_tenths * R * (K - R), 10 * K)
+
+
+def zero_growth_stocks(K: int, rate_tenths: int) -> tuple:
+    """Interior stocks 1..K-1 at which rounding makes recovery impossible."""
+    return tuple(R for R in range(1, K) if logistic_growth(R, K, rate_tenths) == 0)
+
+
 @dataclass(frozen=True)
 class CPRParams:
-    """Environment parameters. Defaults are the configuration selected in verify_cpr.py."""
+    """Environment parameters.
+
+    Linear defaults match verify_cpr.py (`R0=20, g=2, ceiling=20, T=30`).
+    Set `rate_tenths` to switch regeneration to logistic; `g` is then unused.
+    Live training uses R0=8, ceiling=40, horizon=36, rate_tenths=9 (rate 0.9).
+    """
     R0: int = 20
     g: int = 2
     ceiling: int = 20
     horizon: int = 30
     n_actions: int = 4
+    rate_tenths: Optional[int] = None
 
     def __post_init__(self):
         assert self.R0 >= 0 and self.g >= 0 and self.horizon > 0, "R0, g must be >= 0; horizon > 0"
@@ -55,10 +88,20 @@ class CPRParams:
             f"ceiling ({self.ceiling}) below R0 ({self.R0}) would truncate the initial stock"
         )
         assert self.n_actions >= 2, f"need at least 2 actions; got {self.n_actions}"
+        if self.rate_tenths is not None:
+            assert self.rate_tenths > 0, f"rate_tenths must be > 0; got {self.rate_tenths}"
+
+    @property
+    def logistic(self) -> bool:
+        return self.rate_tenths is not None
 
     @property
     def max_action(self) -> int:
         return self.n_actions - 1
+
+
+# Live training configuration. Linear fixtures in tests keep the CPRParams defaults.
+LOGISTIC = CPRParams(R0=8, g=0, ceiling=40, horizon=36, n_actions=4, rate_tenths=9)
 
 
 @dataclass
@@ -83,6 +126,13 @@ class CPRDynamics:
         assert n_games >= 1, f"n_games must be >= 1; got {n_games}"
         self.params, self.n_games = params, n_games
         self.R = np.empty(n_games, dtype=np.int64)
+        if params.logistic:
+            K, tenths = params.ceiling, params.rate_tenths
+            self._growth = np.array(
+                [logistic_growth(r, K, tenths) for r in range(K + 1)], dtype=np.int64
+            )
+        else:
+            self._growth = None
         self.reset()
 
     def reset(self) -> np.ndarray:
@@ -115,7 +165,11 @@ class CPRDynamics:
 
         # Regeneration only while the pool is strictly alive; zero is absorbing.
         alive = R_harvested > 0
-        R_end = np.where(alive, np.minimum(self.params.ceiling, R_harvested + self.params.g), 0)
+        if self._growth is None:
+            grown = R_harvested + self.params.g
+        else:
+            grown = R_harvested + self._growth[R_harvested]
+        R_end = np.where(alive, np.minimum(self.params.ceiling, grown), 0)
 
         self.t += 1
         newly_dead = (~alive) & (self.collapse_step == NO_COLLAPSE)

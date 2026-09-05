@@ -1,11 +1,12 @@
 {
   "game_parameters": {
-    "t_max": 30,
+    "t_max": 36,
     "e_max": 5,
     "n_games": 3,
-    "R0": 20,
-    "g": 2,
-    "ceiling": 20,
+    "R0": 8,
+    "g": 0,
+    "ceiling": 40,
+    "rate_tenths": 9,
     "n_actions": 4
   },
   "obs_manager_parameters1": {
@@ -22,7 +23,7 @@
       "3"
     ],
     "is_shaper": false,
-    "R0": 20,
+    "R0": 8,
     "model_name": "gemma-2b"
   },
   "obs_manager_parameters2": {
@@ -39,7 +40,7 @@
       "3"
     ],
     "is_shaper": false,
-    "R0": 20,
+    "R0": 8,
     "model_name": "gemma-2b"
   },
   "ppo_agent_parameters1": {
@@ -65,9 +66,10 @@
       "use_score_scaling": false,
       "use_score_norm": false
     },
-    "init_entropy_coef": 0.05,
+    "init_entropy_coef": 0.15,
     "final_entropy_coef": 0.01,
-    "entropy_coef_horizon": 150
+    "entropy_coef_horizon": 150,
+    "track_gradients": true
   },
   "ppo_agent_parameters2": {
     "agent_id": 2,
@@ -92,8 +94,9 @@
       "use_score_scaling": false,
       "use_score_norm": false
     },
-    "init_entropy_coef": 0.05,
+    "init_entropy_coef": 0.15,
     "final_entropy_coef": 0.01,
-    "entropy_coef_horizon": 150
+    "entropy_coef_horizon": 150,
+    "track_gradients": true
   }
 }

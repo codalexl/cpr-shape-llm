@@ -18,7 +18,7 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from cpr_env import NO_COLLAPSE, CPRDynamics, CPRParams
+from cpr_env import LOGISTIC, NO_COLLAPSE, CPRDynamics, CPRParams, logistic_growth, zero_growth_stocks
 from verify_cpr import ACTIONS, const, episode, payoff_matrix
 
 CONFIG = CPRParams(R0=20, g=2, ceiling=20, horizon=30)
@@ -196,6 +196,41 @@ def test_everything_stays_integer():
     out = env.step(np.array([3, 1]), np.array([3, 1]))
     for name in ("R_start", "request_1", "received_1", "received_2", "R_end"):
         assert np.issubdtype(getattr(out, name).dtype, np.integer), name
+
+
+# ---------------------------------------------------------------- logistic (live training rule)
+
+
+def test_logistic_headlines():
+    """Working logistic game: restraint lasts, greed collapses, not a flat vs-2 column."""
+    assert run_constant(LOGISTIC, 1, 1) == (36, 36, None)
+    assert run_constant(LOGISTIC, 2, 2) == (7, 7, 4)
+    assert run_constant(LOGISTIC, 3, 3) == (5, 5, 2)
+
+
+def test_logistic_growth_at_low_stock_is_positive():
+    """rate=0.9, K=40: R=1 still grows. This is the freeze we refused to ship."""
+    assert zero_growth_stocks(LOGISTIC.ceiling, LOGISTIC.rate_tenths) == ()
+    env = CPRDynamics(CPRParams(R0=1, g=0, ceiling=40, horizon=1, rate_tenths=9), n_games=1)
+    out = env.step(np.array([0]), np.array([0]))
+    assert int(out.R_end[0]) == 1 + logistic_growth(1, 40, 9) == 2
+
+
+def test_logistic_capacity_does_not_grow():
+    env = CPRDynamics(CPRParams(R0=40, g=0, ceiling=40, horizon=1, rate_tenths=9), n_games=1)
+    out = env.step(np.array([0]), np.array([0]))
+    assert int(out.R_end[0]) == 40
+
+
+def test_logistic_preserves_absorbing_zero_and_exact_depletion():
+    env = CPRDynamics(CPRParams(R0=4, g=0, ceiling=40, horizon=1, rate_tenths=9), n_games=1)
+    out = env.step(np.array([2]), np.array([2]))
+    assert (int(out.received_1[0]), int(out.received_2[0])) == (2, 2)
+    assert not bool(out.scarcity[0])
+    assert int(out.R_end[0]) == 0
+    env = CPRDynamics(CPRParams(R0=0, g=0, ceiling=40, horizon=1, rate_tenths=9), n_games=1)
+    out = env.step(np.array([1]), np.array([1]))
+    assert int(out.R_end[0]) == 0 and bool(out.masked[0])
 
 
 # ------------------------------------------- demo prompts

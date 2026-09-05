@@ -209,13 +209,33 @@ __marimo__/
 # macOS
 .DS_Store
 
-# Custom
+# Weights, caches, local-only write-up
 models/
 adapter/
 bitsandbytes/
 Experiments/
 checkpoints/
-RUNPOD.md
+.env.hf
+.base_sha
+
+# Other students' MSc reports (copyrighted; local bar only)
+distinction/
+
+# Write-up blobs not needed on a training box
+files (1)/
+LaTeX template-20260901.zip
+cs_project_marking_form_pg_1516.docx
+/*.pdf
+thesis/main.pdf
+thesis/*.aux
+thesis/*.bbl
+thesis/*.blg
+thesis/*.lof
+thesis/*.lot
+thesis/*.synctex.gz
+
+# RPS dump (tens of MB). Smoke summaries live under archive/ipd_rps/.
+analysis/rps_gate50/
 
 # LaTeX build artifacts
 *.aux
@@ -223,3 +243,5 @@ RUNPOD.md
 *.toc
 *.log
 *.synctex.gz
+*.lof
+*.lot

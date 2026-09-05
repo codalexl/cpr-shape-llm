@@ -17,6 +17,36 @@ from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 from utils.device_utils import get_device
 
 
+def first_index_by_env_id(env_ids: List[int]) -> Dict[int, int]:
+    """Opening step of each parallel game in a flattened PPO batch."""
+    first = {}
+    for i, gid in enumerate(env_ids):
+        first.setdefault(int(gid), i)
+    return first
+
+
+def normalize_advantages(
+    advantages: torch.FloatTensor,
+    mask: torch.FloatTensor,
+    mode: str = "whiten",
+) -> torch.FloatTensor:
+    """What the policy loss sees. Default is TRL batch whitening (mean 0, var 1).
+
+    `center` subtracts the masked mean and leaves the scale: the rare +40 star
+    stays ~6× the typical +6, instead of being crushed by the std it created.
+    `none` passes GAE through. Masked positions are zeroed in every mode.
+    """
+    if mode == "whiten":
+        out = masked_whiten(advantages, mask)
+    elif mode == "center":
+        out = advantages - masked_mean(advantages, mask)
+    elif mode == "none":
+        out = advantages
+    else:
+        raise ValueError(f"advantage_norm must be whiten, center, or none; got {mode!r}")
+    return torch.masked_fill(out, ~mask.bool(), 0)
+
+
 def mask_illegal_logits(logits: torch.Tensor, legal_tokens: List[int]) -> torch.Tensor:
     """Hard-mask logits so the policy support is exactly the legal action set."""
     banned = torch.ones(logits.shape[-1], dtype=torch.bool, device=logits.device)
@@ -125,7 +155,7 @@ class RunningMoments:
 
 class CustomPPOTrainer(PPOTrainer):
     """Added functionality - considers full episode in GAE, and allows for non-zero masked entropy term"""
-    def __init__(self, *args, track_gradients:bool=False, init_entropy_coef:float=0., final_entropy_coef:float=0., entropy_coef_horizon:int=1000, legal_tokens:Optional[List[int]]=None, a1_tok:int=235288, a2_tok:int=235299, a3_tok:Optional[int]=None, **kwargs): 
+    def __init__(self, *args, track_gradients:bool=False, init_entropy_coef:float=0., final_entropy_coef:float=0., entropy_coef_horizon:int=1000, legal_tokens:Optional[List[int]]=None, a1_tok:int=235288, a2_tok:int=235299, a3_tok:Optional[int]=None, advantage_norm:str="whiten", **kwargs): 
         super().__init__(*args, **kwargs)
         if legal_tokens is not None:
             self.legal_tokens = list(legal_tokens)
@@ -135,6 +165,9 @@ class CustomPPOTrainer(PPOTrainer):
         self.a3_tok = self.legal_tokens[2] if len(self.legal_tokens) > 2 else None
         self.env_ids, self.n = None, None 
         self.track_gradients = track_gradients
+        if advantage_norm not in ("whiten", "center", "none"):
+            raise ValueError(f"advantage_norm must be whiten, center, or none; got {advantage_norm!r}")
+        self.advantage_norm = advantage_norm
 
         # Save all the entropy control related parameters
         self.entropy_coef = init_entropy_coef # Initialise entropy to initial value 
@@ -254,9 +287,15 @@ class CustomPPOTrainer(PPOTrainer):
         advantages = advantages.to(get_device())
 
         returns = advantages + values
-        advantages = masked_whiten(advantages, mask) # (* mask) This was the previous version 
-        advantages = torch.masked_fill(advantages, ~mask.bool(), 0) # Otherwise advantages are not really zero. # Added this 
+        advantages_raw = advantages.detach().clone()
+        advantages = normalize_advantages(advantages, mask, self.advantage_norm)
         advantages = advantages.detach()
+        self.last_advantages_raw = advantages_raw
+        self.last_advantages = advantages
+        self.last_values = values.detach()
+        self.last_returns = returns.detach()
+        self.last_adv_rewards = rewards.detach()
+        self.last_mask = mask.detach()
 
         return values, advantages, returns
     

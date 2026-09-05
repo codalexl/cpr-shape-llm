@@ -56,7 +56,7 @@ def validate_config(config: Dict, simulation_type:str = "fixed_opponent") -> Non
     elif simulation_type == "cpr_two_learners":
         # CPR rewards come from environment dynamics, so there is no reward matrix to
         # cross-check. That absence is deliberate: it removes the r_matrix orientation
-        # bug class entirely (see THESIS_NOTES.md).
+        # bug class entirely (see docs/LIVE_FACTS.md).
         obs1, obs2 = config["obs_manager_parameters1"], config["obs_manager_parameters2"]
         assert obs1["action_toks"] == obs2["action_toks"], "Both observation managers must use the same action tokens"
         assert obs1["action_strings"] == obs2["action_strings"], "Both observation managers must use the same action strings"

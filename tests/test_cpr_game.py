@@ -31,6 +31,7 @@ except Exception:
     _stub.PPOAgent = _stub.FixedAgent = object
     sys.modules["agents"] = _stub
 
+from cpr_env import LOGISTIC
 from cpr_game import CPRGame, CPRGameParams
 from cpr_observation_managers import CPRObservationManagerConfig
 from environment import (EnvState, TrajectoryData, _format_episode_outcomes,
@@ -73,6 +74,20 @@ def make_game(t_max=30, e_max=2, n_games=N_GAMES, shapers=(False, False)):
     return CPRGame(params, *configs)
 
 
+def make_logistic_game(e_max=2, n_games=N_GAMES, shapers=(False, False)):
+    params = CPRGameParams(
+        t_max=LOGISTIC.horizon, e_max=e_max, n_games=n_games,
+        R0=LOGISTIC.R0, g=LOGISTIC.g, ceiling=LOGISTIC.ceiling,
+        n_actions=4, rate_tenths=LOGISTIC.rate_tenths,
+    )
+    configs = [
+        CPRObservationManagerConfig(action_toks=DIGIT_TOKS, action_strings=DIGITS,
+                                    is_shaper=is_shaper, R0=LOGISTIC.R0)
+        for is_shaper in shapers
+    ]
+    return CPRGame(params, *configs)
+
+
 def fresh_trajectory(game, agent_tag):
     manager = game.obs_managers[agent_tag]
     return TrajectoryData(
@@ -93,127 +108,6 @@ def surviving(traj):
 
 def total_reward(traj):
     return sum(float(r.item()) for step in traj.rewards for r in step)
-
-
-def _banner(title: str) -> None:
-    print("\n" + "=" * 72)
-    print(title)
-    print("=" * 72)
-
-
-def _quiet(fn, *args, **kwargs):
-    """inner/outer_rollout print every interaction; mute that for readable demos."""
-    with redirect_stdout(io.StringIO()):
-        return fn(*args, **kwargs)
-
-
-def demo_prompts() -> None:
-    """Print each CPRGame / rollout scenario in plain numbers.
-
-    Run:  python tests/test_cpr_game.py
-    Later: comment out the `demo_prompts()` call in `__main__`.
-    """
-    # --- 0. collapse masking (3,3) ---
-    _banner("0. Both request 3: pool dies step 5 → 5 surviving steps/game, reward 14/game")
-    game = make_game()
-    traj1, traj2, _ = _quiet(run_one_episode, game, 3, 3)
-    print(f"  surviving traj1 steps = {surviving(traj1)}  (expect {5 * N_GAMES})")
-    print(f"  surviving traj2 steps = {surviving(traj2)}  (expect {5 * N_GAMES})")
-    print(f"  total_reward traj1    = {total_reward(traj1)}  (expect {14 * N_GAMES})")
-    print(f"  collapse after reset  = "
-          f"{[game.dynamics.collapse_step_or_none(g) for g in range(N_GAMES)]}  (None → next episode)")
-
-    # --- 1. sustainable (1,1) ---
-    _banner("1. Both request 1: nothing masked, reward 30/game")
-    game = make_game()
-    traj1, _, _ = _quiet(run_one_episode, game, 1, 1)
-    print(f"  surviving = {surviving(traj1)}  (expect {30 * N_GAMES})")
-    print(f"  reward    = {total_reward(traj1)}  (expect {30 * N_GAMES})")
-
-    # --- 2. records: reward vs masked ---
-    _banner("2. Records log every step; masked steps have reward 0 (not NaN)")
-    game = make_game()
-    _quiet(run_one_episode, game, 3, 3)
-    rewards = np.array(game.records["reward_1"], dtype=float)
-    masked = np.array(game.records["masked"])
-    print(f"  n rows          = {len(rewards)}  (expect {30 * N_GAMES})")
-    print(f"  n masked        = {int(masked.sum())}  (expect {25 * N_GAMES})")
-    print(f"  any NaN?        = {bool(np.isnan(rewards).any())}")
-    print(f"  masked rewards  = {sorted(set(rewards[masked].tolist()))}  (expect [0.0])")
-    print(f"  sum reward_1    = {rewards.sum()}")
-
-    # --- 3. request vs received under scarcity ---
-    _banner("3. Records distinguish request vs received (scarcity on step 5)")
-    game = make_game(t_max=6, e_max=1, n_games=1)
-    a1, a2 = ScriptedAgent(3), ScriptedAgent(3)
-    _quiet(inner_rollout, game, EnvState(0, 0),
-           fresh_trajectory(game, "agent_1"), fresh_trajectory(game, "agent_2"), a1, a2)
-    print(f"  request_1  = {game.records['request_1']}")
-    print(f"  received_1 = {game.records['received_1']}")
-    print(f"  scarcity   = {game.records['scarcity']}")
-    print(f"  R_start    = {game.records['R_start']}")
-    print(f"  R_end      = {game.records['R_end']}")
-
-    # --- 4. alignment indices ---
-    _banner("4. Record alignment keys over a short trial (t_max=4, e_max=2, n_games=2)")
-    game = make_game(t_max=4, e_max=2, n_games=2)
-    _quiet(outer_rollout, game, ScriptedAgent(1), ScriptedAgent(2))
-    print(f"  n rows   = {len(game.records['step'])}  (expect {4 * 2 * 2})")
-    print(f"  episodes = {sorted(set(game.records['episode']))}")
-    print(f"  steps    = {sorted(set(game.records['step']))}  (1-indexed)")
-    print(f"  games    = {sorted(set(game.records['game']))}")
-
-    # --- 5. outer_rollout naive updates ---
-    _banner("5. outer_rollout: non-shapers update once per episode")
-    game = make_game(t_max=10, e_max=3)
-    a1, a2 = ScriptedAgent(2), ScriptedAgent(2)
-    _, _, outcomes = _quiet(outer_rollout, game, a1, a2)
-    print(f"  agent1.updates = {a1.updates}  agent2.updates = {a2.updates}  (expect 3, 3)")
-    print(f"  n outcomes     = {len(outcomes)}  (expect {10 * 3 * N_GAMES})")
-
-    # --- 6. shaper keeps trial trajectory ---
-    _banner("6. Shaper keeps full-trial traj; naive buffer resets after each episode update")
-    game = make_game(t_max=10, e_max=3, shapers=(False, True))
-    naive, shaper = ScriptedAgent(1, is_shaper=False), ScriptedAgent(1, is_shaper=True)
-    traj_naive, traj_shaper, _ = _quiet(outer_rollout, game, naive, shaper)
-    print(f"  naive.updates     = {naive.updates}  (expect 3; updated inside outer_rollout)")
-    print(f"  shaper.updates    = {shaper.updates}  (expect 0; training loop updates later)")
-    print(f"  surviving naive   = {surviving(traj_naive)}  (expect 0 after resets)")
-    print(f"  surviving shaper  = {surviving(traj_shaper)}  (expect {10 * 3 * N_GAMES})")
-
-    # --- 7. shaper obs memory across episodes then wipe ---
-    _banner("7. Shaper obs memory: survives episode 1, clears at trial end")
-    game = make_game(t_max=5, e_max=2, shapers=(False, True))
-    manager = game.obs_managers["agent_2"]
-    naive, shaper = ScriptedAgent(1, is_shaper=False), ScriptedAgent(1, is_shaper=True)
-    traj1, traj2 = fresh_trajectory(game, "agent_1"), fresh_trajectory(game, "agent_2")
-    traj1, traj2, env_state = _quiet(inner_rollout, game, EnvState(0, 0), traj1, traj2, naive, shaper)
-    print(f"  after ep1: counts.sum={int(manager.counts.sum())}  "
-          f"(expect {5 * N_GAMES})")
-    print(f"  after ep1: summaries={manager.episode_summaries[0]}")
-    print(f"  sample shaper prompt after ep1:\n{traj2.last_observation[0][:500]}...")
-    _quiet(inner_rollout, game, env_state, traj1, traj2, naive, shaper)
-    print(f"  after trial: counts.sum={int(manager.counts.sum())}  (expect 0)")
-    print(f"  after trial: summaries={manager.episode_summaries[0]}")
-
-    # --- 8. outcome labels / row-major index ---
-    _banner("8. Outcome bins: (own=2, opp=1) → index 2*4+1=9 → label '21'")
-    game = make_game(t_max=1, e_max=1, n_games=1)
-    _quiet(inner_rollout, game, EnvState(0, 0),
-           fresh_trajectory(game, "agent_1"), fresh_trajectory(game, "agent_2"),
-           ScriptedAgent(2), ScriptedAgent(1))
-    print(f"  outcomes = {game.outcomes}")
-    print(f"  label    = {game.outcome_labels[game.outcomes[0]]}")
-
-    _banner("9. Episode outcome histogram after 5 steps of (3,3) x 3 games")
-    game = make_game(t_max=5, e_max=1)
-    _quiet(run_one_episode, game, 3, 3)
-    print("  " + _format_episode_outcomes(game).replace("\n", "\n  "))
-
-    print("\n" + "=" * 72)
-    print("Demo done. Comment out demo_prompts() in __main__ when finished learning.")
-    print("=" * 72 + "\n")
-
 
 # ------------------------------------------------------------------ masking
 
@@ -360,8 +254,208 @@ def test_outcomes_use_the_documented_row_major_index():
     assert game.outcome_labels[game.outcomes[0]] == "21"
 
 
+def test_logistic_game_restraint_lasts_and_greed_collapses():
+    """Training configs use logistic. Masking and totals must match CPRDynamics."""
+    game = make_logistic_game()
+    traj1, _, _ = run_one_episode(game, 1, 1)
+    assert surviving(traj1) == LOGISTIC.horizon * N_GAMES
+    assert total_reward(traj1) == 36 * N_GAMES
+
+    game = make_logistic_game()
+    traj1, traj2, _ = run_one_episode(game, 3, 3)
+    assert surviving(traj1) == 2 * N_GAMES
+    assert total_reward(traj1) == 5 * N_GAMES
+    assert total_reward(traj2) == 5 * N_GAMES
+
+
+def test_constant_always2_partner_take1_lives_take2_dies():
+    """Test A bot: frozen 2. Vs take-1 the learner gets 36; vs take-2 both get 7."""
+    from cpr_bots import ConstantActionAgent
+
+    game = make_logistic_game(e_max=1, n_games=1)
+    a1, a2 = ScriptedAgent(1), ConstantActionAgent(2)
+    traj1, _, _ = inner_rollout(
+        game, EnvState(0, 0),
+        fresh_trajectory(game, "agent_1"), fresh_trajectory(game, "agent_2"),
+        a1, a2,
+    )
+    assert surviving(traj1) == LOGISTIC.horizon
+    assert total_reward(traj1) == 36
+    assert a2.is_shaper is False
+
+    game = make_logistic_game(e_max=1, n_games=1)
+    a1, a2 = ScriptedAgent(2), ConstantActionAgent(2)
+    traj1, traj2, _ = inner_rollout(
+        game, EnvState(0, 0),
+        fresh_trajectory(game, "agent_1"), fresh_trajectory(game, "agent_2"),
+        a1, a2,
+    )
+    assert total_reward(traj1) == 7
+    assert total_reward(traj2) == 7
+
+    game = make_logistic_game(e_max=2, n_games=1)
+    bot = ConstantActionAgent(2)
+    outer_rollout(game, ScriptedAgent(1), bot)
+    assert bot.updates == 2, "outer_rollout must call the no-op update once per episode"
+
+
+def test_constant_always1_partner_take2_exploits_and_lives():
+    """Test B bot: frozen 1. Take-2 pays 72 and lasts; take-1 pays 36; take-3 dies."""
+    from cpr_bots import ConstantActionAgent
+
+    game = make_logistic_game(e_max=1, n_games=1)
+    a1, a2 = ScriptedAgent(2), ConstantActionAgent(1)
+    traj1, traj2, _ = inner_rollout(
+        game, EnvState(0, 0),
+        fresh_trajectory(game, "agent_1"), fresh_trajectory(game, "agent_2"),
+        a1, a2,
+    )
+    assert surviving(traj1) == LOGISTIC.horizon
+    assert total_reward(traj1) == 72
+    assert total_reward(traj2) == 36
+
+    game = make_logistic_game(e_max=1, n_games=1)
+    a1, a2 = ScriptedAgent(1), ConstantActionAgent(1)
+    traj1, traj2, _ = inner_rollout(
+        game, EnvState(0, 0),
+        fresh_trajectory(game, "agent_1"), fresh_trajectory(game, "agent_2"),
+        a1, a2,
+    )
+    assert surviving(traj1) == LOGISTIC.horizon
+    assert total_reward(traj1) == 36
+    assert total_reward(traj2) == 36
+
+    game = make_logistic_game(e_max=1, n_games=1)
+    a1, a2 = ScriptedAgent(3), ConstantActionAgent(1)
+    traj1, _, _ = inner_rollout(
+        game, EnvState(0, 0),
+        fresh_trajectory(game, "agent_1"), fresh_trajectory(game, "agent_2"),
+        a1, a2,
+    )
+    assert total_reward(traj1) == 10
+
+
+def _banner(title: str) -> None:
+    print("\n" + "=" * 72)
+    print(title)
+    print("=" * 72)
+
+
+def _quiet(fn, *args, **kwargs):
+    """inner/outer_rollout print every interaction; mute that for readable demos."""
+    with redirect_stdout(io.StringIO()):
+        return fn(*args, **kwargs)
+
+
+def demo_prompts() -> None:
+    """Print each CPRGame / rollout scenario in plain numbers.
+
+    Run:  python tests/test_cpr_game.py
+    Later: comment out the `demo_prompts()` call in `__main__`.
+    """
+    # --- 0. collapse masking (3,3) ---
+    _banner("0. Both request 3: pool dies step 5 → 5 surviving steps/game, reward 14/game")
+    game = make_game()
+    traj1, traj2, _ = _quiet(run_one_episode, game, 3, 3)
+    print(f"  surviving traj1 steps = {surviving(traj1)}  (expect {5 * N_GAMES})")
+    print(f"  surviving traj2 steps = {surviving(traj2)}  (expect {5 * N_GAMES})")
+    print(f"  total_reward traj1    = {total_reward(traj1)}  (expect {14 * N_GAMES})")
+    print(f"  collapse after reset  = "
+          f"{[game.dynamics.collapse_step_or_none(g) for g in range(N_GAMES)]}  (None → next episode)")
+
+    # --- 1. sustainable (1,1) ---
+    _banner("1. Both request 1: nothing masked, reward 30/game")
+    game = make_game()
+    traj1, _, _ = _quiet(run_one_episode, game, 1, 1)
+    print(f"  surviving = {surviving(traj1)}  (expect {30 * N_GAMES})")
+    print(f"  reward    = {total_reward(traj1)}  (expect {30 * N_GAMES})")
+
+    # --- 2. records: reward vs masked ---
+    _banner("2. Records log every step; masked steps have reward 0 (not NaN)")
+    game = make_game()
+    _quiet(run_one_episode, game, 3, 3)
+    rewards = np.array(game.records["reward_1"], dtype=float)
+    masked = np.array(game.records["masked"])
+    print(f"  n rows          = {len(rewards)}  (expect {30 * N_GAMES})")
+    print(f"  n masked        = {int(masked.sum())}  (expect {25 * N_GAMES})")
+    print(f"  any NaN?        = {bool(np.isnan(rewards).any())}")
+    print(f"  masked rewards  = {sorted(set(rewards[masked].tolist()))}  (expect [0.0])")
+    print(f"  sum reward_1    = {rewards.sum()}")
+
+    # --- 3. request vs received under scarcity ---
+    _banner("3. Records distinguish request vs received (scarcity on step 5)")
+    game = make_game(t_max=6, e_max=1, n_games=1)
+    a1, a2 = ScriptedAgent(3), ScriptedAgent(3)
+    _quiet(inner_rollout, game, EnvState(0, 0),
+           fresh_trajectory(game, "agent_1"), fresh_trajectory(game, "agent_2"), a1, a2)
+    print(f"  request_1  = {game.records['request_1']}")
+    print(f"  received_1 = {game.records['received_1']}")
+    print(f"  scarcity   = {game.records['scarcity']}")
+    print(f"  R_start    = {game.records['R_start']}")
+    print(f"  R_end      = {game.records['R_end']}")
+
+    # --- 4. alignment indices ---
+    _banner("4. Record alignment keys over a short trial (t_max=4, e_max=2, n_games=2)")
+    game = make_game(t_max=4, e_max=2, n_games=2)
+    _quiet(outer_rollout, game, ScriptedAgent(1), ScriptedAgent(2))
+    print(f"  n rows   = {len(game.records['step'])}  (expect {4 * 2 * 2})")
+    print(f"  episodes = {sorted(set(game.records['episode']))}")
+    print(f"  steps    = {sorted(set(game.records['step']))}  (1-indexed)")
+    print(f"  games    = {sorted(set(game.records['game']))}")
+
+    # --- 5. outer_rollout naive updates ---
+    _banner("5. outer_rollout: non-shapers update once per episode")
+    game = make_game(t_max=10, e_max=3)
+    a1, a2 = ScriptedAgent(2), ScriptedAgent(2)
+    _, _, outcomes = _quiet(outer_rollout, game, a1, a2)
+    print(f"  agent1.updates = {a1.updates}  agent2.updates = {a2.updates}  (expect 3, 3)")
+    print(f"  n outcomes     = {len(outcomes)}  (expect {10 * 3 * N_GAMES})")
+
+    # --- 6. shaper keeps trial trajectory ---
+    _banner("6. Shaper keeps full-trial traj; naive buffer resets after each episode update")
+    game = make_game(t_max=10, e_max=3, shapers=(False, True))
+    naive, shaper = ScriptedAgent(1, is_shaper=False), ScriptedAgent(1, is_shaper=True)
+    traj_naive, traj_shaper, _ = _quiet(outer_rollout, game, naive, shaper)
+    print(f"  naive.updates     = {naive.updates}  (expect 3; updated inside outer_rollout)")
+    print(f"  shaper.updates    = {shaper.updates}  (expect 0; training loop updates later)")
+    print(f"  surviving naive   = {surviving(traj_naive)}  (expect 0 after resets)")
+    print(f"  surviving shaper  = {surviving(traj_shaper)}  (expect {10 * 3 * N_GAMES})")
+
+    # --- 7. shaper obs memory across episodes then wipe ---
+    _banner("7. Shaper obs memory: survives episode 1, clears at trial end")
+    game = make_game(t_max=5, e_max=2, shapers=(False, True))
+    manager = game.obs_managers["agent_2"]
+    naive, shaper = ScriptedAgent(1, is_shaper=False), ScriptedAgent(1, is_shaper=True)
+    traj1, traj2 = fresh_trajectory(game, "agent_1"), fresh_trajectory(game, "agent_2")
+    traj1, traj2, env_state = _quiet(inner_rollout, game, EnvState(0, 0), traj1, traj2, naive, shaper)
+    print(f"  after ep1: counts.sum={int(manager.counts.sum())}  "
+          f"(expect {5 * N_GAMES})")
+    print(f"  after ep1: summaries={manager.episode_summaries[0]}")
+    print(f"  sample shaper prompt after ep1:\n{traj2.last_observation[0][:500]}...")
+    _quiet(inner_rollout, game, env_state, traj1, traj2, naive, shaper)
+    print(f"  after trial: counts.sum={int(manager.counts.sum())}  (expect 0)")
+    print(f"  after trial: summaries={manager.episode_summaries[0]}")
+
+    # --- 8. outcome labels / row-major index ---
+    _banner("8. Outcome bins: (own=2, opp=1) → index 2*4+1=9 → label '21'")
+    game = make_game(t_max=1, e_max=1, n_games=1)
+    _quiet(inner_rollout, game, EnvState(0, 0),
+           fresh_trajectory(game, "agent_1"), fresh_trajectory(game, "agent_2"),
+           ScriptedAgent(2), ScriptedAgent(1))
+    print(f"  outcomes = {game.outcomes}")
+    print(f"  label    = {game.outcome_labels[game.outcomes[0]]}")
+
+    _banner("9. Episode outcome histogram after 5 steps of (3,3) x 3 games")
+    game = make_game(t_max=5, e_max=1)
+    _quiet(run_one_episode, game, 3, 3)
+    print("  " + _format_episode_outcomes(game).replace("\n", "\n  "))
+
+    print("\n" + "=" * 72)
+    print("Demo done.")
+    print("=" * 72 + "\n")
+
+
 if __name__ == "__main__":
-    # Learning walkthrough — comment this out when done poking at rollouts.
     demo_prompts()
 
     passed = 0

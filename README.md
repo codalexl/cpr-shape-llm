@@ -1,37 +1,29 @@
-# shape-llm
+# cpr-shape-llm
 
-This repository contains implementation and analysis code for the paper *Opponent Shaping in LLM Agents*, ICLR'26.
+CPR training on top of ShapeLLM (ICLR 2026), used with permission. See `ATTRIBUTION.md`.
 
-## Overview
+**Live path:** logistic chicken CPR (\(R_0=8\), \(K=40\), \(T=36\), `rate_tenths=9`). Launcher:
 
-This repository provides a framework for training LLM agents with PPO to play iterated matrix games (e.g. Prisoner's Dilemma). We provide various training setups: agents can be trained against fixed opponents (TFT, random), or two LLM learners can be trained simultaneously against each other.
+```bash
+./scripts/run_cpr.sh smoke                      # does it run
+./scripts/run_cpr.sh naive_naive_center           # two learners, 15 epochs, seed 0
+./scripts/run_cpr.sh naive_naive_center_e50       # matched long naive — RunPod
+./scripts/run_cpr.sh naive_naive_slow2_s012      # slow agent-2 LR, 3×15
+```
+
+Experimental record: [`docs/LIVE_FACTS.md`](docs/LIVE_FACTS.md). CUDA box: [`docs/RUNPOD.md`](docs/RUNPOD.md).
+
+Do **not** use `baseline` / `shaper` for live CPR (legacy entropy 0.15 + whitening). Do **not** reuse `finetuning_fixed_opponent.py` for CPR.
 
 ## Installation
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements.txt          # CUDA (cu121)
+pip install -r requirements-mps.txt      # Apple Silicon
 ```
 
-> **Note:** Install PyTorch separately with the CUDA version matching your hardware, e.g.:
-> ```bash
-> pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cu121
-> ```
+Pin **trl 0.11.4**. Hugging Face access is required for `google/gemma-2-2b-it`. The launcher creates rank-2 LoRA adapters under `adapter/` on first run.
 
-## Usage
+## Upstream ShapeLLM (matrix games)
 
-All scripts take a JSON config file as input. Example configs are provided in [`example_configs/`](example_configs/).
-
-**Train against a fixed opponent:**
-```bash
-python finetuning_fixed_opponent.py <config_path> <saving_path> [--n_seeds N] [--no_epochs N] [--checkpoint_freq N]
-```
-
-**Train two LLM agents against each other:**
-```bash
-python finetuning_two_learners.py <config_path> <saving_path> [--n_seeds N] [--no_epochs N] [--checkpoint_freq N]
-```
-
-**Evaluate trained agents:**
-```bash
-python evaluation_script.py <config_path> <saving_path> [--seed N]
-```
+The original IPD/RPS entries still exist (`finetuning_two_learners.py`, `finetuning_fixed_opponent.py`). Launchers and configs for that path live under `archive/ipd_rps/`. They are not the thesis training protocol.

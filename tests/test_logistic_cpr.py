@@ -3,15 +3,15 @@
 import os
 import sys
 
+import numpy as np
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from cpr_env import LOGISTIC, CPRDynamics, logistic_growth, round_half_even_div, zero_growth_stocks
 from logistic_cpr import (
     constant_matrix,
     dp_opening_vs,
-    logistic_growth,
     logistic_tables,
-    round_half_even_div,
-    zero_growth_stocks,
 )
 
 
@@ -51,6 +51,19 @@ def test_section2_constants_and_openings():
     assert M[(3, 3)][0] == 5
     _, qs = dp_opening_vs(8, 40, 36, 2, tables)
     assert qs == (105, 104, 102, 6)
+
+
+def test_live_dynamics_match_scout_tables():
+    """CPRDynamics is the training path; the scout tables must not drift from it."""
+    env = CPRDynamics(LOGISTIC, n_games=1)
+    for a, b, want in ((1, 1, (36, 36, None)), (2, 2, (7, 7, 4)), (3, 3, (5, 5, 2))):
+        env.reset()
+        ra = rb = 0
+        for _ in range(LOGISTIC.horizon):
+            out = env.step(np.array([a]), np.array([b]))
+            ra += int(out.received_1[0])
+            rb += int(out.received_2[0])
+        assert (ra, rb, env.collapse_step_or_none(0)) == want
 
 
 if __name__ == "__main__":
