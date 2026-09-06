@@ -121,18 +121,13 @@ Config `configs/cpr_naive_shaper_center_info_off.json`. Trial update and LR unch
 
 Who leaves 2 did not swap. A2 leave-2 whole run is 16–19% vs 4–5% with the extra prompt.
 
-## Planned arm — noise on the locked logistic (not yet run)
+## Stage B — multiplicative ξ on growth (not yet launched)
 
-Add noise to the **same** integer update (\(R_0=8\), \(K=40\), \(T=36\), `rate_tenths=9`). Not a revival of `stochastic_cpr_env.py`. Not a new \((R_0,K,T,\text{rate})\) hunt. Deterministic logistic is the substrate that can already be measured; noise on that update is the increment. A null on this arm is still a result. This chapter lists the arm. It does not report a number for it.
-
-When the arm exists, three lines (folder, mix/openings/survival, anything for LIVE_FACTS) come back from experiment chats. They are not filled in here.
-
-## Locked two-learner ladder (remaining)
-
-1. **Slow-agent-2 naive–naive, 3×15** (`naive_naive_slow2_s012`) — in progress. Both episode-update; agent 2 LR \(3\times 10^{-7}\) only.
-2. **Matched long naive** (`naive_naive_center_e50`) — RunPod.
-3. **Stochastic regen** on the locked logistic remains the thesis increment.
+Same lock. ξ ∈ {0.7, 1.0, 1.3} on the growth increment, CRN table per seed.
+Launcher: `testA_center_xi_s012`, `naive_naive_center_xi_s012`, `naive_shaper_center_xi_s012`,
+`naive_naive_slow2_center_xi_s012`. Report against the LIVE_FACTS DP table.
+A retired ±1-on-stock Test A is archived; do not launch it.
 
 ## Student-owned Results
 
-Prose that answers the opening-statistic, Test B, seed-2, grid success/null, and noise-null questions is in `07_results.md`. This chapter does not repeat those claims.
+Prose that answers the opening-statistic, Test B, seed-2, grid success/null, whitened extra seeds, noise, and matched long naive is in `07_results.md`. This chapter does not repeat those claims.

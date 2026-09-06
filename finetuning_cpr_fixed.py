@@ -65,6 +65,7 @@ def main():
         partner = ConstantActionAgent(partner_action, action_toks=toks)
         print("Agents initialised.")
         game = CPRGame(game_params, obs1, obs2)
+        game.attach_noise_table(seed, args.no_epochs, experiment_path(ind) + "noise_table.npy")
 
         for epoch in range(args.no_epochs):
             print(f"Starting epoch {epoch + 1}:")

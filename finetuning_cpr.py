@@ -70,6 +70,7 @@ def main():
 
         # Initialise game
         game = CPRGame(game_params, obs_manager_config1, obs_manager_config2)
+        game.attach_noise_table(seed, no_epochs, experiment_path(ind) + "noise_table.npy")
 
         for epoch in range(no_epochs):
 

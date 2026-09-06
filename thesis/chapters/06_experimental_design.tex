@@ -274,21 +274,17 @@ A2 leave-2 whole run & 16\% & 19\% & 16\% \\
 \end{tabular}
 \end{table}
 
-\section{Planned arm --- noise on the locked logistic (not yet run)}
+\section{Executed arm --- noise on the locked logistic}
 
 Add noise to the \textbf{same} integer update
-(\(R_0=8\), \(K=40\), \(T=36\), \(\texttt{rate\_tenths}=9\)).
+(\(R_0=8\), \(K=40\), \(T=36\), \(\texttt{rate\_tenths}=9\)),
+\texttt{noise\_tenths=5}.
 Not a revival of \texttt{stochastic\_cpr\_env.py}.
-Not a new \((R_0,K,T,\mathrm{rate})\) hunt.
-Deterministic logistic is the substrate that can already be measured;
-noise on that update is the increment.
-A null on this arm is still a result.
-This chapter lists the arm.
-It does not report a number for it.
-
-When the arm exists, three lines (folder, mix/openings/survival, anything
-for the experimental record) come back from experiment chats.
-They are not filled in here.
+Seed 0: \texttt{checkpoints/cpr\_log\_testA\_center\_noise}.
+Seeds 1--2: \texttt{checkpoints/cpr\_log\_testA\_center\_noise\_s12}.
+Survival \(76\), \(140\), \(141\) out of 225.
+Last epoch left 2 via opening 0 on all three seeds.
+Interpretation is in Chapter~\ref{ch:results}, not here.
 
 \section{Not run (launcher exists)}
 
@@ -300,21 +296,15 @@ They are not the live CPR protocol.
 Long jobs must use the centred JSON files under \texttt{configs/}, not
 those two.
 
-\section{Locked two-learner ladder (remaining)}
+\section{GPU ladder}
 
-\begin{enumerate}
-\item \textbf{Slow-agent-2 naive--naive}
-  (three seeds, 15 epochs; both episode-update; agent 2 LR
-  \(3\times 10^{-7}\)).
-\item \textbf{Matched long naive} (\texttt{naive\_naive\_center\_e50}) ---
-  RunPod.
-\item \textbf{Stochastic regen} on the locked logistic remains the thesis
-  increment.
-\end{enumerate}
+Slow-LR naive--naive \(3\times 15\), matched long naive
+(\texttt{naive\_naive\_center\_e50}), and the noise arm are on disk.
+No further GPU jobs.
 
 \section{Student-owned Results}
 
 Prose that answers the opening-statistic, Test~B, seed-2, grid
-success/null, two-learner, and noise-null questions is in
-Chapter~\ref{ch:results}.
+success/null, two-learner, whitened extra seeds, noise, and matched
+long naive is in Chapter~\ref{ch:results}.
 This chapter does not repeat those claims.

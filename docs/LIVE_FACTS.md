@@ -1,6 +1,6 @@
 # Live facts — cpr-shape-llm
 
-**Dated 4 September 2026.** Agents may cite this file and must not contradict it.
+**Dated 5 September 2026.** Agents may cite this file and must not contradict it.
 This is the experimental record, not a diary of supervision or chat history.
 Safe to commit. Do not put interpersonal narrative here.
 
@@ -29,19 +29,29 @@ Student-owned Results wording is in `docs/thesis/07_results.md`.
 
 ---
 
-## Live aim — stochastic regeneration (not yet run)
+## Live aim — stochastic regeneration (Stage B)
 
-The intended contribution is still **noise on resource growth**, not a park.
-Deterministic logistic is the *substrate*, not the whole thesis. The increment is
-noise on the **locked** logistic update (integer, R0=8, K=40, T=36, rate_tenths=9),
-not a revival of `stochastic_cpr_env.py` and not a new parameter hunt.
+Stage B multiplies the **growth increment** by ξ ∈ {0.7, 1.0, 1.3} equally likely
+(`xi_tenths` 7/10/13 inside the integer logistic Fraction). Absorbing zero unchanged.
+CRN tables per seed, shared across arms. Not Pérolat Harvest. Not additive Gaussian.
+A retired ±1-on-stock Test A (`noise_tenths=5`) was run once and **stripped** from
+the live launcher; it is not a Results table.
 
-Student wording (own this): trying is the contribution even if the arm is null.
-Writers may list it as a planned experiment. They may not write it as a result.
-They may not write it as abandoned.
+In-repo DP (`python cpr_xi.py`, i.i.d. ξ, R0=8, K=40, T=36, rate_tenths=9):
 
-CoS does **not** run this. Experiment chats do. When an arm exists, three lines
-come back here and this section becomes numbers.
+| Policy | E r1 / r2 | P(survive) |
+|---|---|---|
+| (1,1) | 36 / 36 | 1 |
+| (2,2) | 7.44 / 7.44 | ~0 |
+| (2,1) hawk vs dove | 72 / 36 | 1 |
+| open 1 then 2s | 59.3 / 59.3 | 0.80 |
+| hawk vs 1-then-2 | 35.7 / 34.7 | 0.40 |
+| hawk vs 1 if R<12 else 2 | 72 / 68.8 | 1 |
+| open 0 then 3s | 38.7 / 38.7 | 0.25 |
+| 3 if R≥14 else 0 | 102.7 / 102.7 | 1 |
+
+Report Stage B arms **against these DP rows**, not only against each other.
+Two-learner GPU packets are not in yet.
 
 ---
 
@@ -125,20 +135,10 @@ Whitened seeds 1–2 **left opening 2**. Seed 0 staying on 2 is not the whole se
 
 ---
 
-## Test A center + growth noise, seed 0 — RunPod L40S
+## Retired — ±1 Test A (not Stage B)
 
-Folder: `checkpoints/cpr_log_testA_center_noise`. Config `configs/cpr_testA_center_noise.json`. `noise_tenths=5` (±1 on post-growth stock with p=0.5; never revives R=0). Frozen always-2, centre, 15 epochs, seed 0.
-
-| | Deterministic center s0 | Noise s0 |
-|---|---|---|
-| Surv e1 / e15 | 2/15 / 13/15 | 2/15 / **15/15** |
-| Surv last3 | 41/45 | 32/45 |
-| Survived | 134/225 | 76/225 |
-| Leave-2 last3 | 93% | 80% |
-| Last-epoch openings | 13×1, 2×2 | **14×0, 1×1** |
-| Ret last | 60.3 | 72.4 |
-
-Leave-2 still rose (22%→80%). Last epoch left 2 via **0**, like deterministic center seed 2. Whole-run survival is lower (76 vs 134). One seed. Not a noise-null and not a noise-success.
+`noise_tenths=5` on the stock was a one-off frozen-hawk shock. Config and launcher
+aliases live under `archive/`. Checkpoints deleted. Do not put those numbers in Results.
 
 ---
 
@@ -184,7 +184,7 @@ Who leaves 2 did **not** swap: a1 dove, a2 hawk on all three seeds.
 ## Shaper 50 epochs, seed 0
 
 Folder `checkpoints/cpr_log_naive_shaper_center_e50`. Same config as 3×15 shaper. Fresh seed 0.
-Compare to 15-epoch naive **at epoch 15 only**.
+Compare to 15-epoch naive **at epoch 15 only**, and to matched long naive below.
 
 | Epoch | Survived | A1 openings | A2 openings |
 |---|---|---|---|
@@ -195,6 +195,22 @@ Compare to 15-epoch naive **at epoch 15 only**.
 Whole-run survival **572/750**. A2 opened 0 or 1 on **25/750** (3.3%), opened 2 on **696/750**.
 No epoch with a2 leave-2 majority (peak 3/15 at epoch 5). A1 first majority leave-2: epoch 8.
 Both left 2 in the same episode **17/750**.
+
+---
+
+## Matched long naive, 50 epochs, seed 0 — RunPod L40S
+
+Folder `checkpoints/cpr_log_naive_naive_center_e50`. Config `configs/cpr_naive_naive_center.json`. Both naive, centre, one seed, 50 epochs. Same length as shaper-e50.
+
+| Epoch | Survived | A1 openings | A2 openings | Ret (a1/a2) |
+|---|---|---|---|---|
+| 1 | 4/15 | 5×1, 10×2 | 2×1, 10×2, 3×3 | 25.6 / 25.8 |
+| 15 | 12/15 | 12×1, 3×2 | **13×1**, 2×2 | 59.7 / 68.5 |
+| 50 | 15/15 | **15×1** | **15×1** | 68.9 / 98.1 |
+
+Whole-run survival **628/750**. A1 leave-2 whole **605/750**; a2 **623/750**. Both left 2 in the same episode **551/750**. First majority leave-2: a1 epoch 8, a2 epoch 9. Last three epochs: a1 45×1; a2 44×1, 1×2. Last-epoch \(\pi(a\mid R)\) at \(R=8\) is 100% open 1 for both; later live steps at mid stock are still peaked on 2. Do not read last-epoch 15×1 / 15×1 as a 36-step dove policy or as “joint leave-2” in the banned sense.
+
+At epoch 50 the shaper run’s agent 2 still opened **15×2**; this matched naive’s agent 2 opened **15×1**. One seed each. No mechanism sentence.
 
 ---
 
@@ -230,6 +246,9 @@ Mean learner return, last epoch (15 games). PPO maximises return. Constant-pair 
 | Test A center s2 | 69.8 | 15/15 |
 | Test B center | 72.4 (partner 36.0) | 15/15 |
 | Naive–naive s0 last | 70.7 / 75.3 | 15/15 |
+| Naive–naive e50 last | 68.9 / 98.1 | 15/15 |
+| Test A whitened s1 | 69.5 | 15/15 |
+| Test A whitened s2 | 69.7 | 15/15 |
 
 Test B last-epoch return 72.4 vs dove 36 is the constant hawk–dove cell, not the DP best response 107 (open 2 then 3s). Last-epoch \(\pi(a\mid R)\) at high stock is still peaked on 2.
 
@@ -260,7 +279,9 @@ Who leaves 2 did **not** swap: agent 1 leave-2 last3 is higher on every seed; ag
 
 ## Next protocol (RunPod)
 
-See `docs/RUNPOD.md`. Remaining GPU: whitened Test A seeds 1–2; centred Test A + growth noise (`noise_tenths=5`); matched long naive `naive_naive_center_e50` if not already copied off the box.
+Stage B (ξ on growth, CRN, 3×15 Test A + NN + NS + slow2). **Do not launch until
+`pytest tests/test_cpr_xi.py` is green and Alex says the pod is up.** GPU cutoff 12 Sep.
+If a stopped pod `qloy0tepltaiwi` still appears in the console, terminate it there.
 
 ---
 

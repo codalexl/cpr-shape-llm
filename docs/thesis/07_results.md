@@ -32,12 +32,14 @@ Raw opening advantage already starred that basin. Under whitening the star was c
 | 1 | \(14/15\) opened 1 | \(113/225\) |
 | 2 | \(14/15\) opened 0, one opened 1 | \(160/225\) |
 
-Seed 2 last epoch left opening 2 via **0** (14/15), not 1. That is leave-2 on the primary statistic. It is **not** the \(R=8\to 9\) farm (open 0 vs hawk goes \(8\to 11\)). This chapter does not explain why seed 2 preferred 0. Whitened Test A never left opening 2 and died.
+Seed 2 last epoch left opening 2 via **0** (14/15), not 1. That is leave-2 on the primary statistic. It is **not** the \(R=8\to 9\) farm (open 0 vs hawk goes \(8\to 11\)). This chapter does not explain why seed 2 preferred 0.
 
-**Claim.** Against a frozen hawk, centre-only advantages (mean-subtract, no `/std`) moved the policy off opening 2 on three seeds; batch whitening did not. The prior yields on the first action. It does not become a habit of take-1 across the tape. This is a centre-versus-whiten contrast, not an ablation of GAE.
+**Whitened extra seeds (RNG 1–2).** Seed 0 staying on 2 is not the whole family. Seed 1 last epoch opened 1 on 15/15 (leave-2 last3 87%, survival 97/225, return 69.5). Seed 2 last epoch opened 0 on 12/15 and 1 on 3/15 (leave-2 last3 82%, survival 80/225, return 69.7). Both extra seeds survived 15/15 in the last epoch.
 
-evidence: LIVE_FACTS § Test A center table + extra seeds; locked env \(8\to 9\) after a first **1** only
-does-not-license: shaping; two learners; a 36-step dove policy; open-0 = open-1 basin; “unflattened GAE” as a named mechanism
+**Claim.** Against a frozen hawk, centre-only advantages (mean-subtract, no `/std`) moved the policy off opening 2 on three seeds. Batch whitening did that on seeds 1–2 and did not on seed 0 (28/225, last epoch 14×2). Do not write that whitening always keeps the death-open. The prior yields on the first action when it leaves 2. It does not become a habit of take-1 across the tape. This is a centre-versus-whiten contrast, not an ablation of GAE.
+
+evidence: LIVE_FACTS § Test A center table + extra seeds; § Test A whitened extra seeds
+does-not-license: shaping; two learners; a 36-step dove policy; open-0 = open-1 basin; “unflattened GAE” as a named mechanism; “whitening always keeps the death-open”
 
 The live-step mix at epoch 15 is still mostly 2s under centre (take-1 9% on seed 0). After open-**1** that is the \(R=9\) farm. After open-**0** it is a different stock path. Neither is a 36-step dove.
 
@@ -63,7 +65,9 @@ Same lock, `advantage_norm=center`, entropy 0.05. Claim statistic remains share 
 
 **Centred naive–shaper, 3 seeds × 15.** Agent 1 naive (episode update, LR \(1.41\times 10^{-6}\)). Agent 2 shaper (trial update, LR \(3\times 10^{-7}\), `cliprange=0.1`, `transmit_info=true`). Survival 113, 120, 100 out of 225. Last-epoch: agent 1 left 2 on every seed (mostly 1, seed 2 mixed 0 and 1); agent 2 opened 2 on 14/15, 9/15, 14/15. Leave-2 last three epochs: agent 1 96%, 93%, 87%; agent 2 0%, 7%, 2%. Agent 2 leave-2 over the whole run: 5%, 5%, 4%. Who leaves 2 did **not** swap.
 
-**Shaper 50 epochs, seed 0.** Compare to 15-epoch naive **at epoch 15 only**. Epoch 1: 2/15 survived, both mostly opened 2. Epoch 15: 13/15, agent 1 13×1, agent 2 14×2. Epoch 50: 15/15, agent 1 15×1, agent 2 15×2. Whole-run survival 572/750. Agent 2 opened 0 or 1 on 25/750 (3.3%) and opened 2 on 696/750. No epoch with agent-2 leave-2 majority (peak 3/15 at epoch 5). Agent 1 first majority leave-2: epoch 8. Both left 2 in the same episode 17/750.
+**Shaper 50 epochs, seed 0.** Compare to 15-epoch naive **at epoch 15 only**, and to the matched long naive below. Epoch 1: 2/15 survived, both mostly opened 2. Epoch 15: 13/15, agent 1 13×1, agent 2 14×2. Epoch 50: 15/15, agent 1 15×1, agent 2 15×2. Whole-run survival 572/750. Agent 2 opened 0 or 1 on 25/750 (3.3%) and opened 2 on 696/750. No epoch with agent-2 leave-2 majority (peak 3/15 at epoch 5). Agent 1 first majority leave-2: epoch 8. Both left 2 in the same episode 17/750.
+
+**Matched long naive, 50 epochs, seed 0.** Same config as 15-epoch naive–naive, one seed, 50 epochs. Epoch 1: 4/15, both mostly opened 2. Epoch 15: 12/15, agent 1 12×1, agent 2 **13×1**. Epoch 50: 15/15, **both 15×1**, returns 68.9 / 98.1. Whole-run survival 628/750. Agent 1 leave-2 whole 605/750; agent 2 623/750. Both left 2 in the same episode 551/750. First majority leave-2: agent 1 epoch 8, agent 2 epoch 9. Last-epoch \(\pi(a\mid R)\) at \(R=8\) is 100% open 1 for both; later mid-stock steps are still peaked on 2. At epoch 50 the shaper run’s agent 2 still opened 15×2. One seed each. Not a 36-step dove policy and not the banned “joint leave-2” claim.
 
 **Info-off shaper, 3×15.** Same trial update and LR; `transmit_info=false`. Survival 118, 107, 89 out of 225. Who leaves 2 still did not swap. Agent 2 leave-2 last three epochs 18%, 22%, 13%; whole run 16%, 19%, 16% (higher than info-on 4–5%, and not ~0).
 
@@ -71,16 +75,19 @@ Same lock, `advantage_norm=center`, entropy 0.05. Claim statistic remains share 
 
 **Floor.** It is not a clear shaping success. The shaper contrast is confounded with learning speed; the slow-LR control produces the same who-leaves-2 pattern. Last-epoch returns under naive–naive seed 0 are 70.7 and 75.3, near the 71/72 open-then-farm split, not the DP joint 210. No stock-conditioned 0-then-3 policy appears in last-epoch \(\pi(a\mid R)\).
 
-evidence: LIVE_FACTS § slow-LR naive–naive; two-learner tables; Returns
-does-not-license: shaping success; two-phase teaching
+evidence: LIVE_FACTS § slow-LR naive–naive; two-learner tables; matched long naive e50; Returns
+does-not-license: shaping success; two-phase teaching; joint leave-2 as a 36-step policy
 
 - **Grid success (still the bar).** The shaper changes the opening distribution or the outcome bins relative to centred naive–naive, in a way that tracks the learner’s current behaviour.
 - **Grid null.** Same openings, same collapse, same bins as the control. Live-mix will not rescue a null.
 - **Not the two-phase claim.** Agent 2 leave-2 on the 50-epoch seed was 25/750. Epoch 1 the shaper opened 2 while the naive still mostly opened 2.
 
-## Noise arm (planned, not run)
+## Noise arm (Stage B — not yet on GPU)
 
-Writers may list this arm. They may not write it as a result. The pre-registered readout, if the arm is run, is: if stochastic regeneration leaves \(P(\text{open }0\text{ or }1)\) and survival indistinguishable from the deterministic centred hawk or two-learner runs, noise is not doing the work; the basin and the update rule are.
+Stage B is multiplicative ξ ∈ {0.7, 1.0, 1.3} on the growth increment, CRN tables,
+centred Test A + naive–naive + naive–shaper + slow2. Report those arms against the
+LIVE_FACTS DP rows, not only against each other. A retired ±1-on-stock Test A is
+not this section.
 
-evidence: LIVE_FACTS § Live aim — not yet run
-does-not-license: a noise finding; abandoned increment
+evidence: LIVE_FACTS § Live aim — Stage B DP table
+does-not-license: a GPU result until packets exist; retired ±1 numbers in this table

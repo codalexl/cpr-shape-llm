@@ -30,14 +30,21 @@ without trial PPO.
 
 \section{Sample and critic}
 
-Whitened Test~A is one seed (last-epoch leave-2 \(2/15\), return \(11.3\),
-last-three-epoch survival \(5/45\)).
+Whitened Test~A is a three-seed family, not a law.
+Seed~0 last-epoch leave-2 \(2/15\), return \(11.3\), last-three-epoch
+survival \(5/45\).
+Seeds~1--2 left opening 2 (leave-2 last3 \(87\%\) and \(82\%\); survival
+\(97/225\) and \(80/225\)).
 Last-epoch counts are out of 15 games.
+Matched long naive and shaper-e50 are one seed each.
 The value head uses \(\texttt{vf\_coef}=0.01\); opening advantages are
 close to return minus a poor baseline.
 Centre versus whiten is entangled with that.
 
 \section{Noise}
 
-Integer noise on growth is specified.
-Until that arm returns numbers it is not a finding.
+Integer noise on growth was run (\texttt{noise\_tenths=5}, three centred
+Test~A seeds).
+Last epoch left 2 via opening 0 on every seed.
+Whole-run survival is \(76\), \(140\), \(141\).
+That is not a licence to write a growth-noise mechanism.

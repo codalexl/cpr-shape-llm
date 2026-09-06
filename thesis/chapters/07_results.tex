@@ -85,13 +85,22 @@ Seed 2 last epoch left opening 2 via \textbf{0} (\(14/15\)), not 1.
 That is leave-2 on the primary statistic.
 It is not the \(R=8\to 9\) farm (open 0 vs hawk goes \(8\to 11\)).
 This chapter does not explain why seed 2 preferred 0.
-Whitened Test~A never left opening 2 and died.
+
+\textbf{Whitened extra seeds (RNG 1--2).}
+Seed 0 staying on 2 is not the whole family.
+Seed 1 last epoch opened 1 on \(15/15\) (leave-2 last3 \(87\%\), survival
+\(97/225\), return \(69.5\)).
+Seed 2 last epoch opened 0 on \(12/15\) and 1 on \(3/15\) (leave-2 last3
+\(82\%\), survival \(80/225\), return \(69.7\)).
+Both extra seeds survived \(15/15\) in the last epoch.
 
 \textbf{Claim.}
 Against a frozen hawk, centre-only advantages (mean-subtract, no
-\texttt{/std}) moved the policy off opening 2 on three seeds; batch
-whitening did not.
-The prior yields on the first action.
+\texttt{/std}) moved the policy off opening 2 on three seeds.
+Batch whitening did that on seeds 1--2 and did not on seed 0
+(survival \(28/225\), last epoch \(14\times 2\)).
+Whitening is seed-dependent.
+The prior yields on the first action when it leaves 2.
 It does not become a habit of take-1 across the tape.
 This is a centre-versus-whiten contrast, not an ablation of GAE.
 
@@ -100,8 +109,9 @@ This is a centre-versus-whiten contrast, not an ablation of GAE.
 \includegraphics[width=0.92\textwidth]{figures/fig_openings_testA.pdf}
 \caption{Share of episodes that do not open 2 (open 0 or 1) against a
   frozen always-2 partner.
-  Whitened Test~A never leaves the death-open.
-  Centre-only seeds 0--2 do.
+  The whitened curve in this figure is seed~0 only, which stays on the
+  death-open; whitened seeds 1--2 left opening 2 (text).
+  Centre-only seeds 0--2 leave opening 2.
   Seed~2's last epochs leave 2 mostly via opening~0, not 1
   (Table~\ref{tab:seeds}): leave-2, not the \(R=9\) farm.
   This figure is the opening statistic.
@@ -114,7 +124,7 @@ This is a centre-versus-whiten contrast, not an ablation of GAE.
 \includegraphics[width=0.92\textwidth]{figures/fig_death_rounds_testA.pdf}
 \caption{Collapse step among episodes that die, first three versus last
   three epochs of Test~A.
-  Whitened runs keep dying near round~4.
+  The whitened panel is seed~0, which keeps dying near round~4.
   Centre-only seed~0 last epochs mostly survive (survival in the panel
   titles).
   Supporting statistic only; the claim is the opening share in
@@ -188,7 +198,8 @@ Agent 2 leave-2 over the whole run: \(5\%\), \(5\%\), \(4\%\).
 Who leaves 2 did \textbf{not} swap.
 
 \textbf{Shaper 50 epochs, seed 0.}
-Compare to 15-epoch naive \textbf{at epoch 15 only}.
+Compare to 15-epoch naive \textbf{at epoch 15 only}, and to the matched
+long naive below.
 Epoch 1: \(2/15\) survived, both mostly opened 2.
 Epoch 15: \(13/15\), agent 1 \(13\times 1\), agent 2 \(14\times 2\).
 Epoch 50: \(15/15\), agent 1 \(15\times 1\), agent 2 \(15\times 2\).
@@ -198,6 +209,21 @@ Agent 2 opened 0 or 1 on \(25/750\) (\(3.3\%\)) and opened 2 on
 No epoch with agent-2 leave-2 majority (peak \(3/15\) at epoch 5).
 Agent 1 first majority leave-2: epoch 8.
 Both left 2 in the same episode \(17/750\).
+
+\textbf{Matched long naive, 50 epochs, seed 0.}
+Same config as 15-epoch naive--naive; one seed; 50 epochs.
+Epoch 1: \(4/15\), both mostly opened 2.
+Epoch 15: \(12/15\), agent 1 \(12\times 1\), agent 2 \(13\times 1\).
+Epoch 50: \(15/15\), both \(15\times 1\), returns \(68.9\) / \(98.1\).
+Whole-run survival \(628/750\).
+Agent 1 leave-2 whole \(605/750\); agent 2 \(623/750\).
+Both left 2 in the same episode \(551/750\).
+First majority leave-2: agent 1 epoch 8, agent 2 epoch 9.
+Last-epoch action frequencies at \(R=8\) are 100~percent open 1 for both;
+later mid-stock steps are still peaked on 2.
+At epoch 50 the shaper run's agent 2 still opened \(15\times 2\).
+One seed each.
+Not a 36-step dove policy.
 
 \textbf{Info-off shaper, \(3\times 15\).}
 Same trial update and LR; \texttt{transmit\_info=false}.
@@ -275,11 +301,14 @@ frequencies by stock.
   Epoch 1 the shaper opened 2 while the naive still mostly opened 2.
 \end{itemize}
 
-\section{Noise arm (planned, not run)}
+\section{Noise arm (executed)}
 
-This arm may be listed.
-It is not a result.
-If it is run, the pre-registered readout is: if stochastic regeneration
-leaves \(P(\mathrm{open}\ 0\ \mathrm{or}\ 1)\) and survival
-indistinguishable from the deterministic centred hawk or two-learner
-runs, noise is not doing the work; the basin and the update rule are.
+Centred Test~A versus frozen always-2, \texttt{noise\_tenths=5},
+15 epochs, three seeds.
+Survival \(76/225\), \(140/225\), \(141/225\).
+Leave-2 in the last three epochs \(80\%\), \(100\%\), \(98\%\).
+Last-epoch openings: \(14\times 0\), \(15\times 0\), \(15\times 0\).
+Last-epoch returns \(72.4\), \(75.2\), \(87.3\).
+Last epoch left 2 via opening 0 on every seed.
+Seed 0 whole-run survival is the low one.
+This chapter does not write a growth-noise mechanism.

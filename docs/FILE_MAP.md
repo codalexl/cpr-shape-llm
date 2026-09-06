@@ -36,6 +36,8 @@ fixture, not the live env. Matrix-game launchers and Python entries live under
 | `configs/cpr_naive_naive_slow2_center.json` | Both naive; agent 2 LR `3e-7`. |
 | `configs/cpr_naive_shaper_center.json` | Naive vs shaper; shaper LR `3e-7`, `cliprange=0.1`. |
 | `configs/cpr_naive_shaper_center_info_off.json` | Same shaper, `transmit_info=false`. |
+| `configs/cpr_*_xi.json` | Stage B: `xi_tenths` [7,10,13] on growth. |
+| `cpr_xi.py` | Exact DP expectations under i.i.d. ξ. |
 | `configs/cpr_smoke.json` | Short logistic smoke (whitened + shaper; not a results config). |
 | `scripts/analyse_cpr_run.py` | Gates from `cpr_records` + training metrics. Live-step mix, not openings. |
 | `scripts/trace_spine.py` | Stubbed-LLM walkthrough of the live logistic spine. |
@@ -78,5 +80,5 @@ fixture, not the live env. Matrix-game launchers and Python entries live under
 | `archive/docs/M4_SETUP.md` | M4 / IPD setup. Live launch is `run_cpr.sh`. |
 | `archive/linear_scratch/` | Linear DP scratch that `cpr_solve.py` replaced. |
 
-Stochastic aim (LIVE_FACTS): noise on the locked logistic update. Do not revive
-`stochastic_cpr_env.py`.
+Stage B (LIVE_FACTS): multiplicative ξ on the locked logistic **growth increment**.
+Do not revive `stochastic_cpr_env.py`. Retired ±1 Test A is under `archive/configs/`.

@@ -222,20 +222,13 @@ def test_logistic_capacity_does_not_grow():
     assert int(out.R_end[0]) == 40
 
 
-def test_noise_never_revives_absorbing_zero():
-    np.random.seed(0)
-    params = CPRParams(R0=0, g=0, ceiling=40, horizon=20, rate_tenths=9, noise_tenths=10)
-    env = CPRDynamics(params, n_games=8)
-    for _ in range(20):
-        out = env.step(np.zeros(8, dtype=int), np.zeros(8, dtype=int))
-        assert (out.R_end == 0).all()
-        assert out.masked.all()
-
-
-def test_noise_p0_matches_deterministic():
-    """noise_tenths unset is the live lock; p=0 is not a valid field (1..10)."""
-    assert LOGISTIC.noise_tenths is None
-    assert run_constant(LOGISTIC, 2, 2) == (7, 7, 4)
+def test_xi10_matches_old_growth_formula():
+    """xi_tenths=10 is bit-identical to growth without ξ."""
+    from cpr_env import round_half_even_div
+    K, rate = 40, 9
+    for R in range(0, K + 1):
+        old = 0 if R <= 0 or R >= K else round_half_even_div(rate * R * (K - R), 10 * K)
+        assert logistic_growth(R, K, rate, 10) == old
 
 
 def test_logistic_preserves_absorbing_zero_and_exact_depletion():

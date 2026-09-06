@@ -8,10 +8,10 @@ These constraints limit what the executed contrasts can be said to show.
 
 **The shaping null is close to built-in until someone conditions on stock.** A rational shaper against a learner who only avoids death by opening 1 then taking 2 has about one unit to gain (72 versus 71). Slow-LR naive–naive already reproduces who-leaves-2 not swapping.
 
-**Whitened Test A is one seed.** Last-epoch leave-2 2/15, return 11.3, last-three-epoch survival 5/45. Extra whitened seeds are specified for RunPod.
+**Whitened Test A is a three-seed family, not a law.** Seed 0 last-epoch leave-2 2/15, return 11.3, last-three-epoch survival 5/45. Seeds 1–2 left opening 2 (87% and 82% leave-2 last3; survival 97/225 and 80/225). The landmine reading is seed-dependent.
 
-**Three seeds, last-epoch counts out of 15.** 13/15 has a wide interval. Whole-run survival averages over learning and is supplementary.
+**Three seeds, last-epoch counts out of 15.** 13/15 has a wide interval. Whole-run survival averages over learning and is supplementary. Matched long naive and shaper-e50 are one seed each.
 
 **The critic is weakly trained** (`vf_coef=0.01`, \(\gamma=1\), \(\lambda=0.97\), new value head). Opening advantages are close to return minus a poor baseline; later 2s smear. Centre versus whiten is entangled with that.
 
-**Noise on growth is specified, not reported.** Until that arm returns numbers it is not a finding.
+**Stage B GPU packets are not in yet.** In-repo DP says (1,1) and hawk–dove live with probability 1 under ξ; (2,2) dies; open-1-then-2s survives 80%. Until the four arms exist, do not write a noise finding. Retired ±1 Test A is not a substitute.

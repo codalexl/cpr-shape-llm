@@ -41,6 +41,10 @@ DEFAULT_RULES = (
 
 DEFAULT_INSTRUCTION = "\nReply with only one number: {actions}."
 
+# Stage B prompt clause. Do not splice in until cpr_preflight.py has been run on
+# both the deterministic rules and rules+this sentence.
+XI_GROWTH_CLAUSE = " Regrowth varies by up to 30 percent each round."
+
 
 @dataclass
 class CPRObservationManagerConfig:

@@ -55,17 +55,22 @@ class CPRGameParams:
     ceiling: int = 20
     n_actions: int = 4
     rate_tenths: Optional[int] = None
-    noise_tenths: Optional[int] = None
+    # Stage B: mean-one three-point multiplier on growth. JSON list [7,10,13].
+    # None / omitted = deterministic (ξ=10).
+    xi_tenths: Optional[list] = None
 
     def __post_init__(self):
         assert self.t_max > 0 and self.e_max > 0 and self.n_games > 0, \
             "t_max, e_max and n_games must all be positive"
+        if self.xi_tenths is not None:
+            xs = tuple(int(x) for x in self.xi_tenths)
+            assert xs and all(x > 0 for x in xs), f"xi_tenths must be positive; got {self.xi_tenths}"
+            self.xi_tenths = list(xs)
 
     def to_dynamics_params(self) -> CPRParams:
         return CPRParams(R0=self.R0, g=self.g, ceiling=self.ceiling,
                          horizon=self.t_max, n_actions=self.n_actions,
-                         rate_tenths=self.rate_tenths,
-                         noise_tenths=self.noise_tenths)
+                         rate_tenths=self.rate_tenths)
 
 
 class CPRGame:
@@ -104,6 +109,20 @@ class CPRGame:
         self.outcomes: List[int] = []
         self.records: Dict[str, list] = {field_name: [] for field_name in RECORD_FIELDS}
         self.epoch = 0
+        self.noise_table = None  # (n_epochs, e_max * n_games, t_max) of xi tenths
+
+    def attach_noise_table(self, seed: int, n_epochs: int, save_path: Optional[str] = None):
+        """CRN table for Stage B. No-op when xi_tenths is unset (deterministic)."""
+        if not self.params.xi_tenths:
+            return None
+        from cpr_env import make_noise_table
+        table = make_noise_table(
+            seed, n_epochs, self.e_max * self.n_games, self.t_max, self.params.xi_tenths
+        )
+        self.noise_table = table
+        if save_path:
+            np.save(save_path, table)
+        return table
 
     # ------------------------------------------------------------------ records
 
@@ -151,7 +170,12 @@ class CPRGame:
         requests_1, requests_2 = a1.numpy(), a2.numpy()
 
         episode, step_index = env_state.outer_t, env_state.inner_t + 1
-        outcome = self.dynamics.step(requests_1, requests_2)
+        xi = 10
+        if self.noise_table is not None:
+            # slot = episode * n_games + game; step is 0-indexed inner_t
+            slots = episode * self.n_games + np.arange(self.n_games)
+            xi = self.noise_table[self.epoch, slots, env_state.inner_t]
+        outcome = self.dynamics.step(requests_1, requests_2, xi_tenths=xi)
 
         self.outcomes.extend((requests_1 * self.n_actions + requests_2).tolist())
         self._append_records(outcome, episode=episode, step_index=step_index)

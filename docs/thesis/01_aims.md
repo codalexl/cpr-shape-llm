@@ -8,12 +8,12 @@ This report studies PPO fine-tuning of a small instruction-tuned language model 
 2. **Advantage normalisation.** Against a frozen take-2 partner, does batch whitening of advantages keep Gemma-2-2b-it on the opening that collapses the pool, and does mean-centring let it leave that opening?
 3. **Opponent shaping.** Does a ShapeLLM-style shaper (trial-level update, slower learning rate, optional trial prompt) change openings or returns relative to two naive learners, once learning-rate asymmetry is controlled?
 
-A fourth arm — integer noise on the locked logistic growth — is specified and may be run; it is not required for (1)–(3).
+A fourth arm — multiplicative ξ on the locked logistic **growth increment** (Stage B) — is the intended stochastic CPR. Deterministic chicken is Stage A. A retired ±1-on-stock Test A is not this arm.
 
 ## Contributions
 
 - An integer logistic CPR (\(R_0=8\), \(K=40\), \(T=36\), growth rate 0.9) whose constant-strategy matrix and dynamic-programming opening values are reported, and whose linear fixture is kept only as a harvest/scarcity test.
-- A centre-versus-whiten contrast on that lock: whitened Test A stays on opening 2 and dies (survival 28/225, last-epoch return 11.3); centred Test A leaves opening 2 on three seeds (last-epoch returns 60–70).
+- A centre-versus-whiten contrast on that lock: whitened Test A seed 0 stays on opening 2 and dies (survival 28/225, last-epoch return 11.3); whitened seeds 1–2 leave opening 2 (returns 69.5 and 69.7). Centred Test A leaves opening 2 on three seeds (last-epoch returns 60–70). Do not write that whitening always keeps the death-open.
 - A negative shaping result after a slow-LR naive–naive control: who-leaves-2 does not swap when agent 2 is merely slower, matching the naive–shaper pattern without trial PPO.
 
 The training stack (Gemma-2-2b-it, rank-2 LoRA, trial PPO) is reused from ShapeLLM with permission. The scientific object is this environment and these contrasts, not a re-run of the published matrix games.

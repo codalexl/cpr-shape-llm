@@ -4,6 +4,8 @@
 **Sources attacked:** `docs/thesis/07_results.md` against `docs/LIVE_FACTS.md` (dated 4 Sep 2026), with `08_limitations.md` and `DISTINCTION_BAR.md` in view.
 **Rule:** finding nothing is failure. No praise. No rewrite that saves a claim.
 
+**Stale as of 6 Sep 2026.** LIVE_FACTS now has whitened seeds 1–2 (left opening 2), noise seeds 0–2 (executed), and matched long naive e50. Several FAILs below (one-seed whitening; planned noise as “Null.”) no longer describe the current Results file. Do not treat this document as the live Challenge pass. A **fresh** Challenge is required on the patched Results + Limitations. The 4 Sep attacks on open-0 ≠ open-1, centre-versus-whiten (not GAE), and the shaping-null floor still apply.
+
 ---
 
 ## Hard FAILs

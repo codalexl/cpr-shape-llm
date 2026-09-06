@@ -13,7 +13,10 @@ Rules, in order, per step:
 Reward = units actually received. Episodes run the full horizon; a dead pool simply pays 0.
 
 Regeneration is linear (`R + g`) when `rate_tenths` is None, and integer logistic
-when it is set: growth = round_half_even(rate_tenths * R * (ceiling - R) / (10 * ceiling)).
+when it is set:
+growth = round_half_even(rate_tenths * xi_tenths * R * (ceiling - R) / (100 * ceiling)).
+`xi_tenths=10` is deterministic (bit-identical to the old formula without ξ).
+Stage B multiplies the **growth increment** by ξ ∈ {0.7, 1.0, 1.3} (`xi_tenths` 7/10/13).
 The live training configs use logistic; linear remains so the original fixtures still run.
 
 Two edge cases that are easy to lose on a reimplementation, both deliberate:
@@ -37,11 +40,14 @@ Conventions:
 """
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Sequence, Tuple
 
 import numpy as np
 
 NO_COLLAPSE = -1
+# Mean-one three-point multiplier on the growth increment (Stage B).
+# 10/10 = 1 is deterministic and bit-identical to the formula without ξ.
+XI_TENTHS: Tuple[int, ...] = (7, 10, 13)
 
 
 def round_half_even_div(num: int, den: int) -> int:
@@ -55,11 +61,52 @@ def round_half_even_div(num: int, den: int) -> int:
     return q if q % 2 == 0 else q + 1
 
 
-def logistic_growth(R: int, K: int, rate_tenths: int) -> int:
-    """Integer logistic increment at post-harvest stock R. Zero at R=0 and R=K."""
+def round_half_even_div_vec(num: np.ndarray, den: int) -> np.ndarray:
+    """Vectorised round_half_even_div. num >= 0, den > 0."""
+    q, r = np.divmod(np.asarray(num, dtype=np.int64), den)
+    two_r = r * 2
+    up = two_r > den
+    tie = two_r == den
+    odd = (q % 2) != 0
+    return q + up.astype(np.int64) + (tie & odd).astype(np.int64)
+
+
+def logistic_growth(R: int, K: int, rate_tenths: int, xi_tenths: int = 10) -> int:
+    """Integer logistic increment at post-harvest stock R. Zero at R=0 and R=K.
+
+    ξ is multiplied **inside** the Fraction before rounding. xi_tenths=10 is
+    bit-identical to the old (no-ξ) formula.
+    """
     if R <= 0 or R >= K:
         return 0
-    return round_half_even_div(rate_tenths * R * (K - R), 10 * K)
+    return round_half_even_div(rate_tenths * xi_tenths * R * (K - R), 100 * K)
+
+
+def logistic_growth_vec(R: np.ndarray, K: int, rate_tenths: int, xi_tenths) -> np.ndarray:
+    """Per-game growth. `xi_tenths` is a scalar or an array of shape R.shape."""
+    R = np.asarray(R, dtype=np.int64)
+    xi = np.broadcast_to(np.asarray(xi_tenths, dtype=np.int64), R.shape)
+    growth = np.zeros_like(R)
+    live = (R > 0) & (R < K)
+    if not np.any(live):
+        return growth
+    num = rate_tenths * xi[live] * R[live] * (K - R[live])
+    growth[live] = round_half_even_div_vec(num, 100 * K)
+    return growth
+
+
+def make_noise_table(seed: int, n_epochs: int, n_slots: int, t_max: int,
+                     xi_tenths: Sequence[int] = XI_TENTHS) -> np.ndarray:
+    """CRN table of ξ tenths, shape (n_epochs, n_slots, t_max).
+
+    Spawned from SeedSequence(seed) so it is independent of the training RNG
+    stream. Same (seed, shape, xi set) → same table on every arm.
+    """
+    ss = np.random.SeedSequence(int(seed)).spawn(1)[0]
+    rng = np.random.default_rng(ss)
+    xi = tuple(int(x) for x in xi_tenths)
+    assert xi and all(x > 0 for x in xi), f"xi_tenths must be positive; got {xi}"
+    return rng.choice(xi, size=(n_epochs, n_slots, t_max)).astype(np.int64)
 
 
 def zero_growth_stocks(K: int, rate_tenths: int) -> tuple:
@@ -81,9 +128,6 @@ class CPRParams:
     horizon: int = 30
     n_actions: int = 4
     rate_tenths: Optional[int] = None
-    # Probability in tenths of applying ±1 after growth. None/0 = deterministic.
-    # Never applied when the post-growth stock is already 0 (absorbing zero stays absorbing).
-    noise_tenths: Optional[int] = None
 
     def __post_init__(self):
         assert self.R0 >= 0 and self.g >= 0 and self.horizon > 0, "R0, g must be >= 0; horizon > 0"
@@ -93,8 +137,6 @@ class CPRParams:
         assert self.n_actions >= 2, f"need at least 2 actions; got {self.n_actions}"
         if self.rate_tenths is not None:
             assert self.rate_tenths > 0, f"rate_tenths must be > 0; got {self.rate_tenths}"
-        if self.noise_tenths is not None:
-            assert 1 <= self.noise_tenths <= 10, f"noise_tenths in 1..10; got {self.noise_tenths}"
 
     @property
     def logistic(self) -> bool:
@@ -125,19 +167,16 @@ class StepOutcome:
 
 
 class CPRDynamics:
-    """Deterministic CPR resource, held as one integer level per parallel game."""
+    """CPR resource, held as one integer level per parallel game.
+
+    Optional per-step `xi_tenths` multiplies the logistic growth increment.
+    Default 10 is deterministic.
+    """
 
     def __init__(self, params: CPRParams, n_games: int):
         assert n_games >= 1, f"n_games must be >= 1; got {n_games}"
         self.params, self.n_games = params, n_games
         self.R = np.empty(n_games, dtype=np.int64)
-        if params.logistic:
-            K, tenths = params.ceiling, params.rate_tenths
-            self._growth = np.array(
-                [logistic_growth(r, K, tenths) for r in range(K + 1)], dtype=np.int64
-            )
-        else:
-            self._growth = None
         self.reset()
 
     def reset(self) -> np.ndarray:
@@ -147,8 +186,13 @@ class CPRDynamics:
         self.collapse_step = np.full(self.n_games, NO_COLLAPSE, dtype=np.int64)
         return self.R.copy()
 
-    def step(self, request_1: np.ndarray, request_2: np.ndarray) -> StepOutcome:
-        """Advance every parallel game by one step. Requests must be in [0, n_actions-1]."""
+    def step(self, request_1: np.ndarray, request_2: np.ndarray,
+             xi_tenths=10) -> StepOutcome:
+        """Advance every parallel game by one step. Requests must be in [0, n_actions-1].
+
+        `xi_tenths` is a scalar or an array of shape (n_games,). 10 = deterministic.
+        Never applied when post-harvest stock is 0 (absorbing zero stays absorbing).
+        """
         a1 = np.asarray(request_1, dtype=np.int64)
         a2 = np.asarray(request_2, dtype=np.int64)
         assert a1.shape == a2.shape == (self.n_games,), (
@@ -170,18 +214,14 @@ class CPRDynamics:
 
         # Regeneration only while the pool is strictly alive; zero is absorbing.
         alive = R_harvested > 0
-        if self._growth is None:
-            grown = R_harvested + self.params.g
+        if self.params.logistic:
+            growth = logistic_growth_vec(
+                R_harvested, self.params.ceiling, self.params.rate_tenths, xi_tenths
+            )
+            grown = R_harvested + growth
         else:
-            grown = R_harvested + self._growth[R_harvested]
+            grown = R_harvested + self.params.g
         R_end = np.where(alive, np.minimum(self.params.ceiling, grown), 0)
-
-        if self.params.noise_tenths:
-            live = R_end > 0
-            apply = live & (np.random.randint(0, 10, size=self.n_games) < self.params.noise_tenths)
-            sign = np.where(np.random.random(self.n_games) < 0.5, 1, -1)
-            noisy = np.clip(R_end + sign, 0, self.params.ceiling)
-            R_end = np.where(apply, noisy, R_end)
 
         self.t += 1
         now_dead = R_end == 0

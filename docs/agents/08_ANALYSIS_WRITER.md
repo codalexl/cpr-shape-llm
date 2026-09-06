@@ -34,7 +34,9 @@ Strip tags when copying to TeX. Challenge deletes untagged paragraphs.
 
 ## This drop (5–7 Sep)
 
-From **existing** LIVE_FACTS only (frozen-bot + two-learner). Noise is planned; do not write it as measured.
+From **existing** LIVE_FACTS only. Stage B GPU packets are not in yet; the DP table is.
+Retired ±1 Test A is not a Results table. Do not invent a mechanism. Do not write
+“whitening always keeps the death-open.”
 
 1. Expand `docs/thesis/07_results.md`: qualitative / error analysis — opening traces as *record*, death-round support, seed-2 as the same opening family with **no why-sentence**. Deepen “not a clear shaping success”; do not upgrade it.
 2. Write `docs/thesis/08_limitations.md` as critique, not a recap list. Headings already in TeX: whitening landmine; frozen bot ≠ two learners; seed 2 family; what would falsify the opening claim; two-learner is not a teaching policy; noise null (not a finding); lock is a method fact.

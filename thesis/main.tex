@@ -57,17 +57,19 @@ mutual take-2 dies around round~4 (return 7); hawk versus a frozen dove scores
 72 and the pool lives.
 Training reuses Gemma-2-2b-it, rank-2 LoRA, and trial PPO from ShapeLLM, with
 permission.
-The intended increment is noise on that locked update; the increment has not
-been run.
-A null remains reportable.
+The increment is integer noise on that locked update
+(\(\texttt{noise\_tenths}=5\)).
+It was run on centred Test~A (three seeds).
 
 The untrained prior sits near 90~percent on take-2.
 Against a frozen hawk, batch whitening crushed opening-1 advantage
-(\(+39.8\) raw to \(+1.38\)) and the policy stayed on the death-open
-(survival \(28/225\)).
-Centre-only advantages left the opening star: seed~0 open-1 share
-\(27\%\to 87\%\), survival \(134/225\).
-Seeds~1 and~2 also left opening~2; seed~2 opened~0 rather than~1.
+(\(+39.8\) raw to \(+1.38\)).
+Whitened seed~0 stayed on the death-open (survival \(28/225\));
+whitened seeds~1 and~2 left opening~2 (last-epoch \(15\times 1\) and
+\(12\times 0\), survival \(97/225\) and \(80/225\)).
+Whitening is seed-dependent.
+Centre-only advantages left opening~2 on three seeds: seed~0 open-1 share
+\(27\%\to 87\%\), survival \(134/225\); seed~2 opened~0 rather than~1.
 Against a frozen dove the learner did not copy take-1.
 Two centred PPO learners then split hawk--dove.
 Who doves swapped across three naive--naive seeds and did not swap under

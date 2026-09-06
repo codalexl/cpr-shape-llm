@@ -108,6 +108,21 @@ def summarise_exp(folder: Path, exp: int):
     ret2 = [np.mean([g["r2"] for g in by_e[e]]) for e in epochs]
     pi1, pi2 = last_epoch_pi_R(rec, 1)
 
+    def leave2_below(rec, agent, Rmax=12, last_k=1):
+        epochs = sorted(set(int(e) for e in rec["epoch"]))
+        keep = set(epochs[-last_k:])
+        key = "request_1" if agent == 1 else "request_2"
+        n = leave = 0
+        for i in range(len(rec["epoch"])):
+            if int(rec["epoch"][i]) not in keep or rec["masked"][i]:
+                continue
+            if int(rec["R_start"][i]) >= Rmax or int(rec["R_start"][i]) <= 0:
+                continue
+            n += 1
+            if int(rec[key][i]) != 2:
+                leave += 1
+        return None if n == 0 else {"leave2": round(leave / n, 3), "n": n}
+
     def open_block(model):
         p = opening_path(folder, exp, model)
         if p is None:
@@ -144,6 +159,8 @@ def summarise_exp(folder: Path, exp: int):
         "a2": a2,
         "pi1_last_R": {str(k): v for k, v in list(pi1.items())[:12]},
         "pi2_last_R": {str(k): v for k, v in list(pi2.items())[:12]} if a2 else None,
+        "a1_leave2_Rlt12": leave2_below(rec, 1),
+        "a2_leave2_Rlt12": leave2_below(rec, 2) if a2 else None,
     }
 
 

@@ -16,8 +16,13 @@
 #   ./scripts/run_cpr.sh naive_shaper_center_s012              # 3 seeds × 15
 #   ./scripts/run_cpr.sh naive_shaper_center_info_off_s012     # 3×15, no extra prompt history
 #   ./scripts/run_cpr.sh naive_shaper_center_e50               # one seed, 50 epochs
+#   ./scripts/run_cpr.sh testA_center_xi_s012                  # Stage B: Test A + ξ 3×15
+#   ./scripts/run_cpr.sh naive_naive_center_xi_s012            # Stage B: NN + ξ 3×15
+#   ./scripts/run_cpr.sh naive_shaper_center_xi_s012           # Stage B: NS + ξ 3×15
+#   ./scripts/run_cpr.sh naive_naive_slow2_center_xi_s012      # Stage B: slow2 + ξ 3×15
 #
 # One GPU per run. A second GPU is a second condition, not data-parallel.
+# Stage B uses the same CRN table per seed across arms (make_noise_table(seed, ...)).
 
 set -euo pipefail
 
@@ -63,18 +68,27 @@ case "$MODE" in
     SEEDS=2; SEED_START=1; EPOCHS=15; CKPT_FREQ=0
     ENTRY="finetuning_cpr_fixed.py"
     ;;
-  testA_center_noise)
-    # Centre Test A + integer ±1 noise on growth (p=0.5). Does not revive R=0.
-    CONFIG="configs/cpr_testA_center_noise.json"
-    OUT="checkpoints/cpr_log_testA_center_noise"
-    SEEDS=1; EPOCHS=15; CKPT_FREQ=0
-    ENTRY="finetuning_cpr_fixed.py"
-    ;;
-  testA_center_noise_s012)
-    CONFIG="configs/cpr_testA_center_noise.json"
-    OUT="checkpoints/cpr_log_testA_center_noise"
+  testA_center_xi_s012)
+    # Stage B: centred Test A, multiplicative ξ on growth, seeds 0–2.
+    CONFIG="configs/cpr_testA_center_xi.json"
+    OUT="checkpoints/cpr_log_testA_center_xi"
     SEEDS=3; SEED_START=0; EPOCHS=15; CKPT_FREQ=0
     ENTRY="finetuning_cpr_fixed.py"
+    ;;
+  naive_naive_center_xi_s012)
+    CONFIG="configs/cpr_naive_naive_center_xi.json"
+    OUT="checkpoints/cpr_log_naive_naive_center_xi"
+    SEEDS=3; SEED_START=0; EPOCHS=15; CKPT_FREQ=0
+    ;;
+  naive_shaper_center_xi_s012)
+    CONFIG="configs/cpr_naive_shaper_center_xi.json"
+    OUT="checkpoints/cpr_log_naive_shaper_center_xi"
+    SEEDS=3; SEED_START=0; EPOCHS=15; CKPT_FREQ=0
+    ;;
+  naive_naive_slow2_center_xi_s012)
+    CONFIG="configs/cpr_naive_naive_slow2_center_xi.json"
+    OUT="checkpoints/cpr_log_naive_naive_slow2_center_xi"
+    SEEDS=3; SEED_START=0; EPOCHS=15; CKPT_FREQ=0
     ;;
   testB_center)
     # Same as testB, advantage_norm=center. New folder.
@@ -134,7 +148,7 @@ case "$MODE" in
     SEEDS=1; EPOCHS=50; CKPT_FREQ=0
     ;;
   *)
-    echo "Usage: $0 {smoke|testA_center|testA_center_s12|testA_whiten_s12|testA_center_noise|testA_center_noise_s012|testB_center|naive_naive_center|naive_naive_center_s12|naive_naive_center_e50|naive_naive_slow2_s012|naive_shaper_center|naive_shaper_center_s012|naive_shaper_center_info_off_s012|naive_shaper_center_e50}"
+    echo "Usage: $0 {smoke|testA_center|testA_center_s12|testA_whiten_s12|testB_center|naive_naive_center|naive_naive_center_s12|naive_naive_center_e50|naive_naive_slow2_s012|naive_shaper_center|naive_shaper_center_s012|naive_shaper_center_info_off_s012|naive_shaper_center_e50|testA_center_xi_s012|naive_naive_center_xi_s012|naive_shaper_center_xi_s012|naive_naive_slow2_center_xi_s012}"
     exit 1
     ;;
 esac
@@ -166,13 +180,19 @@ import json, sys
 from cpr_game import CPRGameParams
 from cpr_env import LOGISTIC
 path = sys.argv[1]
-p = CPRGameParams(**json.load(open(path))["game_parameters"])
+raw = json.load(open(path))["game_parameters"]
+assert "noise_tenths" not in raw, f"{path} still has noise_tenths — Stage B is xi_tenths"
+p = CPRGameParams(**raw)
 d = p.to_dynamics_params()
 assert d.logistic, f"{path} has no rate_tenths — refusing to train linear"
 assert (d.R0, d.ceiling, d.horizon, d.rate_tenths) == (
     LOGISTIC.R0, LOGISTIC.ceiling, LOGISTIC.horizon, LOGISTIC.rate_tenths
 ), f"{path} is logistic but not the locked (8, 40, 36, 0.9) point: {d}"
-print(f"logistic OK  R0={d.R0} K={d.ceiling} T={d.horizon} rate={d.rate_tenths}/10")
+if p.xi_tenths is not None:
+    assert tuple(p.xi_tenths) == (7, 10, 13), f"{path} xi_tenths {p.xi_tenths} != (7,10,13)"
+    print(f"logistic OK  R0={d.R0} K={d.ceiling} T={d.horizon} rate={d.rate_tenths}/10  xi={p.xi_tenths}")
+else:
+    print(f"logistic OK  R0={d.R0} K={d.ceiling} T={d.horizon} rate={d.rate_tenths}/10")
 PY
 "$PY" -m pytest tests/ -q || { echo "CPR tests failed — not launching."; exit 1; }
 
