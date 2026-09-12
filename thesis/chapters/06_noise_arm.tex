@@ -1,0 +1,365 @@
+% ---------------------------------------------------------------------------
+% Sidecar draft (Fable). NOT inputted by main.tex.
+% Harvested 7 Sep 2026 into chapters/06_experimental_design.tex (executed
+% protocol, LIVE_FACTS rounding, leave-2 not pi(1|R<12), no Barrett/Sethi
+% journal, no Reed-as-implemented, no "runs not executed").
+% ---------------------------------------------------------------------------
+% Noise arm: section for chapters/06_experimental_design.tex
+% Replaces "Planned arm --- noise on the locked logistic (not yet run)".
+%
+% New bibliography entries required in refs.bib (keys used below):
+%   sethi2005   Sethi, G., Costello, C., Fisher, A., Hanemann, M., Karp, L. (2005).
+%               Fishery management under multiple uncertainty.
+%               Journal of Environmental Economics and Management 50(2), 300-318.
+%   leibo2017   Leibo, J. Z., Zambaldi, V., Lanctot, M., Marecki, J., Graepel, T. (2017).
+%               Multi-agent reinforcement learning in sequential social dilemmas.
+%               AAMAS 2017.
+%   barrett2012 Barrett, S., Dannenberg, A. (2012). Climate negotiations under
+%               scientific uncertainty. PNAS 109(43), 17372-17376.
+% Existing keys used: reed1979, garciasegura2025, piche2025, perolat2017.
+% All numbers in the tables are exact dynamic-programming values from
+% scripts/noise_dp.py (Fraction arithmetic; rounded to one decimal for display).
+%
+% Labels assumed elsewhere in Chapter 6 (add them if they do not exist yet):
+%   \label{sec:executed-fixed}    on "Executed runs" (learner vs frozen bot)
+%   \label{sec:executed-two}      on "Executed runs --- two learners"
+%   \label{sec:remaining-ladder}  on the remaining two-learner ladder
+% Existing labels used: ch:env, ch:results, tab:chicken.
+% ---------------------------------------------------------------------------
+
+\section{Noise arm: stochastic regeneration}
+\label{sec:noise-arm}
+
+The deterministic environment of Chapter~\ref{ch:env} has a property that
+limits what any shaping experiment on it can show.
+Because regeneration is deterministic, the fate of the pool is decided by
+the joint action in round~1: a first-round total of at most~3 places the
+stock at or above~9, from which mutual take-2 is a fixed point and every
+subsequent constant action profile with total at most~4 is safe, whereas a
+first-round total of~4 leaves the stock at~8, from which mutual take-2
+collapses the pool in round~4 with certainty.
+After a safe opening the continuation is trivial: a constant action needs no
+information about the stock.
+Consequently a learner has one state-dependent decision to make, a shaper
+has nothing to teach beyond it, and the hawk in a hawk--dove split gains
+one unit (72 against~71) from its partner's restraint.
+The noise arm adds stochastic regeneration to the same integer update so
+that the continuation, not only the opening, becomes a decision problem.
+It is the return to the stochastic setting of the original project plan,
+made after the deterministic substrate had been fixed so that every claim
+could be checked against an exact solution of the game.
+
+\subsection{Form of the noise}
+
+Let \(R_t\) denote the post-harvest stock in round~\(t\).
+The deterministic update of Chapter~\ref{ch:env} is
+\(R_{t+1} = \min\bigl(K,\, R_t + g(R_t)\bigr)\) with
+\(g(R) = \operatorname{round}\bigl(\rho\, R\,(K-R)/K\bigr)\), \(\rho = 0.9\)
+and round-half-even rounding.
+The noise arm replaces \(g\) by
+\begin{equation}
+  g_t(R) \;=\; \operatorname{round}\!\bigl(\xi_t\,\rho\, R\,(K-R)/K\bigr),
+  \qquad
+  \xi_t \in \{0.7,\;1.0,\;1.3\}\ \text{with equal probability},
+  \label{eq:noise-update}
+\end{equation}
+where the multipliers \(\xi_t\) are independent across rounds and across
+parallel games and are shared by both players within a game.
+The multiplier has mean exactly one, bounded support, and is applied to the
+growth increment only; the post-harvest stock itself is never perturbed.
+In the implementation the multiplier is stored in tenths
+(\(\xi \in \{7, 10, 13\}\)) alongside the rate in tenths, so the argument of
+the rounding function is the exact rational
+\(9\,\xi\,R\,(K-R)/(100K)\) and no floating-point quantity enters the update
+or any prompt.
+
+Three considerations fix this form.
+First, multiplicative noise on recruitment is the standard model of growth
+uncertainty in the renewable-resource literature: it is the assumption under
+which Reed \cite{reed1979} derives the optimality of constant-escapement
+feedback policies, and it is the ``growth uncertainty'' of the taxonomy of
+Sethi et al.\ \cite{sethi2005}, as distinct from measurement and
+implementation uncertainty, neither of which is studied here.
+Second, multiplicative noise is proportionate at every stock level.
+Additive noise of the size needed to matter at high stock (growth of~9
+at \(R=20\)) would dominate the growth of one to three units at the low
+stocks where the game is decided, while additive noise small enough to be
+proportionate at low stock would be negligible elsewhere.
+Third, because the multiplier is non-negative and multiplies only the
+increment, the stock can fall only through harvest.
+Collapse therefore remains attributable to the players' actions, which is
+what makes survival a behavioural statistic rather than a record of
+environmental luck.
+Noise applied to the standing stock, as in the discarded
+\texttt{stochastic\_cpr\_env.py}, and additive noise of either sign both
+violate this property.
+A discrete support is preferred to a lognormal multiplier because it keeps
+the state space finite (41~stock levels, 36~rounds, three draws), so that
+the stochastic game can be solved exactly by dynamic programming and the
+properties claimed below can be verified by unit tests rather than
+estimated by simulation.
+
+\subsection{Level of the noise and the invariance argument}
+
+The level \(\pm 30\%\) is the largest symmetric three-point multiplier at
+which the constant-strategy payoff matrix of Table~\ref{tab:chicken} is
+unchanged.
+The two bounds are each pinned by one cell of that matrix.
+Under hawk versus dove, the post-harvest stock is~5 and the deterministic
+growth is \(3.94 \to 4\); with multiplier \(0.7\) the growth is
+\(2.76 \to 3\), exactly the joint harvest, so the stock never falls below~8
+and the pairing remains safe.
+Under mutual take-2 from \(R_0 = 8\), the post-harvest stock is~4 and the
+deterministic growth is \(3.24 \to 3\); with multiplier \(1.3\) the growth
+is \(4.21 \to 4\), returning the stock to~8, so the profile can never
+reach the fixed point at~9 and still collapses.
+At \(\pm 40\%\) both bounds fail: the multiplier \(1.4\) lifts mutual take-2
+to~9 with positive probability, and the multiplier \(0.6\) drives the
+hawk--dove pairing below~8.
+Table~\ref{tab:noise-level} shows the consequence.
+At \(\pm 30\%\) all three constant-pair cells keep their deterministic
+survival probabilities; at \(\pm 40\%\) and \(\pm 50\%\) mutual take-2
+survives about~15\% of the time and hawk versus dove dies about~17\% of
+the time, and the game is no longer the one studied in
+Sections~\ref{sec:executed-fixed} and~\ref{sec:executed-two}.
+
+\begin{table}[ht]
+\centering
+\caption{Survival probability to the horizon for constant action pairs
+  and for the ``restrain once, then mutual take-2'' policy, as a function
+  of the noise level.
+  Exact dynamic-programming values.
+  The \(\pm 30\%\) level leaves the constant-pair cells of
+  Table~\ref{tab:chicken} unchanged; larger levels do not.
+  The mutual take-2 entry at \(\pm 30\%\) is not exactly zero: the
+  surviving paths require the maximal draw in essentially every round and
+  have total probability below \(10^{-15}\).}
+\label{tab:noise-level}
+\begin{tabular}{lcccc}
+\toprule
+Noise level & \((1,1)\) & \((2,2)\) & \((2,1)\) & \((1,1)\) then \((2,2)\) \\
+\midrule
+deterministic & 1.00 & 0.00 & 1.00 & 1.00 \\
+\(\pm 30\%\)  & 1.00 & 0.00 & 1.00 & 0.80 \\
+\(\pm 40\%\)  & 1.00 & 0.15 & 0.83 & 0.78 \\
+\(\pm 50\%\)  & 1.00 & 0.15 & 0.84 & 0.67 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Invariance of the constant-pair cells is the design property that makes
+the noise arm comparable with the executed deterministic runs.
+The opening decision faces the same incentives in both arms, so a change in
+the opening statistic between arms is attributable to learning under
+outcome variance rather than to a change in what the learner should do.
+The dynamic-programming opening values against a frozen always-2 partner
+confirm this: the values for openings \(0,1,2,3\) are
+\(105, 104, 102, 6\) in the deterministic game and
+\(102.5, 101.7, 99.1, 91.1\) under \(\pm 30\%\) noise, with the same
+ordering and a gap between openings~1 and~2 of \(2.0\) and \(2.6\)
+respectively.
+
+\subsection{Structure of the stochastic game}
+
+What the noise changes is the continuation.
+Under mutual take-2 the stock evolves as a random walk on the integers with
+three regions that can be read directly from the transition table:
+from \(R \ge 11\) the minimum draw returns the stock to at least~11, so
+mutual take-2 is safe for the rest of the horizon;
+from \(R \le 7\) collapse is certain within three rounds
+(\(7 \to \{5,6\}\), \(6 \to \{3,4\}\), and from~4 or below the joint
+request of~4 exhausts the pool);
+and \(R \in \{8, 9, 10\}\) is a gamble, since each level can move in
+either direction.
+The deterministic fixed point at~9 lies inside the gamble region.
+A symmetric restrained opening \((1,1)\) places the stock in
+\(\{9, 11, 12\}\), so ``restrain once, then mutual take-2'' survives with
+probability \(0.80\); the asymmetric opening \((1,2)\) places it in
+\(\{8, 9, 10\}\), so the same continuation against a hawk survives with
+probability \(0.40\).
+Feedback rules that condition the action on the current stock avoid the
+gamble region altogether: the rule ``take~1 if \(R < 12\), else take~2''
+survives with probability one against a frozen hawk, and the rule
+``take~3 if \(R \ge 14\), else take~0'' survives with probability one and
+achieves \(102.7\) per player when both players use it.
+This is the constant-escapement structure of Reed \cite{reed1979}: under
+multiplicative recruitment noise the optimal policy harvests down to a
+target escapement and abstains below it.
+Table~\ref{tab:noise-dp} collects the values.
+
+\begin{table}[ht]
+\centering
+\small
+\caption{Expected return per player and survival probability for
+  representative policies in the deterministic game and under
+  \(\pm 30\%\) multiplicative noise.
+  Exact dynamic-programming values, rounded to one decimal.
+  ``Hawk'' is the frozen always-2 partner of Test~A.
+  The first three rows are the constant-pair cells and are invariant.
+  The middle rows show that every ``good opening, then constant action''
+  policy becomes risky under noise, while stock-conditioned feedback rules
+  remain safe.
+  The last two rows give the value of the best response to a frozen hawk
+  and of the symmetric joint optimum.}
+\label{tab:noise-dp}
+\begin{tabular}{lcccc}
+\toprule
+ & \multicolumn{2}{c}{Deterministic} & \multicolumn{2}{c}{\(\pm 30\%\) noise} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+Policy pair & Return & Survival & Return & Survival \\
+\midrule
+\((1,1)\) throughout & 36 / 36 & 1.00 & 36.0 / 36.0 & 1.00 \\
+\((2,2)\) throughout & 7 / 7 & 0.00 & 7.4 / 7.4 & 0.00 \\
+\((2,1)\) hawk versus dove & 72 / 36 & 1.00 & 72.0 / 36.0 & 1.00 \\
+\midrule
+\((1,1)\) once, then \((2,2)\) & 71 / 71 & 1.00 & 59.3 / 59.3 & 0.80 \\
+Hawk versus ``1 once, then 2'' & 72 / 71 & 1.00 & 35.7 / 34.7 & 0.40 \\
+\((0,0)\) once, then \((3,3)\) & 105 / 105 & 1.00 & 38.6 / 38.6 & 0.25 \\
+\midrule
+Hawk versus ``1 if \(R<12\), else 2'' & 72 / 69 & 1.00 & 72.0 / 68.8 & 1.00 \\
+Both ``2 if \(R \ge 9\), else 1'' & 71 / 71 & 1.00 & 70.8 / 70.8 & 1.00 \\
+Both ``3 if \(R \ge 14\), else 0'' & 105 / 105 & 1.00 & 102.7 / 102.7 & 1.00 \\
+\midrule
+Best response to hawk & 105 & 1.00 & 102.5 & 1.00 \\
+Symmetric joint optimum (per player) & 105 & 1.00 & 103.3 & 1.00 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Two rows of Table~\ref{tab:noise-dp} define the stakes for the shaping
+question.
+A hawk that commits to take-2 obtains~72 if its partner uses the feedback
+rule and~35.7 if its partner restrains only in round~1; in the
+deterministic game the corresponding figures are~72 and~72.
+The noise therefore creates a 36-unit interest, on the part of a
+committed hawk, in its partner's stock-conditioned restraint, where the
+deterministic game offered none, and the partner's cost of providing that
+restraint relative to its deterministic return is about two units
+(68.8 against~71).
+This is the configuration in which an opponent-shaping result of the kind
+reported for the Iterated Chicken Game by Garcia Segura et al.\
+\cite{garciasegura2025} is well posed: the shaper's gain from steering the
+learner is large, and the learner's cost of being steered is small.
+
+\subsection{Hypotheses and pre-registered readouts}
+
+The arm tests three statements, each with a quantity fixed in advance by
+the dynamic programme rather than by comparison with the deterministic
+runs alone.
+
+\paragraph{H1 (opening under variance).}
+Because the opening incentives are invariant, a learner that responds to
+them should leave opening~2 at the same rate under noise as in the
+centred deterministic runs of Section~\ref{sec:executed-fixed}.
+The readout is the share of episodes that do not open~2, per epoch, with
+Wilson intervals.
+A lower share under noise, with the deterministic value outside the
+interval, measures the cost of outcome variance to credit assignment on
+the opening decision.
+This is the quantity that the original plan called the
+signal-to-noise problem of shaping under stochastic dynamics.
+
+\paragraph{H2 (continuation).}
+Conditional on a restrained opening against a frozen hawk, survival to the
+horizon is \(0.40\) if the learner continues with a constant action and
+\(1.00\) if it has learned a feedback rule.
+The readouts are survival conditional on a non-2 opening, and the learned
+policy as a function of stock, \(\pi(a \mid R)\), estimated from the
+records over the last three epochs and compared with the feedback rule in
+Table~\ref{tab:noise-dp}.
+An observed conditional survival near \(0.40\) with a stock-independent
+\(\pi(a \mid R)\) means the learner did not condition on stock; a value
+near one with \(\pi(1 \mid R < 12)\) high and \(\pi(2 \mid R \ge 12)\)
+high means it did.
+Intermediate values are interpreted through \(\pi(a \mid R)\), not through
+survival alone.
+
+\paragraph{H3 (shaping).}
+With two learners, the quantity a committed hawk gains from its partner's
+restraint is now~36 units.
+The readouts are, per agent, the mean return per epoch and the
+low-stock restraint probability \(\pi(1 \mid R < 12)\), compared across the
+centred naive--naive and naive--shaper configurations and, when it exists,
+the slow-learning-rate naive--naive control of
+Section~\ref{sec:remaining-ladder}.
+A shaping effect is a shaper return above the hawk-role return of the
+naive--naive control and a learner restraint probability above the
+naive--naive value, both across seeds; the direction predicted by the
+threshold-uncertainty literature \cite{barrett2012} is that noise makes
+the symmetric coordination harder, so the naive--naive control is expected
+to show more collapse and more contested restraint than its deterministic
+counterpart.
+Absent a shaper effect, the null is reported as such.
+
+\subsection{Protocol}
+
+\paragraph{Runs.}
+The arm re-uses the executed centred configurations with the noise update
+enabled and no other change: Test~A against a frozen hawk
+(three seeds), centred naive--naive (three seeds) and centred
+naive--shaper (three seeds), each for 15~epochs of 15~games as in
+Section~\ref{sec:executed-fixed}, or 30~epochs where compute permits,
+since the return of a constant-continuation policy under noise is bimodal
+(of the order of~70 if the pool lives and of~10 to~20 if it dies) and the
+advantage variance is correspondingly larger.
+Advantages are mean-centred, as in all executed runs; the batch-whitened
+variant is not repeated on this arm because Section~\ref{sec:executed-fixed}
+already shows it does not leave the opening.
+Test~A is run first, since it has the sharpest theory-derived readout (H2)
+and the smallest cost.
+
+\paragraph{Common random numbers.}
+The multipliers are not drawn during training.
+For each seed, a table of shape (epochs, games per epoch, rounds) is drawn
+once from a dedicated seed sequence, stored in the results tree, and loaded
+by every configuration on the arm.
+The draw used at a given (epoch, game, round) is therefore identical across
+Test~A, naive--naive and naive--shaper for the same seed, and independent of
+any action taken.
+Between-configuration comparisons are then paired on the noise realisation,
+which is the common-random-numbers design anticipated in the project plan
+and used for variance reduction in Piche et al.\ \cite{piche2025}; with
+three seeds it is the only design under which the H3 contrasts can be read.
+
+\paragraph{Prompt.}
+The rules text presented to the agents is unchanged if it does not state a
+regeneration law; the stock is reported every round and the noise is
+observable through its trajectory.
+If the rules text states a deterministic law, one sentence is added
+(``regrowth varies from round to round by up to 30~percent''), and the
+untrained action distribution under both prompts is measured with the
+pre-flight script and reported, so that a prompt-induced shift of the prior
+is not mistaken for a learning effect.
+
+\paragraph{Tests.}
+Two properties are added to the test suite as exact checks against the
+dynamic programme: the multiplier has mean one, and the three constant-pair
+cells of Table~\ref{tab:chicken} have the survival probabilities and
+expected returns of Table~\ref{tab:noise-dp} under every sequence of draws.
+The regeneration function with \(\xi = 1.0\) must reproduce the
+deterministic update exactly, so that the deterministic arm is the
+special case of the noisy one.
+
+\subsection{Outcome metrics}
+
+To connect the arm to the common-pool-resource literature the project set
+out from, three social-outcome metrics of the kind used by P\'erolat et
+al.\ \cite{perolat2017} are reported for every configuration on both arms,
+normalised against the exact optimum rather than left as raw counts:
+sustainability, the survival probability to the horizon or, for collapsed
+episodes, the collapse round; efficiency, the realised joint return divided
+by the joint optimum (210 in the deterministic game, 206.6 under
+\(\pm 30\%\) noise); and equality, \(|r_1 - r_2| / (r_1 + r_2)\).
+The empirical payoff matrix of the learned policies, in the sense of
+Leibo et al.\ \cite{leibo2017}, is reported alongside the constant-strategy
+matrix of Table~\ref{tab:chicken} so that the two reductions can be
+compared.
+
+\subsection{Status}
+
+At the time of writing the noise arm is specified, the update and tests
+are implemented, and the runs listed under Protocol have not been
+executed.
+Chapter~\ref{ch:results} reports whichever of them completed before
+submission against the readouts fixed above; a null on any readout is
+reported as a null.

@@ -1,4 +1,4 @@
-provenance: student-dictated; CoS tightened against LIVE_FACTS
+provenance: student-dictated; CoS tightened against LIVE_FACTS; Opus tightened against CHALLENGE 2026-09-06
 status: provisional
 student-must-defend: yes
 
@@ -10,13 +10,17 @@ These first runs are **learner versus a frozen constant partner** on the locked 
 
 Mutual take-2 from \(R=8\) dies around round 4. A first-step take of **1** against a take-2 partner moves stock \(8\to 9\); at \(R=9\), mutual take-2 is a fixed point and the rest of the horizon can be farmed. A first-step take of **0** against take-2 moves stock \(8\to 11\), not onto that fixed point. The opening statistic still counts leave-2 (open 0 or 1). Those two tokens are not the same basin.
 
-Statistics:
+Statistics, decoded (each epoch is 15 games: 5 episodes × 3 parallel games; the opening is round 1 of each 36-round game):
 
 - **Primary.** Share of episodes that do not open 2 (open 1 or open 0).
-- **Supporting.** Survival, and death round.
+- **Last-open.** The 15 first-round harvests in epoch 15. `10×0+5×1` is ten games that opened 0 and five that opened 1, not ten epochs.
+- **Last surv / last ret.** How many of those 15 games reached \(T=36\), and the mean learner return on them. Stay-on-2 against a hawk is about 7; open-1-then-2s is 71 deterministic.
+- **Leave-2 last3.** Leave-2 share over epochs 13–15 (45 games).
+- **First majority.** First epoch in which leave-2 exceeded 8/15.
+- **Supporting.** Whole-run survival and death round.
 - **Not the claim.** Live-step action mix. After a good opening, a tape of 2s is the \(R=9\) farm.
 
-Raw opening advantage already starred that basin. Under whitening the star was compressed until the prior won on count.
+Raw opening advantage already favoured leave-2 actions. Under whitening, batch division by the standard deviation compressed the gap until the take-2 prior won on count.
 
 ## Test A — frozen hawk (always 2)
 
@@ -36,10 +40,16 @@ Seed 2 last epoch left opening 2 via **0** (14/15), not 1. That is leave-2 on th
 
 **Whitened extra seeds (RNG 1–2).** Seed 0 staying on 2 is not the whole family. Seed 1 last epoch opened 1 on 15/15 (leave-2 last3 87%, survival 97/225, return 69.5). Seed 2 last epoch opened 0 on 12/15 and 1 on 3/15 (leave-2 last3 82%, survival 80/225, return 69.7). Both extra seeds survived 15/15 in the last epoch.
 
-**Claim.** Against a frozen hawk, centre-only advantages (mean-subtract, no `/std`) moved the policy off opening 2 on three seeds. Batch whitening did that on seeds 1–2 and did not on seed 0 (28/225, last epoch 14×2). Do not write that whitening always keeps the death-open. The prior yields on the first action when it leaves 2. It does not become a habit of take-1 across the tape. This is a centre-versus-whiten contrast, not an ablation of GAE.
+**Pre-fix family (shared sampling stream).** Against a frozen hawk, centre-only advantages (mean-subtract, no `/std`) moved the policy off opening 2 on three *nominal* seeds. Batch whitening did that on seeds 1–2 and did not on MPS seed 0 (28/225, last epoch 14×2). Treated as a binary leave-2 at three nominal seeds each, the operators are not distinguishable (whitened 1/3 stayed on 2, centred 0/3).
 
-evidence: LIVE_FACTS § Test A center table + extra seeds; § Test A whitened extra seeds
-does-not-license: shaping; two learners; a 36-step dove policy; open-0 = open-1 basin; “unflattened GAE” as a named mechanism; “whitening always keeps the death-open”
+**Seed-fixed Test A, all L40S, 3×15.** Identity epochs 1–5 is 0.56–0.63 (pre-fix whitened s1 vs s2 was 1.00). Centre left opening 2 on all three seeds: first majority epochs 7, 7, 8; last-open 10×0+5×1 / 14×0+1×1 / 14×1+1×2; last surv 14/15, 15/15, 11/15; last ret 67.1, 80.7, 59.1; leave-2 last3 93/98/91%. Whitened is slower and more seed-variable: leave-2 last3 31/96/71%; first majority 15, 7, 13; last surv 5/15, 13/15, 9/15; last ret 34.7, 62.4, 42.3; s0 last epoch mixed 8×1+7×2. Not “fails to leave”.
+
+**Whitened 30 epochs, seed 0.** Epoch 15 matches the 15-epoch snapshot (5/15, ret 34.7, leave-2 8/15). Stall; leave-2 locks from epoch 23. Last epoch 15×1, surv 13/15, last3 42/45, ret 64.5. Do not call epoch 15 an endpoint.
+
+**Claim.** Against a frozen hawk, with independent seeds on the same GPU, centre-only left opening 2 on three seeds by epoch 8. Whitening left on a longer and more variable schedule. Do not write that whitening always keeps the death-open. The prior yields on the first action when it leaves 2. It does not become a habit of take-1 across the tape. This is a centre-versus-whiten contrast, not an ablation of GAE. It is a precondition finding: two-learner runs use mean-centring so leave-2 is observable in 15 epochs. It is not opponent shaping, and it is not tested off Gemma-2-2b-it on this lock.
+
+evidence: LIVE_FACTS § Test A center table + extra seeds; § Test A whitened extra seeds; § Seed-fixed Test A centre / whitened / e30
+does-not-license: shaping; two learners; a 36-step dove policy; open-0 = open-1 basin; “unflattened GAE” as a named mechanism; “whitening always keeps the death-open”; epoch 15 as an endpoint
 
 The live-step mix at epoch 15 is still mostly 2s under centre (take-1 9% on seed 0). After open-**1** that is the \(R=9\) farm. After open-**0** it is a different stock path. Neither is a 36-step dove.
 
@@ -51,11 +61,14 @@ There is no opening basin. Open 1 and open 2 receive the same star.
 
 **Centre-only B.** Survival \(223/225\). Live mix at the recorded readout: 2 **98%** (\(n=540\)); take-3 2%. Open-1 share stuck at \(13\%\). The same star sat on open 1 and open 2 (centred about \(+20\) and \(+22\)).
 
-**Claim.** Unflattening does not invent restraint. Against a dove it suppresses unnecessary smash and leaves the chicken grab: learner 2, partner 1, payoff 72, pool lives. Whitened greed got louder (\(2\to 3\)). Centred greed got cleaner (stay on 2). Neither is a shaping result.
+**Claim.** Centre-only normalisation does not invent restraint. Against a dove it suppresses unnecessary smash and leaves the chicken grab: learner 2, partner 1, payoff 72, pool lives. Whitened greed got louder (\(2\to 3\)). Centred greed got cleaner (stay on 2). Neither is a shaping result.
 
-## What frozen robots do not license
+evidence: LIVE_FACTS § Test B center; § What the loop is doing (whitened B)
+does-not-license: shaping; copy-1 behaviour; "unflattened GAE" as a named mechanism
 
-A frozen hawk is not two learning agents. Centre-only Test A does not imply that a shaper works.
+## What frozen-bot tests do not license
+
+A frozen hawk is not two learning agents. Centre-only Test A shows that the normalisation choice matters for opening selection against a fixed partner; it does not imply that a shaper works, or that the same opening dynamics appear when both agents learn. The load-bearing link is narrower. If the prior never left opening 2 even against a partner already frozen on 2, a two-learner table in which agent 1 opens 1 and agent 2 opens 2 could not be read as “the shaper taught restraint.” The shaping grid is therefore on mean-centring (leave-2 by epoch 8 on three independent seeds) rather than on whitening, which on this lock is slower and can still be mixed at epoch 15. That choice is RQ2, not a hidden extra. The two-learner experiments that follow are a separate question.
 
 ## Two learners
 
@@ -82,12 +95,17 @@ does-not-license: shaping success; two-phase teaching; joint leave-2 as a 36-ste
 - **Grid null.** Same openings, same collapse, same bins as the control. Live-mix will not rescue a null.
 - **Not the two-phase claim.** Agent 2 leave-2 on the 50-epoch seed was 25/750. Epoch 1 the shaper opened 2 while the naive still mostly opened 2.
 
-## Noise arm (Stage B — not yet on GPU)
+## Noise arm (Stage B)
 
-Stage B is multiplicative ξ ∈ {0.7, 1.0, 1.3} on the growth increment, CRN tables,
-centred Test A + naive–naive + naive–shaper + slow2. Report those arms against the
-LIVE_FACTS DP rows, not only against each other. A retired ±1-on-stock Test A is
-not this section.
+Multiplicative ξ ∈ {0.7, 1.0, 1.3} on the growth increment. Report against the LIVE_FACTS DP table (including hawk vs 0-then-2: 60.3/58.3, p=0.80).
 
-evidence: LIVE_FACTS § Live aim — Stage B DP table
-does-not-license: a GPU result until packets exist; retired ±1 numbers in this table
+**H1–H2, Test A + ξ (pre-fix).** Last-epoch leave-2 98/64/98%; openings 15×0 / (10×1+5×2) / 15×0; returns 65.5, 26.9, 58.3. Opening 0 vs hawk lands in {9,11,12} (P(surv)=0.80, return 58.3); opening 1 lands in {8,9,10} (0.40, 34.7). Seeds 0 and 2 took the DP-better exit. Leave-2 at R<12 last epoch 41/28/29% vs feedback 1.00 / 68.8: no stock-conditioned policy. Not repeated after the seed fix.
+
+**NN + ξ (pre-fix).** Survival 100, 43, 82 / 225; last returns 37.6/45.1, 27.9/31.1, 48.3/43.8. Seed 1 both still mostly opened 2 (surv 43/225). Not repeated after the seed fix.
+
+**H3, NS vs slow2, pre-fix.** Survival 90/71/75 vs 53/44/39. A1 leave-2 last3 96/93/89 vs 69/67/40. A2 leave-2 last3 0/11/11 vs 18/18/20. More stationary hawk, more reliable dove, all three *nominal* seeds. That agreement is one observation counted three times.
+
+**H3, seed-fixed, same noise-table pairing, all L40S.** Seed 0 is the pre-fix seed-0 tape. Seeds 1 and 2 are new. NS last3 surv 36/45, 12/45, 5/45; last ret a1 49.7, 29.0, 12.3; a1 leave-2 last3 96/44/33%; a2 0/22/22%. slow2 last3 surv 21/45, 24/45, 8/45; last ret 44.8, 52.9, 13.0; a1 leave-2 last3 69/76/27%; a2 18/13/22%. Sign of NS−slow2 on a1 leave-2 is +, −, +; on last ret +, −, −. Both a2 stay mostly on 2. LR and clip matched; trial update and prompt are not. Feedback interest (72 vs 35.7) not collected. H3 as a shaper-return and more-reliable-dove inequality fails at three independent seeds. slow2 ξ e50 s0: first a1 majority epoch 10, last-open 15×0 vs mixed a2, last ret 70.5/69.2, last3 surv 37/45. NS ξ e50 not obtained.
+
+evidence: LIVE_FACTS § Stage B DP (incl. hawk vs 0-then-2) + Test A / NN / NS / slow2 + ξ (pre-fix); § Seed-fixed NS / slow2 / H3
+does-not-license: teaching success; Barrett 2012; π(1|R<12) as the restraint readout; LR×50 ablation not run; epoch 15 as an endpoint; “more reliable dove on all three seeds” after the fix

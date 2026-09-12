@@ -1,8 +1,13 @@
 # Live facts — cpr-shape-llm
 
-**Dated 5 September 2026.** Agents may cite this file and must not contradict it.
+**Dated 5 September 2026.** Seed-fixed GPU packet ingested **9 September 2026**.
+Agents may cite this file and must not contradict it.
 This is the experimental record, not a diary of supervision or chat history.
 Safe to commit. Do not put interpersonal narrative here.
+
+Pre-fix GPU tables (everything above the seed-fixed section, including
+Stage B 6 Sep) used three *nominal* seeds that shared one action-sampling
+stream. Write "three seeds" only for the 8–9 Sep seed-fixed packet.
 
 ---
 
@@ -37,21 +42,137 @@ CRN tables per seed, shared across arms. Not Pérolat Harvest. Not additive Gaus
 A retired ±1-on-stock Test A (`noise_tenths=5`) was run once and **stripped** from
 the live launcher; it is not a Results table.
 
-In-repo DP (`python cpr_xi.py`, i.i.d. ξ, R0=8, K=40, T=36, rate_tenths=9):
+In-repo DP (`python cpr_xi.py`, i.i.d. ξ, R0=8, K=40, T=36, rate_tenths=9).
+Round-half-even integer logistic. Display one decimal except (2,2)=7.44.
 
-| Policy | E r1 / r2 | P(survive) |
-|---|---|---|
-| (1,1) | 36 / 36 | 1 |
-| (2,2) | 7.44 / 7.44 | ~0 |
-| (2,1) hawk vs dove | 72 / 36 | 1 |
-| open 1 then 2s | 59.3 / 59.3 | 0.80 |
-| hawk vs 1-then-2 | 35.7 / 34.7 | 0.40 |
-| hawk vs 1 if R<12 else 2 | 72 / 68.8 | 1 |
-| open 0 then 3s | 38.7 / 38.7 | 0.25 |
-| 3 if R≥14 else 0 | 102.7 / 102.7 | 1 |
+| Policy | Deterministic E / P | ξ E r1 / r2 | ξ P(surv) |
+|---|---|---|---|
+| (1,1) | 36 / 36, p=1 | 36 / 36 | 1 |
+| (2,2) | 7 / 7, p=0 | 7.44 / 7.44 | ~0 (`<10^{-15}`; all-ξ=13 cycles at 8 and lives) |
+| (2,1) hawk vs dove | 72 / 36, p=1 | 72 / 36 | 1 |
+| open 1 then 2s | 71 / 71, p=1 | 59.3 / 59.3 | 0.80 |
+| hawk vs 1-then-2 | 72 / 71, p=1 | 35.7 / 34.7 | 0.40 |
+| hawk vs 0-then-2 | 72 / 70, p=1 | 60.3 / 58.3 | 0.80 |
+| hawk vs 1 if R<12 else 2 | 72 / 69, p=1 | 72 / 68.8 | 1 |
+| both 2 if R≥9 else 1 | 71 / 71, p=1 | 70.8 / 70.8 | 1 |
+| open 0 then 3s | 105 / 105, p=1 | 38.7 / 38.7 | 0.25 |
+| both 3 if R≥14 else 0 | 105 / 105, p=1 | 102.7 / 102.7 | 1 |
+| BR vs hawk (learner) | 105, p=1 | 102.5 | 1 |
+| Symmetric joint (per player) | 105, p=1 | 103.3 | 1 |
 
-Report Stage B arms **against these DP rows**, not only against each other.
-Two-learner GPU packets are not in yet.
+Opening Q vs frozen always-2, then best-response continuation: deterministic `(105, 104, 102, 6)` for openings 0,1,2,3; under ξ `(102.5, 101.7, 99.1, 91.1)`. Same ordering on 0,1,2; gap 1-vs-2 is 2.0 (det) and 2.6 (ξ). Opening 3 then BR is 91.1 under ξ because a stock-conditioned continuer can recover; that is not the untrained prior.
+
+±30% (`xi_tenths` 7/10/13) is the largest symmetric three-point multiplier that leaves the constant-pair survival cells unchanged. i.i.d. survival of constant pairs and of open-1-then-2s:
+
+| Level | (1,1) | (2,2) | (2,1) | open 1 then 2s |
+|---|---|---|---|---|
+| det | 1 | 0 | 1 | 1 |
+| ±30% | 1 | ~0 | 1 | 0.80 |
+| ±40% (6/10/14) | 1 | 0.15 | 0.83 | 0.78 |
+| ±50% (5/10/15) | 1 | 0.15 | 0.84 | 0.67 |
+
+Under mutual take-2: R≥11 is safe (min draw stays ≥11); R∈{8,9,10} is a gamble; R≤7 collapses within a few rounds. A first (1,1) or (0,2) lands in {9,11,12}; a first (1,2) lands in {8,9,10}. Opening 0 versus a hawk then constant 2s therefore has the same survival (0.80) as symmetric open-1-then-2s, not the 0.40 of hawk versus 1-then-2. Observed Test A ξ last-epoch returns on the 15×0 seeds (65.5, 58.3) sit near that 58.3 cell; the mixed seed (10×1+5×2, return 26.9) sits nearer the 34.7 cell.
+
+DP stakes, not a GPU result: a committed hawk gets 72 if the partner uses “1 if R<12 else 2”, and 35.7 if the partner restrains only in round 1. Deterministic hawk gets 72 in both of those cells.
+
+Report Stage B GPU arms **against these DP rows**, not only against each other. Primary statistic remains leave-2 (open 0 or 1), including π(leave-2 \| R<12). Do not use π(1 \| R<12) as the restraint readout (Test A ξ last epoch is 15×0 on seeds 0 and 2).
+
+---
+
+## Stage B Test A centre + ξ, 3×15 — RunPod L40S
+
+Pre-fix (shared seed-0 action stream). Not repeated after the fix.
+
+Folder `checkpoints/cpr_log_testA_center_xi`. Config `configs/cpr_testA_center_xi.json`. Frozen always-2. `exp1_` seed 0, `exp2_` seed 1, `exp3_` seed 2. CRN table saved per exp.
+
+| | s0 | s1 | s2 |
+|---|---|---|---|
+| Surv e1 / elast | 3/15 / 12/15 | 0/15 / 4/15 | 0/15 / 11/15 |
+| Surv last3 | 34/45 | 11/45 | 34/45 |
+| Survived | 119/225 | 41/225 | 93/225 |
+| Leave-2 last3 | 98% | 64% | 98% |
+| Last-epoch openings | **15×0** | 10×1, 5×2 | **15×0** |
+| Ret last | 65.5 | 26.9 | 58.3 |
+| Leave-2 at R<12 (last epoch) | 41% (n=44) | 28% (n=71) | 29% (n=51) |
+
+DP: hawk vs 1-then-2 survives 0.40 / ret ~36; hawk vs 1-if-R<12-else-2 survives 1.0 / ret 72. Stage A centre (no ξ) last-epoch openings were 13×1, 14×1, 14×0. Do not read this as shaping.
+
+---
+
+## Stage B naive–naive + ξ, 3×15 — RunPod L40S
+
+Pre-fix (shared seed-0 action stream). Not repeated after the fix.
+
+Folder `checkpoints/cpr_log_naive_naive_center_xi`. Config `configs/cpr_naive_naive_center_xi.json`.
+
+| | s0 | s1 | s2 |
+|---|---|---|---|
+| Surv e1 / elast | 4/15 / 7/15 | 2/15 / 5/15 | 1/15 / 9/15 |
+| Surv last3 | 22/45 | 12/45 | 27/45 |
+| Survived | 100/225 | 43/225 | 82/225 |
+| A1 last openings | 5×0, 7×1, 3×2 | 3×0, 2×1, **10×2** | 1×1, **14×2** |
+| A2 last openings | 8×1, 7×2 | 6×1, 9×2 | **13×1**, 1×0, 1×2 |
+| A1 / A2 leave-2 last3 | 80% / 51% | 36% / 33% | 24% / **87%** |
+| Ret last a1/a2 | 37.6 / 45.1 | 27.9 / 31.1 | 48.3 / 43.8 |
+| Leave-2 R<12 last ep a1/a2 | 25% / 37% (n=65) | 21% / 30% (n=47) | 5% / 53% (n=58) |
+
+DP (1,1)=36 live; (2,2)=7.44 die. Deterministic NN who-doves swapped across seeds. Under ξ, seed 2 is a2 leave-2 / a1 stay-2; seed 1 both still mostly open 2; seed 0 mixed.
+
+---
+
+## Stage B naive–shaper + ξ, 3×15 — RunPod L40S
+
+Pre-fix (shared seed-0 action stream). Seed 0 of the seed-fixed replica is
+the same tape; seeds 1–2 are new (see seed-fixed section).
+
+Folder `checkpoints/cpr_log_naive_shaper_center_xi`. Config `configs/cpr_naive_shaper_center_xi.json`.
+
+| | s0 | s1 | s2 |
+|---|---|---|---|
+| Surv e1 / elast | 5/15 / 10/15 | 0/15 / 10/15 | 0/15 / 11/15 |
+| Surv last3 | 36/45 | 33/45 | 32/45 |
+| Survived | 90/225 | 71/225 | 75/225 |
+| A1 last openings | 10×0, 3×1, 2×2 | 9×0, 4×1, 2×2 | 10×0, 3×1, 2×2 |
+| A1 leave-2 last3 | 96% | 93% | 89% |
+| A2 leave-2 last3 | 0% | 11% | 11% |
+| Ret last a1/a2 | 49.7 / 51.2 | 52.4 / 51.3 | 53.5 / 55.2 |
+| Leave-2 R<12 last ep a1/a2 | 51% / **2%** (n=45) | 53% / **2%** (n=53) | 67% / **8%** (n=36) |
+
+A2 opening-a0 last-epoch count is 3 rows (all 2), not 15 — trial log. Use leave-2 last3 and R<12 from records. A2 is hawk on the tape.
+
+---
+
+## Stage B slow-LR naive–naive + ξ, 3×15 — RunPod L40S
+
+Pre-fix (shared seed-0 action stream). Seed 0 of the seed-fixed replica is
+the same tape; seeds 1–2 are new (see seed-fixed section).
+
+Folder `checkpoints/cpr_log_naive_naive_slow2_center_xi`. Config `configs/cpr_naive_naive_slow2_center_xi.json`.
+
+| | s0 | s1 | s2 |
+|---|---|---|---|
+| Surv e1 / elast | 4/15 / 9/15 | 2/15 / 10/15 | 1/15 / 5/15 |
+| Surv last3 | 21/45 | 18/45 | 10/45 |
+| Survived | 53/225 | 44/225 | 39/225 |
+| A1 last openings | 6×0, 6×1, 3×2 | 6×0, 6×1, 3×2 | 3×0, 3×1, 9×2 |
+| A2 last openings | 2×1, **13×2** | 2×1, **12×2**, 1×3 | 2×1, **12×2**, 1×3 |
+| A1 / A2 leave-2 last3 | 69% / 18% | 67% / 18% | 40% / 20% |
+| Ret last a1/a2 | 44.8 / 48.5 | 47.1 / 53.3 | 27.7 / 29.5 |
+| Leave-2 R<12 last ep a1/a2 | 32% / 10% (n=60) | 46% / 13% (n=46) | 20% / 18% (n=51) |
+
+---
+
+## Stage B two-learner readout vs DP (pre-registered)
+
+Pre-fix H3 numbers. Seed-fixed H3 is in the 8–9 Sep section.
+
+H1 (opening under variance): leave-2 share on Test A ξ vs Stage A centre Test A. Not a claim that the rates match on every seed.
+H2 (continuation): leave-2 at R<12 and last-epoch openings vs DP 0.40 (hawk vs 1-then-2) and 1.00 (hawk vs 1-if-R<12-else-2). Open 0 counts as leave-2.
+H3 (shaping): NS / slow2 / NN under ξ. A shaping effect would be shaper return above the hawk-role NN return and learner leave-2 (and leave-2 at R<12) above NN, across seeds.
+
+DP: (1,1) 36 live p=1; (2,2) 7.44 die; hawk vs 1-then-2 survives 0.40.
+
+Under ξ, NS agent 2 leave-2 last3 is 0/11/11% (hawk). Slow2 agent 2 last3 is 18/18/20% and last epoch 12–13×2. NN under ξ did **not** lock that way on every seed (seed 2 a2 leave-2 last3 87%). Same qualitative as Stage A: who-doves is mixed under matched-LR NN; agent 2 stays hawk when slowed (shaper **or** slow2). Pre-registered null: growth noise did not change the two-learner picture; the shaper contrast remains confounded with timescale. Not a teaching success. Not two-phase. The 36-unit DP hawk interest was not collected (NS last-epoch returns ~50–55). The pre-fix “more reliable dove on all three seeds” does not survive the seed-fixed replica.
 
 ---
 
@@ -279,9 +400,223 @@ Who leaves 2 did **not** swap: agent 1 leave-2 last3 is higher on every seed; ag
 
 ## Next protocol (RunPod)
 
-Stage B (ξ on growth, CRN, 3×15 Test A + NN + NS + slow2). **Do not launch until
-`pytest tests/test_cpr_xi.py` is green and Alex says the pod is up.** GPU cutoff 12 Sep.
-If a stopped pod `qloy0tepltaiwi` still appears in the console, terminate it there.
+Seed-fixed packet (8–9 Sep) is on disk. Pod `qloy0tepltaiwi` `podStop` → **EXITED**
+(9 Sep). If it still appears stopped in the console, terminate (trash) to drop
+volume-disk billing. No further GPU jobs. Write-up only. GPU cutoff was 12 Sep.
+NS ξ e50 was not obtained (OOM). Stage B Test A ξ and NN ξ were not repeated.
+
+---
+
+## Audit facts (7 Sep 2026, round-3 review; reproducible from the repo)
+
+**Seeds shared one sampling stream (pre-fix).** TRL 0.11.4 `PPOTrainer.__init__` calls
+`set_seed(config.seed)` with the `PPOConfig` default `seed=0`, after the launcher's
+`set_seed(seed)`. Every run dated 6 Sep or earlier drew actions from the seed-0 stream;
+the nominal seed controlled only the value-head init and (Stage B) the noise table.
+`python scripts/audit_seeds_and_scale.py` prints per-epoch opening identity between
+nominal seeds: pre-fix whitened Test A s1 vs s2 identical on 75/75 openings for epochs 1–5,
+80% whole run; Stage B NN / NS / slow2 s1 vs s2 identical on 95% / 93% / 92% of
+openings over the whole run; NN ξ and NS ξ s0 vs s1 84% / 86%.
+Entry points re-seed after agent construction (`finetuning_cpr.py`, `finetuning_cpr_fixed.py`).
+The 8–9 Sep packet **used the fix**. Write "three seeds" for that packet; write
+"three nominal seeds" for every earlier GPU table.
+Whitened s0 in the pre-fix family was the only whitened Test A run on MPS; that
+1/3-vs-0/3 tally confounds seed with platform and is superseded by the all-L40S
+seed-fixed Test A whitened 3×15.
+
+**σ_B is 13–15 per update, not 53.** From `live_adv`: per-update std of raw GAE,
+median 13.0 / 13.8 / 12.7 (centre s0/s1/s2), 14.2 / 14.6 (whiten s1/s2); IQR ~12–15
+on centred runs; falls to 2–5 in whitened updates where every game died by round 4.
+The 53 was inferred from run-averaged A0 values and is withdrawn everywhere.
+
+**Adam.** The optimiser is Adam (TRL default). A uniform rescale of advantages does
+not change the step; centre vs whiten is a reweighting of the policy gradient against
+the value loss (`vf_coef=0.01`, value clip 0.2), the entropy bonus, and the other
+batches. Do not write "centring takes a larger step" or "LR×50 whitened = centred".
+
+**KL penalty exists.** Reward is receipt minus β·(log π − log π_ref) on the sampled
+token, adaptive controller init 0.2, target 6, horizon 1e4; logged `kl_coef`
+0.200 → 0.181 over 75 updates. Reference = adapter disabled. Mention it in Method.
+
+**Joint optimum under ξ.** Unconstrained W* = 207.05; symmetric (both players same
+action each round) = 206.63 (103.3 per player, the table row). Deterministic both
+210. `python cpr_xi.py` now prints BR-vs-hawk Q = (105,104,102,6) / (102.5, 101.7,
+99.1, 91.1), both W*, and the noise-level survival table; `tests/test_cpr_xi.py`
+pins them.
+
+**Untrained opening distribution** (first episode of every run, 240 non-independent
+draws): 2: 205, 1: 25, 3: 10, 0: 0 → about 0.85 / 0.10 / 0.04 / 0. Use 0.10 for
+π(1) at the opening, not 0.05.
+
+**Opening advantages by epoch** (`scripts/make_a0_table.py` → `thesis/tables/a0_epochs.tex`):
+whitened s0 post-A0 on opening 2 stayed +0.5…+1.1 every epoch (batches nearly all
+collapsed); whitened s1/s2 and every centred run turned negative on opening 2 by
+epoch 4. That is the executed difference between the run that stayed on 2 and the
+five that left. Table is the pre-fix family. Seed-fixed whitened s0 is not that
+MPS tape: it is mixed at epoch 15 and locks on 1 by epoch 23 (see e30).
+
+---
+
+## Seed-fixed reseed — 8–9 Sep 2026, 2×L40S
+
+Pod `qloy0tepltaiwi`. Entry `finetuning_cpr_fixed.py` with `set_seed(seed)` after
+`PPOAgent()`. Log epochs are 0-indexed; tables use 1-indexed epochs (epoch 15 =
+last of a 15-epoch run). Identity = fraction of identical agent-1 openings.
+
+**The fix worked.** Pre-fix whitened Test A s1 vs s2: 1.00 of openings in epochs
+1–5, 0.80 whole run. Seed-fixed Test A centre pairs: 0.56–0.61 (epochs 1–5),
+0.39–0.48 (whole 15). Seed-fixed whitened: 0.63 (epochs 1–5), 0.39–0.52 (whole).
+Seed-fixed NS ξ: 0.60 / 0.63 (epochs 1–5 s0–s1 / s1–s2), 0.40 / 0.58 (whole).
+Seed-fixed slow2 ξ: 0.65 / 0.61, 0.50 / 0.52.
+
+Seed 0 of NS ξ reseed and of slow2 ξ reseed is identical to the pre-fix seed-0
+tape (1.00 of openings): the seed-0 stream was already the intended stream.
+Seeds 1 and 2 are new independent draws. Test A reseed seed 0 is **not** the old
+MPS seed-0 tape (centre 0.51 / 0.46 vs old centre s0; whitened 0.56 / 0.60 vs
+old `testA_a0`).
+
+Not repeated after the fix: Stage B Test A ξ, Stage B NN ξ, NS ξ e50 (OOM;
+folder `checkpoints/cpr_log_naive_shaper_center_xi_reseed_e50` has only
+`console.log` and `exp1_noise_table.npy`).
+
+### Seed-fixed Test A centre, 3×15 — all L40S
+
+Folder `checkpoints/cpr_log_testA_center_reseed`. Config `configs/cpr_testA_center.json`.
+Frozen always-2. `exp1_` seed 0, `exp2_` seed 1, `exp3_` seed 2.
+
+| | s0 | s1 | s2 |
+|---|---|---|---|
+| Surv e1 / elast | 1/15 / 14/15 | 1/15 / 15/15 | 3/15 / 11/15 |
+| Surv last3 | 41/45 | 42/45 | 36/45 |
+| Survived | 111/225 | 124/225 | 97/225 |
+| Leave-2 last3 | 93% | 98% | 91% |
+| Last-epoch openings | 10×0, 5×1 | 14×0, 1×1 | 14×1, 1×2 |
+| Ret last | 67.1 | 80.7 | 59.1 |
+| Leave-2 at R<12 (last epoch) | 41% (n=58) | 52% (n=33) | 16% (n=186) |
+| First epoch with leave-2 majority | 7 | 7 | 8 |
+
+All three left opening 2. Token is mixed (s0/s1 mostly 0; s2 mostly 1).
+
+### Seed-fixed Test A whitened, 3×15 — all L40S
+
+Folder `checkpoints/cpr_log_testA_whiten_reseed`. Config `configs/legacy/cpr_testA_always2.json`.
+Frozen always-2.
+
+| | s0 | s1 | s2 |
+|---|---|---|---|
+| Surv e1 / elast | 1/15 / 5/15 | 1/15 / 13/15 | 2/15 / 9/15 |
+| Surv last3 | 9/45 | 37/45 | 27/45 |
+| Survived | 32/225 | 115/225 | 58/225 |
+| Leave-2 last3 | 31% | 96% | 71% |
+| Last-epoch openings | 8×1, 7×2 | 13×1, 2×0 | 7×1, 3×0, 5×2 |
+| Ret last | 34.7 | 62.4 | 42.3 |
+| Leave-2 at R<12 (last epoch) | 7% (n=219) | 42% (n=71) | 52% (n=58) |
+| First epoch with leave-2 majority | 15 | 7 | 13 |
+
+Whitened is slower and more seed-variable than centre on the same hardware.
+It is not “fails to leave”: 2/3 last-epoch leave-2 majority; s0 last epoch mixed
+8×1+7×2. Do not call epoch 15 an endpoint (see e30). Do not write that
+whitening always keeps the death-open.
+
+### Seed-fixed Test A whitened, 30 epochs, seed 0 — L40S
+
+Folder `checkpoints/cpr_log_testA_whiten_reseed_e30`. Same config. One seed.
+
+Epoch 15 matches the 3×15 s0 snapshot: surv 5/15, leave-2 8/15, ret 34.7,
+openings {1: 8, 2: 7}. Then stall (epochs 16–21 leave-2 between 0.07 and 0.47).
+Leave-2 locks from epoch 23 (12/15 open 1). Last epoch 15×1, surv 13/15,
+last3 surv 42/45, last3 leave-2 98%, ret 64.5. Whole-run survival 161/450.
+Leave-2 at R<12 last epoch 8% (n=333): after open-1 the tape is the R=9 farm.
+
+### Seed-fixed naive–shaper + ξ, 3×15 — L40S
+
+Folder `checkpoints/cpr_log_naive_shaper_center_xi_reseed`. Config
+`configs/cpr_naive_shaper_center_xi.json`.
+
+| | s0 | s1 | s2 |
+|---|---|---|---|
+| Surv e1 / elast | 5/15 / 10/15 | 3/15 / 5/15 | 0/15 / 1/15 |
+| Surv last3 | 36/45 | 12/45 | 5/45 |
+| Survived | 90/225 | 44/225 | 29/225 |
+| A1 last openings | 10×0, 3×1, 2×2 | 7×2, 5×1, 3×3 | 9×2, 3×3, 1×0, 2×1 |
+| A1 leave-2 last3 | 96% | 44% | 33% |
+| A2 leave-2 last3 | 0% | 22% | 22% |
+| Ret last a1/a2 | 49.7 / 51.2 | 29.0 / 28.5 | 12.3 / 12.2 |
+| Leave-2 R<12 last ep a1/a2 | 51% / 2% (n=45) | 18% / 12% (n=50) | 27% / 5% (n=63) |
+| First A1 leave-2 majority | 5 | 7 | never (last 0.40) |
+
+A2 opening-a0 last-epoch count is 3 rows (trial log). Use leave-2 last3 and
+R<12 from records. Seed 0 is the pre-fix seed-0 tape. Seeds 1 and 2 are new
+and did not leave 2 the way the pre-fix NS family did.
+
+### Seed-fixed slow-LR naive–naive + ξ, 3×15 — L40S
+
+Folder `checkpoints/cpr_log_naive_naive_slow2_center_xi_reseed`. Config
+`configs/cpr_naive_naive_slow2_center_xi.json`.
+
+| | s0 | s1 | s2 |
+|---|---|---|---|
+| Surv e1 / elast | 4/15 / 9/15 | 1/15 / 12/15 | 1/15 / 1/15 |
+| Surv last3 | 21/45 | 24/45 | 8/45 |
+| Survived | 53/225 | 61/225 | 34/225 |
+| A1 last openings | 6×0, 6×1, 3×2 | 12×0, 2×1, 1×2 | 3×1, 12×2 |
+| A2 last openings | 2×1, 13×2 | 2×1, 12×2, 1×3 | 1×1, 13×2, 1×3 |
+| A1 / A2 leave-2 last3 | 69% / 18% | 76% / 13% | 27% / 22% |
+| Ret last a1/a2 | 44.8 / 48.5 | 52.9 / 63.1 | 13.0 / 12.9 |
+| Leave-2 R<12 last ep a1/a2 | 32% / 10% (n=60) | 51% / 11% (n=45) | 14% / 11% (n=64) |
+| First A1 leave-2 majority | 10 | 11 | never (last 0.20) |
+
+Seed 0 is the pre-fix seed-0 tape.
+
+### Seed-fixed slow-LR + ξ, 50 epochs, seed 0 — L40S
+
+Folder `checkpoints/cpr_log_naive_naive_slow2_center_xi_reseed_e50`. One seed.
+First A1 leave-2 majority at epoch 10 (same as the 15-epoch s0). Last-epoch
+openings a1 15×0, a2 6×1, 8×2, 1×3. Last3 surv 37/45. Last ret 70.5 / 69.2.
+A1 / A2 leave-2 last3 100% / 40%. Whole-run survival 443/750. Leave-2 R<12 last
+ep 46% / 26% (n=35). A2 did not lock leave-2.
+
+### Seed-fixed H3 readout vs DP
+
+H3 (shaping): shaper return above the hawk-role slow2 return and learner
+leave-2 above slow2, across seeds. LR and clip matched; trial update and
+prompt are not.
+
+A1 leave-2 last3: NS 96/44/33% vs slow2 69/76/27%. Sign of NS−slow2 is +, −, +.
+Last ret a1: 49.7 / 29.0 / 12.3 vs 44.8 / 52.9 / 13.0. Sign +, −, −.
+A2 leave-2 last3: NS 0/22/22% vs slow2 18/13/22%; both stay mostly on 2.
+Last3 surv: NS 36/45, 12/45, 5/45 vs slow2 21/45, 24/45, 8/45.
+
+H3 as a shaper-return and more-reliable-dove inequality fails at three
+independent seeds. The pre-fix “more reliable dove on all three seeds” was
+the shared seed-0 stream. Test A ξ and NN ξ were not repeated; those tables
+remain pre-fix. The 36-unit DP hawk interest was not collected. Not a
+teaching success. Not two-phase. Do not call epoch 15 an endpoint.
+
+---
+
+## Regeneration models (11 Sep 2026; `python cpr_xi.py`, appendix A of the thesis)
+
+The Stage A increment ρS(K−S)/K is the **mean** of a per-unit Bernoulli regrowth:
+each of the K−S empty units regrows with probability ρS/K, so growth ~
+Binomial(K−S, ρS/K). That is the scalar form of Pérolat's density-dependent respawn.
+Stage B ξ is a bounded, mean-preserving discretisation of its spread (sd 0.82 vs
+1.72 at S=4). Under the exact binomial kernel the constant-pair cells are **not**
+invariant: (2,2) survives 0.17 (return 18.1), hawk–dove dies 0.19 (60.6/30.3),
+(1,1) survives 0.999. That is the stated reason for using ξ, not the binomial.
+Feedback rules keep their values under all three kernels ("3 if R≥14 else 0" =
+102.7 / survival 1.00). BR vs the feedback dove "1 if R<12 else 2" = 107 / 105.5 /
+104.2 (det / ξ / binomial) against 72 for a plain hawk: that is the shaper's ceiling.
+Joint W*: 210 / 207.05 / 206.25. `cpr_xi.py` has `growth_kernel(model="xi"|"binomial")`,
+`best_response_vs(policy)`, `joint_optimum(model=...)`; tests pin all of it.
+
+Reed 1979 model X_{t+1} = Z_t G(X_t − h_t), E Z = 1: constant-escapement optimal;
+Sethi 2005: growth / measurement / implementation uncertainty; we are growth-only.
+Ours differs by putting the shock on the surplus (R' = S + ξ g(S)), so the stock
+never falls below escapement and collapse is always harvest-caused. The DP joint
+optimum ((0,0) then (3,3) at R=14) is a constant-escapement rule with S*=8, bound by
+the cap 6 < MSY 9. Cited: schaefer1954 (logistic surplus production), clark1990,
+reed1979, sethi2005.
 
 ---
 
@@ -297,8 +632,8 @@ If a stopped pod `qloy0tepltaiwi` still appears in the console, terminate it the
 
 ## Write-up split
 
-**Draftable without a new results conversation:** env formalisation, why linear died, logistic lock, architecture, tests, experimental design as a **list of executed runs** (frozen-bot + two-learner numbers in this file).
+**Draftable without a new results conversation:** env formalisation, why linear died, logistic lock, architecture, tests, experimental design as a **list of executed runs** (frozen-bot + two-learner numbers in this file, including the 8–9 Sep seed-fixed packet).
 
-**Not draftable until Alex owns the sentence:** any why that is stronger than the student lines already in `07_results.md`. Two-learner *interpretation* is not licensed by the tables alone.
+**Not draftable until Alex owns the sentence:** any why that is stronger than the student lines already in `07_results.md`. Two-learner *interpretation* is not licensed by the tables alone. Seed-fixed H3 is a null at three independent seeds; do not upgrade it.
 
 Literature review vault lags this env. Mark related-work prose **provisional**.

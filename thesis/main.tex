@@ -13,7 +13,7 @@
 \usepackage{tikz}
 \usepackage{pgfplots}
 \pgfplotsset{compat=1.18}
-\usetikzlibrary{arrows.meta,positioning,calc}
+\usetikzlibrary{arrows.meta,positioning,calc,decorations.pathreplacing}
 
 \pagestyle{plain}
 
@@ -50,37 +50,44 @@ Supervisors: Prof.\ Mirco Musolesi; Marta Emili Garcia Segura}
 \begin{abstract}
 This report asks whether ShapeLLM-style opponent shaping can be applied to a
 sequential common-pool resource (CPR) game played by language-model agents.
-The executed substrate is a two-player, integer, deterministic logistic CPR
-(\(R_0=8\), \(K=40\), \(T=36\), \(\texttt{rate\_tenths}=9\)).
+The executed substrate is a two-player, integer logistic CPR
+(\(R_0=8\), \(K=40\), \(T=36\), \(\texttt{rate\_tenths}=9\)),
+first deterministic (Stage~A) then with a mean-one three-point multiplier
+\(\xi\in\{0.7,1.0,1.3\}\) on the growth increment (Stage~B).
 The game is chicken, not a prisoner's dilemma: mutual take-1 lives (return 36);
 mutual take-2 dies around round~4 (return 7); hawk versus a frozen dove scores
 72 and the pool lives.
 Training reuses Gemma-2-2b-it, rank-2 LoRA, and trial PPO from ShapeLLM, with
 permission.
-The increment is integer noise on that locked update
-(\(\texttt{noise\_tenths}=5\)).
-It was run on centred Test~A (three seeds).
 
 The untrained prior sits near 90~percent on take-2.
-Against a frozen hawk, batch whitening crushed opening-1 advantage
-(\(+39.8\) raw to \(+1.38\)).
-Whitened seed~0 stayed on the death-open (survival \(28/225\));
-whitened seeds~1 and~2 left opening~2 (last-epoch \(15\times 1\) and
-\(12\times 0\), survival \(97/225\) and \(80/225\)).
-Whitening is seed-dependent.
-Centre-only advantages left opening~2 on three seeds: seed~0 open-1 share
-\(27\%\to 87\%\), survival \(134/225\); seed~2 opened~0 rather than~1.
+Against a frozen hawk (one learner, partner fixed at take-2),
+centre-only advantages left opening 2 on three seeds by epoch 8;
+whitening did so more slowly and on two of three within 15 epochs.
+That contrast is a precondition for the shaping grid, not a shaping
+result: two-learner runs use mean-centring so that leave-2 is observable
+within the 15-epoch budget.
+The operators differ by the per-update advantage scale, measured at
+13--15; under Adam that is a reweighting of the policy gradient against
+the critic and entropy terms rather than a larger step, and the run that
+stayed on opening 2 is the one whose batches never contained a surviving
+game.
 Against a frozen dove the learner did not copy take-1.
-Two centred PPO learners then split hawk--dove.
-Who doves swapped across three naive--naive seeds and did not swap under
-naive--shaper (info-on and info-off).
-That is not a clear shaping success, and it is not a two-phase teaching
-policy (shaper leave-2 on the 50-epoch seed: \(25/750\)).
+Two centred PPO learners split hawk--dove: who doves swapped under
+matched-LR naive--naive and did not when agent 2 was slowed (shaper or
+slow-LR control).
+Under Stage~B \(\xi\), pre-fix Test~A seeds opened 0 against a hawk (the
+higher-survival exit) and did not learn stock-conditioned feedback.
+After an independent-seed replica, naive--shaper versus slow-LR is mixed
+across three seeds; the 36-unit DP interest in feedback restraint was
+not collected.
+A library reseed had meant that earlier nominal seeds shared one
+action-sampling stream; the 8--9~September packet used the fix.
 \end{abstract}
 
 \noindent
 The implementation is available at
-\url{https://github.com/codalexl/cpr-shape-llm/tree/feat/deterministic-cpr}.
+\url{https://github.com/codalexl/cpr-shape-llm}.
 
 \tableofcontents
 \listoffigures
@@ -96,6 +103,9 @@ The implementation is available at
 \input{chapters/07_results}
 \input{chapters/08_limitations}
 \input{chapters/09_conclusion}
+
+\appendix
+\input{chapters/appendix_binomial}
 
 \bibliographystyle{plain}
 \bibliography{refs}

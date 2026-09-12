@@ -36,7 +36,11 @@ Multi-turn advantages are GAE over the trial/episode ids already in ShapeLLM (`c
 
 Huang et al. (ICLR Blogposts 2024) document the OpenAI `lm-human-preferences` convention: advantages whitened with mean and `/std`; rewards whitened with `shift_mean=False`. Engstrom et al. (2020) show that PPO’s measured behaviour is driven by such code-level extras, not only the clip. Schulman et al. (2017) is not cited for whitening (PDF not fetched).
 
-This is a scaling choice for what the policy loss sees. Batch `/std` compressed a large raw opening-1 advantage; mean-subtract left the sign and scale usable. It is not a claim about whether shaping works. Numbers that differ under the two modes are listed in `06_experimental_design.md` as outcomes to interpret later.
+This is a scaling choice for what the policy loss sees. Batch `/std` compressed a large raw opening-1 advantage; mean-subtract left the sign and scale usable. It is not a claim about whether shaping works. Two-learner and Stage B configs use `center` because, on this lock, whitening can still be mixed on opening 2 at epoch 15; Test A/B retain the TRL default as the contrast. Numbers that differ under the two modes are listed in `06_experimental_design.md` as outcomes to interpret later.
+
+## Readout (15 games per epoch)
+
+Each epoch is 15 games (5 episodes × 3 parallel). Each game is 36 rounds. **Last-open** = the 15 first-round harvests in epoch 15 (`10×0+5×1` = ten opened 0, five opened 1). **Last surv / last ret** = survival and mean return on those 15 games. **Leave-2 last3** = leave-2 share over epochs 13–15 (45 games). **First majority** = first epoch with leave-2 > 8/15.
 
 Opening-step neural advantage (A0) is logged from the first index of each parallel game in the flattened batch (`first_index_by_env_id`). Raw GAE and post-norm A0 are both stored. Live-step raw GAE is logged separately so smear on later 2s can be compared with the opening photograph.
 
@@ -49,7 +53,18 @@ Before any shaper-versus-naive grid, one PPO learner is trained against a non-le
 
 The bot has no Gemma weights. `is_shaper=False` so `outer_rollout` calls a no-op `update_parameters` once per episode. Only the learner’s LoRA and value head train. Records still include both request columns.
 
-Trial geometry in the Test A/B configs: \(T=36\), `e_max=5` episodes per trial, `n_games=3` parallel games, 15 epochs, one seed family (`set_seed(0)`). That is 15 games per epoch and 225 games per run.
+Trial geometry in the Test A/B configs: \(T=36\), \(E=5\) episodes per trial, 3 parallel games, 15 epochs (30 for seed-fixed whitened Test A seed 0; 50 for the long seed-0 runs), seeds 0–2. That is 15 games per epoch and 225 games per 15-epoch run. One epoch is one trial (ShapeLLM Figure 1 geometry, with this lock's counts). Naive PPO after each episode; shaper PPO once per trial. TRL 0.11.4 `PPOTrainer` reseeds to 0 in its constructor; pre-fix runs shared the seed-0 action stream. The 8–9 Sep packet re-seeds after agent construction.
+
+```
+epoch k  =  one trial
+              e=1        e=2        e=3        e=4        e=5
+n=1 (game)  [ep] -----> [ep] -----> [ep] -----> [ep] -----> [ep]
+n=2         [ep] -----> [ep] -----> [ep] -----> [ep] -----> [ep]
+n=3         [ep] -----> [ep] -----> [ep] -----> [ep] -----> [ep]
+                         |-- T=36 rounds, two agents each round --|
+naive: PPO after every episode     shaper: PPO after the trial
+15 epochs × 15 games = 225 games
+```
 
 Vs always-2, a constant take-1 scores 36 and lives; constant take-2 scores 7 and dies. Vs always-1, constant take-2 scores 72 and lives; constant take-1 scores 36; take-3 dies. Test B does not treat “copy 1” as the unique high-return reply.
 
@@ -58,3 +73,7 @@ Vs always-2, a constant take-1 scores 36 and lives; constant take-2 scores 7 and
 `finetuning_cpr.py` trains two `PPOAgent`s through the same `outer_rollout`. Naive agents update each episode; shapers update once per trial on the concatenated trajectory. When `transmit_info=true`, the shaper prompt also keeps joint-request counts and episode summaries for the trial. Live protocol: `cpr_naive_naive_center.json`, `cpr_naive_shaper_center.json`, `cpr_naive_shaper_center_info_off.json`. Executed numbers are in LIVE_FACTS. The method description of the shaper is the code path, not a result.
 
 `archive/ipd_rps/finetuning_fixed_opponent.py` is not used for CPR.
+
+## Stage B noise (machinery)
+
+Stage B configs (`cpr_*_xi.json`) attach a CRN table of `xi_tenths` ∈ {7, 10, 13} per seed (`cpr_env.make_noise_table`). The same table is shared across arms so arm contrasts are not confounded by different draws. `xi_tenths=10` is bit-identical to Stage A. Test A ξ uses `finetuning_cpr_fixed.py`; two-learner ξ uses `finetuning_cpr.py`. Tables are saved as `noise_table.npy` next to the records. This is a measurement device, not a new optimiser.

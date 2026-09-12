@@ -248,3 +248,5 @@ analysis/
 *.synctex.gz
 *.lof
 *.lot
+thesis/main.fdb_latexmk
+thesis/main.fls

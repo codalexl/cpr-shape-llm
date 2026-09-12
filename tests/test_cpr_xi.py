@@ -107,3 +107,48 @@ def test_dp_expectations_match_invariance():
     assert e11 == (36.0, 36.0, 1.0)
     assert abs(e22[0] - 7.44) < 0.02 and e22[2] < 1e-12
     assert e21[0] == 72.0 and e21[1] == 36.0 and e21[2] == 1.0
+
+
+def test_best_response_openings_vs_hawk():
+    from cpr_xi import best_response_vs_const
+    v, qs = best_response_vs_const(2, xi=(10,))
+    assert v == 105.0 and qs == (105.0, 104.0, 102.0, 6.0)
+    v, qs = best_response_vs_const(2)
+    assert tuple(round(q, 1) for q in qs) == (102.5, 101.7, 99.1, 91.1)
+    assert round(v, 1) == 102.5
+
+
+def test_joint_optimum():
+    from cpr_xi import joint_optimum
+    assert joint_optimum(xi=(10,)) == 210.0
+    assert joint_optimum(xi=(10,), symmetric=True) == 210.0
+    assert round(joint_optimum(symmetric=True), 1) == 206.6
+    assert abs(joint_optimum() - 207.05) < 0.05
+
+
+def test_binomial_kernel_mean_matches_logistic_increment():
+    from cpr_xi import growth_kernel, expect
+    for S in range(1, 40):
+        dist = growth_kernel(S, "binomial", (10,))
+        assert abs(sum(p for _, p in dist) - 1.0) < 1e-12
+        mean = expect(dist, {Rn: Rn - S for Rn, _ in dist})
+        assert abs(mean - 9 * S * (40 - S) / 400) < 1e-9
+        assert max(Rn for Rn, _ in dist) <= 40
+    assert growth_kernel(0, "binomial", (10,)) == ((0, 1.0),)
+
+
+def test_binomial_breaks_constant_pair_invariance():
+    from cpr_xi import expected_policy, const
+    _, _, p22 = expected_policy(const(2), const(2), model="binomial")
+    _, _, p21 = expected_policy(const(2), const(1), model="binomial")
+    _, _, p11 = expected_policy(const(1), const(1), model="binomial")
+    assert p22 > 0.01          # mutual take-2 can survive
+    assert p21 < 0.99          # hawk-dove can die
+    assert p11 > 0.99          # (1,1) survives 0.9988
+
+
+def test_best_response_vs_feedback_dove():
+    from cpr_xi import best_response_vs, feedback_low
+    v_det, _ = best_response_vs(feedback_low(12), xi=(10,))
+    v_xi, _ = best_response_vs(feedback_low(12))
+    assert v_det >= 72.0 and v_xi >= 72.0

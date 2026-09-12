@@ -30,21 +30,83 @@ without trial PPO.
 
 \section{Sample and critic}
 
-Whitened Test~A is a three-seed family, not a law.
-Seed~0 last-epoch leave-2 \(2/15\), return \(11.3\), last-three-epoch
+Pre-fix whitened Test~A is a three-nominal-seed family, not a law.
+MPS seed~0 last-epoch leave-2 \(2/15\), return \(11.3\), last-three-epoch
 survival \(5/45\).
 Seeds~1--2 left opening 2 (leave-2 last3 \(87\%\) and \(82\%\); survival
 \(97/225\) and \(80/225\)).
+Seed-fixed whitened Test~A on L40S is slower and more variable than
+centre (leave-2 last3 \(31\%\), \(96\%\), \(71\%\)); the slow seed locked
+only after epoch 23 on a 30-epoch continuation.
 Last-epoch counts are out of 15 games.
-Matched long naive and shaper-e50 are one seed each.
+Matched long naive, shaper-e50, whitened e30 and slow2 \(\xi\) e50 are
+one seed each.
 The value head uses \(\texttt{vf\_coef}=0.01\); opening advantages are
 close to return minus a poor baseline.
 Centre versus whiten is entangled with that.
 
+\section{Single stack, and why the shaping grid is centred}
+
+All executed training is Gemma-2-2b-it, rank-2 LoRA, four harvest
+tokens, and this logistic lock.
+A different base model, a larger model, or a different environment could
+change both the digit prior and whether whitening hides the opening.
+The centre-versus-whiten contrast is therefore a finding on this stack,
+not a PPO law.
+Two-learner and Stage~B runs use mean-centring because, under the TRL
+default, a 15-epoch budget can still be mixed on opening 2 (seed-fixed
+whitened seed~0: \(8\times 1+7\times 2\) at epoch 15; lock only after
+epoch 23).
+That is a documented operator choice so that leave-2 is observable when
+both agents learn; it is not a claim that whitening never leaves, and it
+is not opponent shaping.
+
+\section{Seeds are not independent replicates (pre-fix)}
+
+TRL's \texttt{PPOTrainer} reseeds the global generator to 0 in its
+constructor, after the launcher's per-experiment seed
+(Chapter~\ref{ch:method}).
+Every run dated 6~September or earlier therefore drew its actions from
+one sampling stream; nominal seeds differ through the value-head
+initialisation, through non-deterministic bf16 kernels, and in Stage~B
+through the noise tables, which are seeded separately and correctly.
+Measured with \path{scripts/audit_seeds_and_scale.py}: pre-fix
+whitened Test~A seeds 1 and 2 opened identically on all 75 games of their
+first five epochs and on 80\% of games over the run; the Stage~B
+naive--naive, naive--shaper and slow-LR seeds 1 and 2 opened identically
+on 92--95\% of games over the whole run.
+Three consequences for those tables.
+``On all three seeds'' is closer to one replicate plus hardware noise
+than to three independent draws.
+The Stage~B paired design survives, because the pairing is within a
+seed across arms and the noise tables do differ by seed, but the
+agreement of \(\Delta_s\) across seeds 1 and 2 is close to one
+observation counted twice.
+The pre-fix whitened seed-0 run was the only whitened Test~A run on Apple
+silicon, so the tally ``whitening stayed on 2 on one seed of three''
+confounds seed with platform.
+The entry points re-seed after construction.
+The 8--9~September packet used the fix: Test~A centre pairs agree on
+\(0.56\)--\(0.61\) of openings in epochs 1--5; NS \(\xi\) and slow2
+\(\xi\) seed 0 match the pre-fix seed-0 tapes, and seeds 1--2 are new.
+H3 as a sign-agreement across three independent seeds fails.
+Test~A \(\xi\) and naive--naive \(\xi\) were not repeated, so those two
+Stage~B tables remain pre-fix.
+
 \section{Noise}
 
-Integer noise on growth was run (\texttt{noise\_tenths=5}, three centred
-Test~A seeds).
-Last epoch left 2 via opening 0 on every seed.
-Whole-run survival is \(76\), \(140\), \(141\).
-That is not a licence to write a growth-noise mechanism.
+Stage~B does not isolate shaping from timescale.
+Under \(\xi\), seed-fixed NS and slow2 both keep agent~2 mostly on 2;
+agent-1 leave-2 and last-epoch return do not favour the shaper on every
+seed (sign of \(\Delta\) is mixed).
+Matched-LR NN \(\xi\) was not repeated after the fix; the pre-fix table
+did not lock agent 2 hawk on every nominal seed.
+The dynamic program says \((1,1)\) and hawk--dove live with probability 1;
+\((2,2)\) dies.
+The 36-unit dynamic-program hawk interest (72 versus 35.7) was not
+collected.
+That is not a licence to write a growth-noise mechanism or a teaching
+success.
+Retired \(\pm 1\) Test~A is not a substitute.
+Epoch 15 is not an endpoint: seed-fixed whitened Test~A seed 0 locked
+leave-2 only after epoch 23.

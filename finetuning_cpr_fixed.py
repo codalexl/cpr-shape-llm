@@ -63,6 +63,12 @@ def main():
         print(f"RNG seed {seed} → {experiment_path(ind)}")
         learner = PPOAgent(learner_cfg)
         partner = ConstantActionAgent(partner_action, action_toks=toks)
+        # TRL 0.11.4 PPOTrainer.__init__ calls transformers.set_seed(config.seed) with the
+        # PPOConfig default seed=0, which silently resets the global RNG that the sampler
+        # uses. Every experiment before this line was therefore drawn from the seed-0
+        # stream (see scripts/audit_seeds_and_scale.py). Re-seed after construction so
+        # exp k actually samples from seed k.
+        set_seed(seed)
         print("Agents initialised.")
         game = CPRGame(game_params, obs1, obs2)
         game.attach_noise_table(seed, args.no_epochs, experiment_path(ind) + "noise_table.npy")

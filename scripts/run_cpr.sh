@@ -75,6 +75,47 @@ case "$MODE" in
     SEEDS=3; SEED_START=0; EPOCHS=15; CKPT_FREQ=0
     ENTRY="finetuning_cpr_fixed.py"
     ;;
+  testA_center_reseed_s012)
+    # Seed-fix replication. New folder; do not overwrite Stage A centre tapes.
+    CONFIG="configs/cpr_testA_center.json"
+    OUT="checkpoints/cpr_log_testA_center_reseed"
+    SEEDS=3; SEED_START=0; EPOCHS=15; CKPT_FREQ=0
+    ENTRY="finetuning_cpr_fixed.py"
+    ;;
+  testA_whiten_reseed_s012)
+    # Seed-fix replication of whitened Test A, all three nominal seeds on CUDA.
+    CONFIG="configs/legacy/cpr_testA_always2.json"
+    OUT="checkpoints/cpr_log_testA_whiten_reseed"
+    SEEDS=3; SEED_START=0; EPOCHS=15; CKPT_FREQ=0
+    ENTRY="finetuning_cpr_fixed.py"
+    ;;
+  naive_shaper_center_xi_reseed_s012)
+    CONFIG="configs/cpr_naive_shaper_center_xi.json"
+    OUT="checkpoints/cpr_log_naive_shaper_center_xi_reseed"
+    SEEDS=3; SEED_START=0; EPOCHS=15; CKPT_FREQ=0
+    ;;
+  naive_naive_slow2_center_xi_reseed_s012)
+    CONFIG="configs/cpr_naive_naive_slow2_center_xi.json"
+    OUT="checkpoints/cpr_log_naive_naive_slow2_center_xi_reseed"
+    SEEDS=3; SEED_START=0; EPOCHS=15; CKPT_FREQ=0
+    ;;
+  testA_whiten_reseed_e30)
+    # Whitened Test A, genuine seed 0, 30 epochs, CUDA. Slow-vs-stuck + no MPS confound.
+    CONFIG="configs/legacy/cpr_testA_always2.json"
+    OUT="checkpoints/cpr_log_testA_whiten_reseed_e30"
+    SEEDS=1; SEED_START=0; EPOCHS=30; CKPT_FREQ=0
+    ENTRY="finetuning_cpr_fixed.py"
+    ;;
+  naive_shaper_center_xi_reseed_e50)
+    CONFIG="configs/cpr_naive_shaper_center_xi.json"
+    OUT="checkpoints/cpr_log_naive_shaper_center_xi_reseed_e50"
+    SEEDS=1; SEED_START=0; EPOCHS=50; CKPT_FREQ=0
+    ;;
+  naive_naive_slow2_center_xi_reseed_e50)
+    CONFIG="configs/cpr_naive_naive_slow2_center_xi.json"
+    OUT="checkpoints/cpr_log_naive_naive_slow2_center_xi_reseed_e50"
+    SEEDS=1; SEED_START=0; EPOCHS=50; CKPT_FREQ=0
+    ;;
   naive_naive_center_xi_s012)
     CONFIG="configs/cpr_naive_naive_center_xi.json"
     OUT="checkpoints/cpr_log_naive_naive_center_xi"
@@ -148,7 +189,7 @@ case "$MODE" in
     SEEDS=1; EPOCHS=50; CKPT_FREQ=0
     ;;
   *)
-    echo "Usage: $0 {smoke|testA_center|testA_center_s12|testA_whiten_s12|testB_center|naive_naive_center|naive_naive_center_s12|naive_naive_center_e50|naive_naive_slow2_s012|naive_shaper_center|naive_shaper_center_s012|naive_shaper_center_info_off_s012|naive_shaper_center_e50|testA_center_xi_s012|naive_naive_center_xi_s012|naive_shaper_center_xi_s012|naive_naive_slow2_center_xi_s012}"
+    echo "Usage: $0 {smoke|testA_center|testA_center_s12|testA_whiten_s12|testB_center|naive_naive_center|naive_naive_center_s12|naive_naive_center_e50|naive_naive_slow2_s012|naive_shaper_center|naive_shaper_center_s012|naive_shaper_center_info_off_s012|naive_shaper_center_e50|testA_center_xi_s012|naive_naive_center_xi_s012|naive_shaper_center_xi_s012|naive_naive_slow2_center_xi_s012|testA_center_reseed_s012|testA_whiten_reseed_s012|naive_shaper_center_xi_reseed_s012|naive_naive_slow2_center_xi_reseed_s012|testA_whiten_reseed_e30|naive_shaper_center_xi_reseed_e50|naive_naive_slow2_center_xi_reseed_e50}"
     exit 1
     ;;
 esac

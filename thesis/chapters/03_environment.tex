@@ -100,20 +100,63 @@ Live training (\texttt{LOGISTIC} in \texttt{cpr\_env.py}; all
 R_0=8,\quad K=40,\quad T=36,\quad \texttt{rate\_tenths}=9.
 \]
 Those integers are a method fact, not a literature calibration.
-Reed \cite{reed1979} constant escapement (publisher abstract: a feedback
-policy on a \emph{stochastic} stock--recruitment model; PDF not obtained)
-is an \textbf{aim-column} citation for planned noise on this same locked
-update, not a source of \((8,40,36,9)\).
+The regeneration law and its stochastic form are placed against the
+fisheries models of Schaefer, Reed and Sethi et al.\ in
+Appendix~\ref{app:binomial}; none of them is a source of \((8,40,36,9)\).
 
-Growth after a strictly positive post-harvest stock \(R\):
-\begin{align*}
-\mathrm{growth}
-&=
-\mathrm{round\_half\_even}\bigl(
-\texttt{rate\_tenths}\cdot R\cdot(K-R)/(10\cdot K)
-\bigr),\\
-R_{\mathrm{next}}&=\min(K,\, R+\mathrm{growth}).
-\end{align*}
+The live game is the finite-horizon Markov game
+\(\mathcal{G}=(\mathcal{S},\mathcal{A},P,c,T,R_0)\) with
+\(\mathcal{S}=\{0,\dots,K\}\), \(\mathcal{A}=\{0,1,2,3\}\),
+\(R_1=R_0\).
+Writing \(A_t=a_{1,t}+a_{2,t}\), receipts and post-harvest stock are
+\begin{equation}
+  (c_{1,t}, c_{2,t}, \tilde{R}_t) =
+  \begin{cases}
+    \bigl(a_{1,t},\, a_{2,t},\, R_t-A_t\bigr) & A_t \le R_t, \\[2pt]
+    \bigl(\min(a_{1,t},\lfloor R_t/2\rfloor),\,
+          \min(a_{2,t},\lfloor R_t/2\rfloor),\, 0\bigr) & A_t > R_t.
+  \end{cases}
+  \label{eq:harvest}
+\end{equation}
+Growth after a strictly positive post-harvest stock is the rounded
+logistic surplus-production increment of Schaefer \cite{schaefer1954},
+scaled by a multiplier \(\xi_t\); an empty pool is absorbing:
+\begin{align}
+  R_{t+1}
+  &=
+  \begin{cases}
+    \min\bigl(K,\, \tilde{R}_t + g(\tilde{R}_t;\xi_t)\bigr)
+      & \tilde{R}_t > 0, \\
+    0 & \tilde{R}_t = 0,
+  \end{cases}
+  \label{eq:regen} \\
+  g(R;\xi)
+  &=
+  \mathrm{round\_half\_even}\bigl(\xi\,\rho\, R\,(K-R)/K\bigr).
+  \label{eq:growth}
+\end{align}
+In code the argument is the exact rational
+\(\texttt{rate\_tenths}\cdot\texttt{xi\_tenths}\cdot R\cdot(K-R)/(100K)\).
+Stage~A is \(\xi_t\equiv 1\) (\(\texttt{xi\_tenths}=10\)), bit-identical
+to the formula without \(\xi\).
+Stage~B draws \(\xi_t\) i.i.d.\ uniform on \(\{0.7,1.0,1.3\}\), common
+to both players within a game, never applied at \(\tilde{R}_t=0\).
+Player \(i\)'s return is the undiscounted sum of receipts,
+\begin{equation}
+  G_i=\sum_{t=1}^{T} c_{i,t}.
+  \label{eq:return}
+\end{equation}
+The collapse round is the first round after which the pool is empty, and
+survival is the event that no such round falls within the horizon:
+\begin{equation}
+  \tau=\min\{\,t:\tilde{R}_t=0\,\},
+  \qquad
+  S=\mathbb{1}[\tau>T],
+  \label{eq:collapse}
+\end{equation}
+with \(\tau=\infty\) if the pool never empties.
+Because \(g\ge 0\) and \(\xi_t\ge 0\), the stock falls only through
+harvest, so collapse is always a consequence of the players' requests.
 Rate is stored as tenths (\(9 \to 0.9\)) so every reported quantity is an
 integer or a \texttt{Fraction}.
 Python binary float \(\texttt{round}(\mathrm{rate}\cdot R\cdot(1-R/K))\)
@@ -125,10 +168,18 @@ At this lock, there are \textbf{no} interior freeze stocks
 Low-rate freeze (e.g.\ rate 0.2 at \(K=40\)) exists as a logistic analogue
 of the cap-0 trap and was refused for shipping.
 
-The game is \textbf{chicken, not prisoner's dilemma}: \((1,1)\) lives,
-\((2,2)\) dies.
-If both agents play a constant action, the empirical payoff matrix
-is Table~\ref{tab:chicken}.
+A policy \(\pi_i\) maps the player's observable history to a distribution
+over \(\mathcal{A}\).
+The constant policies \(\pi_i\equiv k\), \(k\in\mathcal{A}\), induce a
+\(4\times 4\) matrix of returns and collapse rounds,
+\(M(k_1,k_2)=(G_1,G_2,\tau)\), which is the empirical payoff matrix of
+Leibo et al.\ \cite{leibo2017} restricted to constant strategies;
+Table~\ref{tab:chicken} reports its relevant cells.
+Under this reduction the game is \textbf{chicken, not prisoner's
+dilemma}: \((1,1)\) lives and \((2,2)\) dies, the asymmetric profiles
+\((2,1)\) and \((1,2)\) are the strict pure equilibria and \((1,1)\) is
+not one, with the degenerate feature that the dove's return is \(36\)
+whether or not it is exploited.
 ShapeLLM already evaluates iterated chicken
 \cite{garciasegura2025,rapoport1966}.
 Mutual take-1 is not the joint optimum: one round of \((0,0)\) then
@@ -152,18 +203,84 @@ Constant pair & Learner return & Lives? \\
 \end{tabular}
 \end{table}
 
-Asymmetric \((2,1)\) / \((1,2)\) are strict Nash of this reduction;
-\((1,1)\) is not.
-Opening values against always-2 are \(Q=(105, 104, 102, 6)\) for
-openings \(0,1,2,3\).
+Against a fixed opponent \(\sigma\), the optimal value satisfies the
+Bellman equation
+\begin{equation}
+  V^{\sigma}(R,t)
+  =
+  \max_{a\in\mathcal{A}}
+  \Bigl\{
+    c_1\bigl(R,a,\sigma(R,t)\bigr)
+    + \mathbb{E}_{\xi}\bigl[V^{\sigma}(R',t+1)\bigr]
+  \Bigr\},
+  \qquad V^{\sigma}(\cdot,T+1)=0,
+  \label{eq:bellman-br}
+\end{equation}
+with \(R'\) given by \eqref{eq:harvest}--\eqref{eq:growth}, and the value
+of each opening action is
+\begin{equation}
+  Q^{\sigma}_{\mathrm{open}}(a)
+  =
+  c_1\bigl(R_0,a,\sigma(R_0,1)\bigr)
+  + \mathbb{E}_{\xi}\bigl[V^{\sigma}(R',2)\bigr].
+  \label{eq:q-open}
+\end{equation}
+Against the frozen hawk \(\sigma\equiv 2\) this gives
+\(Q=(105,104,102,6)\) in Stage~A and
+\((102.5, 101.7, 99.1, 91.1)\) in Stage~B for openings \(0,1,2,3\).
+The largest achievable joint return satisfies the two-action Bellman
+equation
+\begin{equation}
+  W^{*}(R,t)
+  =
+  \max_{(a_1,a_2)\in\mathcal{A}^2}
+  \Bigl\{
+    c_1+c_2+\mathbb{E}_{\xi}\bigl[W^{*}(R',t+1)\bigr]
+  \Bigr\},
+  \qquad
+  W^{*}:=W^{*}(R_0,1),
+  \label{eq:bellman-joint}
+\end{equation}
+attained in Stage~A by one round of \((0,0)\) then \((3,3)\) at the
+fixed point \(R=14\), for \(105\) per player (\(W^{*}=210\)).
+Under Stage~B \(W^{*}=207.1\); restricting both players to the same
+action in every round gives the symmetric optimum \(206.6\), or
+\(103.3\) per player, which is the value reported in the Stage~B tables.
+Since the state space has 41 stocks, 36 rounds and at most three draws,
+\eqref{eq:bellman-br} and \eqref{eq:bellman-joint} are solved exactly by
+backward induction; \texttt{python cpr\_xi.py} prints every
+dynamic-programming number in this report and
+\texttt{tests/test\_cpr\_xi.py} pins them.
+
+For any pair of policies the outcome is summarised by the three social
+metrics of P\'erolat et al.\ \cite{perolat2017}, normalised against the
+exact optimum rather than left as raw counts:
+\begin{equation}
+  \begin{aligned}
+  \text{sustainability}&=\Pr(S=1),
+  &\quad
+  \text{efficiency}&=\frac{\mathbb{E}[G_1+G_2]}{W^{*}},
+  \\[2pt]
+  \text{equality}&=1-\frac{\mathbb{E}\,|G_1-G_2|}{\mathbb{E}[G_1+G_2]}.
+  \end{aligned}
+  \label{eq:metrics}
+\end{equation}
+Survival \(\hat{S}\) and mean return \(\hat{G}_i\) in
+Chapters~\ref{ch:design} and~\ref{ch:results} are the sample versions of
+the first two; equality is read off the per-agent returns.
+
 Opening 1 then 2 forever returns 71 at the \(R=9\) fixed point
 (Figure~\ref{fig:farm}).
 Opening 2 then remaining on 2 dies at round 4 (return 7).
-Opening 0 versus always-2 moves stock \(8\to 11\), not onto that
-fixed point.
+Opening 0 versus always-2 moves stock \(8\to 11\) in Stage~A, not onto
+that fixed point.
+Under Stage~B a first \((0,2)\) or \((1,1)\) lands in \(\{9,11,12\}\)
+and a first \((1,2)\) lands in \(\{8,9,10\}\); constant take-2 thereafter
+survives with probability \(0.80\) from the first set and \(0.40\) from
+the second (learner returns \(58.3\) and \(34.7\)).
 The untrained prior sits on 2 (Chapter~\ref{ch:method}).
 Leave-2 (first action not 2) is the experimental statistic for that
-prior-dominated class, not a claim that 0 and 1 are the same basin.
+prior-dominated class; 0 and 1 are not the same basin.
 
 \begin{figure}[ht]
 \centering
@@ -193,8 +310,11 @@ prior-dominated class, not a claim that 0 and 1 are the same basin.
 \section{What is not the live environment}
 
 Linear \(R_0=20\), \(g=2\) is the harvest fixture only.
-Noise, if run, is \(\pm 1\) on the locked logistic growth with
-probability \(1/2\), and never revives a dead pool.
+A retired \(\pm 1\)-on-stock Test~A is archived and is not Stage~B.
+Stage~B is the mean-one three-point multiplier on the growth increment
+in \eqref{eq:growth}.
+The historical park file \texttt{stochastic\_cpr\_env.py} is not the
+live game.
 
 \section{Observation surface (prompts)}
 

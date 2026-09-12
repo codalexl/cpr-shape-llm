@@ -1,31 +1,62 @@
 \chapter{Conclusion}
 \label{ch:conc}
 
-\section{Task}
+\section{RQ1 --- structure}
 
-This report asked whether ShapeLLM-style trial PPO can be run on a
-sequential common-pool resource that is chicken rather than a payoff
-table, and whether a noise increment on that locked update is worth
-trying.
-The executed substrate is integer logistic CPR
-(\(R_0=8\), \(K=40\), \(T=36\), \(\texttt{rate\_tenths}=9\)).
-The noise arm was run on centred Test~A (three seeds); last epoch left
-opening 2 via 0 on every seed.
-That is not a 36-step dove policy and not a mechanism.
+A sequential integer CPR can be specified so that a linear-regrowth grid
+is a dead learning problem against a take-2 opponent, and a logistic lock
+has an interior dilemma that a peaked digit prior actually hits.
+The live game is chicken: \((1,1)\) lives, \((2,2)\) dies around round~4,
+hawk versus dove scores 72.
+Mutual take-1 is not the joint optimum (\(W^{*}=210\) in Stage~A).
+Leave-2 is a statistic for a near-constant prior class; opening 0 and
+opening 1 versus a hawk are different basins.
 
-\section{Method}
+\section{RQ2 --- advantage normalisation}
 
-Against a frozen hawk, centre-only advantages left opening 2;
-batch whitening did not.
-The prior yields on the first action.
-It does not become a habit of take-1 across the tape.
+Against a frozen hawk, seed-fixed centre-only advantages left opening 2
+on three independent L40S seeds by epoch 8.
+Whitening left on a longer and more variable schedule (majority at
+epochs 15, 7, 13); the slow seed locked only after epoch 23 on a
+30-epoch continuation.
+Do not write that whitening always keeps the death-open.
+They differ by \(1/\sigma_{\mathcal{B}}\), measured per update at
+\(13\)--\(15\); under Adam that is a reweighting of the policy gradient
+against the critic, the entropy bonus and the other batches, not a
+larger step \eqref{eq:logit-update}.
+In the pre-fix MPS run that stayed on opening 2 the post-operator
+advantage of opening 2 never turned negative, because no batch contained
+a surviving game to compare against.
+The prior yields on the first action; it does not become a tape-wide
+take-1 habit.
 Against a frozen dove the learner does not copy take-1.
+The finding is a precondition for opponent shaping on this stack, not a
+shaping result: two-learner runs use mean-centring so that leave-2 is
+visible inside 15 epochs.
+It is not claimed for other models or environments.
 
-\section{What two learners did not show}
+\section{RQ3 --- opponent shaping}
 
-Two centred learners split hawk--dove: who doves swapped under
-naive--naive and did not under the shaper configs (info-on and info-off).
-That is a role lock, not a clear shaping success, and not a two-phase
-teaching policy (shaper leave-2 on the 50-epoch seed: \(25/750\)).
+Two centred learners split hawk--dove.
+Who doves swapped under matched-LR naive--naive and did not under the
+shaper (info-on and info-off) or under a slow-LR naive--naive control
+that matches the shaper's learning rate and clip.
+On one 50-epoch seed the matched naive pair opened \((1,1)\) and agent 2
+earned \(98.1\), in the direction of the \((1,1)\)-then-\((2,3)\) cell;
+the matched shaper pair earned about \(143\) joint against that pair's
+\(167\).
+One seed each.
 
-Code: \url{https://github.com/codalexl/cpr-shape-llm/tree/feat/deterministic-cpr}.
+Under Stage~B \(\xi\), pre-fix Test~A seeds 0 and 2 opened 0 (the
+\(0.80\)-survival exit versus a hawk) and did not learn stock-conditioned
+feedback; that arm was not repeated after the seed fix.
+Paired on the same noise tables after the fix, naive--shaper versus
+slow2 is mixed: agent-1 leave-2 last3 \(96/44/33\%\) versus
+\(69/76/27\%\), last-epoch return \(49.7/29.0/12.3\) versus
+\(44.8/52.9/13.0\); both agent 2s stay mostly on 2.
+Learning rate and clip are matched, trial update and prompt are not.
+The 36-unit DP interest in feedback restraint was not collected.
+H3 as a shaper-return and more-reliable-dove inequality fails at three
+independent seeds.
+
+Code: \url{https://github.com/codalexl/cpr-shape-llm}.

@@ -1,19 +1,16 @@
 \chapter{Related work}
 \label{ch:lit}
 
-\textbf{Provisional.}
-This chapter uses the keep-list plus LIT\_CLOSE citations (1~September 2026).
-It positions the thesis; it does not report this repository's results.
-What has been \textbf{run} is learner-versus-frozen-bot PPO and centred
-two-learner PPO (naive--naive and naive--shaper) on a
-\textit{deterministic} logistic chicken CPR
-(\(R_0=8\), \(K=40\), \(T=36\), \(\texttt{rate\_tenths}=9\)).
-Stochastic regeneration on that locked update is a \textbf{live aim}, not an
-executed environment.
-Two gaps stay in the aim column: shaping under environmental noise as the
-object of study (Gap~01), and whether a shaper in an LLM commons is a
-clear success (Gap~02).
-Neither gap is closed here.
+This chapter positions the thesis against the opponent-shaping and
+commons literature.
+What has been run is learner-versus-frozen-bot PPO and centred
+two-learner PPO on a logistic chicken CPR
+(\(R_0=8\), \(K=40\), \(T=36\), \(\texttt{rate\_tenths}=9\)),
+first deterministic (Stage~A) then with multiplicative \(\xi\) on the
+growth increment (Stage~B).
+Two questions remain open after the executed ladder: whether noise as
+the object of study yields a shaping result, and whether a shaper in an
+LLM commons is a clear success.
 
 \section{Opponent shaping: from gradients to prompts}
 
@@ -80,14 +77,20 @@ GovSim's own limitations name shocks to regeneration as missing realism;
 that sentence is a licence for an increment, not evidence that this
 repository has run one.
 
-P{\'e}rolat et al.\ \cite{perolat2017} is the spatial MARL contrast: twelve
-independent DQNs harvest apples whose local-density respawn can permanently
-deplete a patch.
+P{\'e}rolat et al.\ \cite{perolat2017} is the multi-agent RL commons this
+thesis is a reduction of: twelve independent DQNs on a gridworld harvest
+apples whose respawn probability rises with the number of apples nearby
+and is zero when none remain, so a patch can be permanently depleted.
 Sustainability, when it appears, arrives through \textbf{exclusion}
-(tagging / territory).
-A scalar two-player stock has no such mechanism.
-GovSim's survival/efficiency/equality metrics descend from this suite; this
-thesis has not yet claimed a metric set for a shaper grid.
+(tagging and territory).
+The environment of Chapter~\ref{ch:env} is the two-player mean-field
+reduction of that process: the logistic increment is the expectation of
+the per-unit respawn (Appendix~\ref{app:binomial}), the stock is a single
+scalar, and the exclusion mechanism is removed on purpose, so that the
+harvest decision is the only decision and the game can be solved exactly.
+The sustainability, efficiency and equality metrics of that paper are the
+outcome metrics of Chapter~\ref{ch:results}, normalised against the exact
+optimum.
 
 \section{Shaping, sustainability, and noise as background}
 
@@ -120,25 +123,34 @@ Training is \textbf{symmetric}.
 There is no shaper-versus-independent-learner condition and no resource
 stock.
 Their group-relative common-random-number batches are prior art for variance
-reduction in LLM RL; using matched noise to \emph{measure} a shaping effect
-remains an aim (Gap~01), not a method already shipped here.
+reduction in LLM RL.
+Stage~B uses paired \(\xi\) tables as a measurement device (identical
+streams across arms); that is not Piche's training baseline and does not
+close Gap~01.
 
-\section{Open-access fisheries, not the live lock}
+\section{Renewable-resource economics}
 
-Gordon \cite{gordon1954} supplies the open-access rent / MSY vocabulary:
-unmanaged effort dissipates rent; the economic optimum lies below maximum
-sustained physical yield.
-The live training point
-\((R_0, K, T, \texttt{rate\_tenths})=(8,40,36,9)\) is a method fact, not
-taken from that paper and not from Reed.
-
-Reed \cite{reed1979} is a constant-escapement \emph{feedback} policy that
-maximises expected discounted net revenue on a \emph{stochastic}
-stock--recruitment model (publisher abstract, \emph{JEEM} 6(4):350--363,
-DOI~10.1016/0095-0696(79)90014-7; PDF not obtained).
-It belongs in the \textbf{aim} column for planned noise on the locked
-integer update.
-It is not a calibration of \((8,40,36,9)\).
+The regeneration law is the logistic surplus-production model of Schaefer
+\cite{schaefer1954}, the standard single-stock model of fisheries
+economics \cite{clark1990}; Gordon \cite{gordon1954} supplies the
+open-access result that unmanaged effort dissipates rent and that the
+economic optimum lies below maximum sustained yield.
+Reed \cite{reed1979} studies the same stock under multiplicative
+recruitment uncertainty, \(X_{t+1}=Z_tG(X_t-h_t)\) with
+\(\mathbb{E}Z_t=1\), and proves that the optimal harvest is a
+constant-escapement feedback rule whose target coincides with the
+deterministic one under a self-sustaining condition.
+Sethi et al.\ \cite{sethi2005} separate growth, measurement and
+implementation uncertainty and show that Reed's result survives the first
+alone.
+Stage~B of this thesis is Reed's model with two uncoordinated harvesters,
+an integer cap on each harvest, and the shock applied to the surplus
+rather than to the whole recruitment so that the stock never falls below
+the escapement; Appendix~\ref{app:binomial} writes the correspondence out
+and shows that the joint optimum and every safe policy of the dynamic
+programme are constant-escapement rules in Reed's sense.
+The parameters \((R_0,K,T,\rho)=(8,40,36,0.9)\) are a design choice
+(Chapter~\ref{ch:env}), not a calibration from any of these papers.
 
 The executed lock --- \((1,1)\) lives, \((2,2)\) dies --- is chicken, the
 same class ShapeLLM already runs as the Iterated Chicken Game.
@@ -150,25 +162,17 @@ matrix, and it is not a calibration of \((R_0,K,T)\).
 Vault framing was prisoner's dilemma / tragedy / doubling commons; the
 executed lock is chicken.
 
-\section{Aims that this chapter must not close}
+\section{What this chapter leaves to Results}
 
-\paragraph{Gap 02.}
 Observational LLM-commons work freezes every agent
 \cite{piatti2024,akata2025}.
 Interventional LLM shaping \cite{garciasegura2025,piche2025} on a
 resource stock is the executed two-learner ladder in this repository.
 Advantage Alignment's commons result is RL self-play.
-``Nobody shapes an LLM commons'' is no longer the right sentence.
-Whether that ladder is a \emph{clear success} is Results, not Related Work.
-
-\paragraph{Gap 01.}
 ShapeLLM's matrix games are deterministic.
 Advantage Alignment and InvestESG-OS put opponent shaping in stochastic
 environments but use noise as texture, not as the quantity being ablated.
-Deterministic logistic is the substrate that can be measured.
-Noise on that same integer update is the increment that will be tried; a
-null is still a result.
-Gap~01 is not demonstrated.
-The executed environment has no regeneration noise.
+Stage~B runs multiplicative \(\xi\) on the locked integer growth
+increment; whether that is a shaping result is Chapter~\ref{ch:results}.
 The orphan file \texttt{stochastic\_cpr\_env.py} is not the method in this
 literature or in this repository.

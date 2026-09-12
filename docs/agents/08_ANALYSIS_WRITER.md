@@ -34,7 +34,7 @@ Strip tags when copying to TeX. Challenge deletes untagged paragraphs.
 
 ## This drop (5–7 Sep)
 
-From **existing** LIVE_FACTS only. Stage B GPU packets are not in yet; the DP table is.
+From **existing** LIVE_FACTS only. Stage B GPU packets are on disk and ingested. The DP table is the comparison target.
 Retired ±1 Test A is not a Results table. Do not invent a mechanism. Do not write
 “whitening always keeps the death-open.”
 

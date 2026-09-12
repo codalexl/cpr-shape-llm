@@ -25,12 +25,26 @@ not onto that fixed point.
 The opening statistic still counts leave-2 (open 0 or 1).
 Those two tokens are not the same basin.
 
-Statistics:
+Statistics, decoded for a reader who has not sat the runs
+(Chapter~\ref{ch:design} writes the same quantities as
+\(\hat{L}\), \(\hat{S}\), \(\hat{G}\)):
 
 \begin{itemize}
 \item \textbf{Primary.} Share of episodes that do not open 2 (open 1 or
-  open 0).
-\item \textbf{Supporting.} Survival, and death round.
+  open 0). Each epoch is 15 games (5 episodes \(\times\) 3 parallel
+  games). The opening is round~1 of each 36-round game.
+\item \textbf{Last-open.} The 15 first-round harvests in epoch~15.
+  \(10\times 0+5\times 1\) is ten games that opened 0 and five that
+  opened 1, not ten epochs.
+\item \textbf{Last surv / last ret.} How many of those 15 games reached
+  \(T=36\), and the mean learner return on them.
+  Stay-on-2 against a hawk is about 7; open-1-then-2s is 71
+  deterministic.
+\item \textbf{Leave-2 last3.} Leave-2 share over epochs 13--15 (45
+  games).
+\item \textbf{First majority.} First epoch in which leave-2 exceeded
+  \(8/15\).
+\item \textbf{Supporting.} Whole-run survival and death round.
 \item \textbf{Not the claim.} Live-step action mix.
   After a good opening, a tape of 2s is the \(R=9\) farm.
 \end{itemize}
@@ -67,7 +81,7 @@ Leaving opening 2 replicates; the restraint \emph{token} need not
 \begin{table}[ht]
 \centering
 \caption{Last-epoch openings and run survival for centred Test~A against a
-  frozen hawk.
+  frozen hawk (pre-fix family, shared sampling stream).
   Seed~2 last epoch is almost all opening~0, not~1.}
 \label{tab:seeds}
 \begin{tabular}{lll}
@@ -84,7 +98,8 @@ Seed & Last-epoch openings & Survived \\
 Seed 2 last epoch left opening 2 via \textbf{0} (\(14/15\)), not 1.
 That is leave-2 on the primary statistic.
 It is not the \(R=8\to 9\) farm (open 0 vs hawk goes \(8\to 11\)).
-This chapter does not explain why seed 2 preferred 0.
+Stage~A opening values against a hawk are \(Q(0)=105\) and \(Q(1)=104\),
+so both tokens leave 2; the token is not identified by that one-unit gap.
 
 \textbf{Whitened extra seeds (RNG 1--2).}
 Seed 0 staying on 2 is not the whole family.
@@ -94,24 +109,125 @@ Seed 2 last epoch opened 0 on \(12/15\) and 1 on \(3/15\) (leave-2 last3
 \(82\%\), survival \(80/225\), return \(69.7\)).
 Both extra seeds survived \(15/15\) in the last epoch.
 
-\textbf{Claim.}
-Against a frozen hawk, centre-only advantages (mean-subtract, no
-\texttt{/std}) moved the policy off opening 2 on three seeds.
+\textbf{Pre-fix family (shared sampling stream).}
+Against a frozen hawk, centre-only advantages moved the policy off
+opening 2 on three \emph{nominal} seeds.
 Batch whitening did that on seeds 1--2 and did not on seed 0
-(survival \(28/225\), last epoch \(14\times 2\)).
-Whitening is seed-dependent.
+(survival \(28/225\), last epoch \(14\times 2\); that seed-0 tape is MPS).
+Treated as a binary leave-2 outcome at three nominal seeds each, the
+operators are not distinguishable (whitened \(1/3\) stayed on 2, centred
+\(0/3\)).
+They differ by the factor \(1/\sigma_{\mathcal{B}}\) in \eqref{eq:norm},
+with \(\sigma_{\mathcal{B}}\) measured per update at \(13\)--\(15\)
+(Section~\ref{sec:operator}); under Adam that factor is a reweighting of
+the policy gradient against the critic, the entropy bonus and the other
+batches, not a larger step.
+What separates the pre-fix whitened run that stayed on opening 2 from the
+five that left it is visible in the opening advantages themselves
+(Table~\ref{tab:a0-epochs}): in that MPS seed 0 the post-operator
+advantage of opening 2 stayed between \(+0.5\) and \(+1.1\) in every
+epoch, because nearly every game in every batch collapsed and there was
+no surviving game for the opening-2 games to be compared against, so by
+\eqref{eq:logit-update} logit 2 was never pushed down; in whitened seeds
+1--2 and in every centred run it turned negative by epoch 4 once
+surviving games entered the batches.
+
+\textbf{Seed-fixed Test A, all L40S, \(3\times 15\).}
+After the trainer reseed fix the three seeds are independent
+(opening identity epochs 1--5 is \(0.56\)--\(0.63\); pre-fix whitened
+\(s1\) vs \(s2\) was \(1.00\)).
+Centre-only left opening 2 on all three seeds
+(Table~\ref{tab:seeds-reseed}): first leave-2 majority at epochs 7, 7, 8;
+last-epoch openings \(10\times 0+5\times 1\), \(14\times 0+1\times 1\),
+\(14\times 1+1\times 2\); last-epoch survival \(14/15\), \(15/15\),
+\(11/15\); last-epoch return \(67.1\), \(80.7\), \(59.1\); leave-2 last3
+\(93\%\), \(98\%\), \(91\%\).
+Whitened is slower and more seed-variable: leave-2 last3 \(31\%\),
+\(96\%\), \(71\%\); first majority at epochs 15, 7, 13; last-epoch
+survival \(5/15\), \(13/15\), \(9/15\); last-epoch return \(34.7\),
+\(62.4\), \(42.3\); seed 0 last epoch mixed \(8\times 1+7\times 2\).
+It is not ``fails to leave'': two of three last epochs have leave-2
+majority.
+
+\textbf{Whitened 30 epochs, seed 0.}
+Epoch 15 matches the 15-epoch snapshot (survival \(5/15\), return
+\(34.7\), leave-2 \(8/15\)).
+Leave-2 then stalls through epoch 21 and locks from epoch 23
+(\(12/15\) open 1).
+Last epoch \(15\times 1\), survival \(13/15\), last3 survival \(42/45\),
+return \(64.5\).
+Do not call epoch 15 an endpoint.
+
+\textbf{Claim.}
+Against a frozen hawk, with independent seeds on the same GPU,
+centre-only advantages left opening 2 on three seeds by epoch 8.
+Whitening left on a longer and more variable schedule.
 The prior yields on the first action when it leaves 2.
 It does not become a habit of take-1 across the tape.
-This is a centre-versus-whiten contrast, not an ablation of GAE.
+Do not write that whitening always keeps the death-open.
+Do not treat a 15-epoch last-epoch binary as the operator contrast.
+This is a precondition finding: it says whether the prior can leave 2
+against a statue that already plays hawk, which operator does so within
+the 15-epoch budget used later, and that two-learner runs therefore use
+mean-centring.
+It is not opponent shaping, and it is not tested off Gemma-2-2b-it on
+this lock.
+
+\begin{table}[ht]
+\centering
+\small
+\caption{Opening advantages by epoch for the six Test~A runs against the
+  frozen hawk.
+  \(k\) is the number of the 15 games that did not open 2;
+  \(\tilde{A}(\ne 2)\) and \(\tilde{A}(2)\) are the mean post-operator
+  opening advantages of the games that opened 0 or 1 and of the games
+  that opened 2 (a dash means no game opened that way).
+  Whitened values are in units of the batch standard deviation; centred
+  values are in units of return.
+  Generated by \texttt{scripts/make\_a0\_table.py} from the
+  \texttt{opening\_a0} logs.}
+\label{tab:a0-epochs}
+\resizebox{\textwidth}{!}{\input{tables/a0_epochs}}
+\end{table}
+
+\begin{table}[ht]
+\centering
+\small
+\caption{Seed-fixed Test~A against a frozen hawk, all L40S, 15 epochs.
+  One learner, not two; the partner is frozen always-2.
+  Last-open is the 15 first-round harvests of epoch~15
+  (\(10\times 0+5\times 1\) = ten opened 0, five opened 1).
+  Last surv / ret are survival and mean return on those 15 games.
+  Leave-2 last3 is the leave-2 share over epochs 13--15 (45 games).
+  First majority is the first epoch with leave-2 \(>8/15\).
+  Identity of openings in epochs 1--5 is \(0.56\)--\(0.63\) between seeds
+  (pre-fix whitened \(s1\) vs \(s2\) was \(1.00\)).}
+\label{tab:seeds-reseed}
+\begin{tabular}{llll}
+\toprule
+ & s0 & s1 & s2 \\
+\midrule
+Centre last-open & \(10\times 0,5\times 1\) & \(14\times 0,1\times 1\) & \(14\times 1,1\times 2\) \\
+Centre last surv / ret & \(14/15\), \(67.1\) & \(15/15\), \(80.7\) & \(11/15\), \(59.1\) \\
+Centre leave-2 last3 & \(93\%\) & \(98\%\) & \(91\%\) \\
+Centre first majority & 7 & 7 & 8 \\
+Whitened last-open & \(8\times 1,7\times 2\) & \(13\times 1,2\times 0\) & \(7\times 1,3\times 0,5\times 2\) \\
+Whitened last surv / ret & \(5/15\), \(34.7\) & \(13/15\), \(62.4\) & \(9/15\), \(42.3\) \\
+Whitened leave-2 last3 & \(31\%\) & \(96\%\) & \(71\%\) \\
+Whitened first majority & 15 & 7 & 13 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \begin{figure}[ht]
 \centering
 \includegraphics[width=0.92\textwidth]{figures/fig_openings_testA.pdf}
 \caption{Share of episodes that do not open 2 (open 0 or 1) against a
   frozen always-2 partner.
-  The whitened curve in this figure is seed~0 only, which stays on the
+  Pre-fix family: the whitened curve is MPS seed~0, which stays on the
   death-open; whitened seeds 1--2 left opening 2 (text).
   Centre-only seeds 0--2 leave opening 2.
+  Seed-fixed all-L40S numbers are Table~\ref{tab:seeds-reseed}.
   Seed~2's last epochs leave 2 mostly via opening~0, not 1
   (Table~\ref{tab:seeds}): leave-2, not the \(R=9\) farm.
   This figure is the opening statistic.
@@ -124,7 +240,8 @@ This is a centre-versus-whiten contrast, not an ablation of GAE.
 \includegraphics[width=0.92\textwidth]{figures/fig_death_rounds_testA.pdf}
 \caption{Collapse step among episodes that die, first three versus last
   three epochs of Test~A.
-  The whitened panel is seed~0, which keeps dying near round~4.
+  Pre-fix family: the whitened panel is MPS seed~0, which keeps dying
+  near round~4.
   Centre-only seed~0 last epochs mostly survive (survival in the panel
   titles).
   Supporting statistic only; the claim is the opening share in
@@ -167,6 +284,16 @@ Neither is a shaping result.
 
 A frozen hawk is not two learning agents.
 Centre-only Test~A does not imply that a shaper works.
+The load-bearing link is narrower.
+If, under the TRL default, the prior never left opening 2 even against a
+partner already frozen on 2, then a two-learner table in which agent~1
+opens 1 and agent~2 opens 2 could not be read as ``the shaper taught
+restraint'': leave-2 would not yet be a behaviour the naive update can
+produce on this budget.
+The shaping grid is therefore on mean-centring, the operator that left
+opening 2 by epoch 8 on three independent seeds, rather than on whitening,
+which on this lock is slower and can still be mixed at epoch 15.
+That choice is reported as RQ2, not as a hidden extra.
 
 \section{Two learners}
 \label{sec:twolearners}
@@ -214,16 +341,21 @@ Both left 2 in the same episode \(17/750\).
 Same config as 15-epoch naive--naive; one seed; 50 epochs.
 Epoch 1: \(4/15\), both mostly opened 2.
 Epoch 15: \(12/15\), agent 1 \(12\times 1\), agent 2 \(13\times 1\).
-Epoch 50: \(15/15\), both \(15\times 1\), returns \(68.9\) / \(98.1\).
+Epoch 50: \(15/15\), both \(15\times 1\), returns \(68.9\) / \(98.1\),
+joint about \(167\).
+Agent 2's \(98.1\) is in the direction of the deterministic
+\((1,1)\)-then-\((2,3)\) fixed point at \(R=11\) (DP \(71/106\)).
+The matched shaper pair at epoch 50 opened \((1,2)\) and earned about
+\(143\) (open-1-then-2 versus hawk: \(71+72\)), with the shaper on \(72\).
+One seed each, so a direction: this is the only executed run in which a
+learner earned above the constant chicken cells, and on the H3 return
+criterion the shaper is below the naive pair.
 Whole-run survival \(628/750\).
 Agent 1 leave-2 whole \(605/750\); agent 2 \(623/750\).
 Both left 2 in the same episode \(551/750\).
 First majority leave-2: agent 1 epoch 8, agent 2 epoch 9.
 Last-epoch action frequencies at \(R=8\) are 100~percent open 1 for both;
 later mid-stock steps are still peaked on 2.
-At epoch 50 the shaper run's agent 2 still opened \(15\times 2\).
-One seed each.
-Not a 36-step dove policy.
 
 \textbf{Info-off shaper, \(3\times 15\).}
 Same trial update and LR; \texttt{transmit\_info=false}.
@@ -301,14 +433,79 @@ frequencies by stock.
   Epoch 1 the shaper opened 2 while the naive still mostly opened 2.
 \end{itemize}
 
-\section{Noise arm (executed)}
+\section{Noise arm (Stage B)}
 
-Centred Test~A versus frozen always-2, \texttt{noise\_tenths=5},
-15 epochs, three seeds.
-Survival \(76/225\), \(140/225\), \(141/225\).
-Leave-2 in the last three epochs \(80\%\), \(100\%\), \(98\%\).
-Last-epoch openings: \(14\times 0\), \(15\times 0\), \(15\times 0\).
-Last-epoch returns \(72.4\), \(75.2\), \(87.3\).
-Last epoch left 2 via opening 0 on every seed.
-Seed 0 whole-run survival is the low one.
-This chapter does not write a growth-noise mechanism.
+Multiplicative \(\xi\in\{0.7,1.0,1.3\}\) on the growth increment.
+Numbers below are reported against Table~\ref{tab:noise-dp}.
+
+Pre-fix Test~A \(\xi\) and NN \(\xi\) were not repeated after the
+trainer reseed; those two paragraphs are the shared-stream packet.
+H3 is given first as that pre-fix family, then as the seed-fixed replica
+(NS and slow2).
+
+\textbf{H1--H2, Test~A + \(\xi\) (pre-fix).}
+Last-epoch leave-2 is \(98\%\), \(64\%\), \(98\%\)
+(openings \(15\times 0\), \(10\times 1+5\times 2\), \(15\times 0\)).
+Whole-run survival \(119\), \(41\), \(93\) out of 225; last-epoch
+returns \(65.5\), \(26.9\), \(58.3\).
+Stage~A centre last openings were \(13\times 1\), \(14\times 1\),
+\(14\times 0\).
+Against a hawk, opening 0 lands in \(\{9,11,12\}\) and opening 1 in
+\(\{8,9,10\}\); constant take-2 thereafter survives with probability
+\(0.80\) (return \(58.3\)) from the first set and \(0.40\) (return
+\(34.7\)) from the second.
+Seeds 0 and 2 moved to the opening that doubles survival, which is also
+the sign of \(Q(0)>Q(1)\) under noise.
+Their last-epoch returns sit near that \(58.3\) cell; the mixed seed sits
+nearer \(34.7\).
+Leave-2 at \(R<12\) in the last epoch is \(41\%\), \(28\%\), \(29\%\),
+against \(1.00\) for the feedback rule and far below its return \(68.8\).
+H1 holds in a stronger form than a mere leave-2 match with Stage~A: two
+of three seeds chose the DP-better exit.
+H2 is negative: the learner did not learn to condition on stock.
+
+\textbf{Naive--naive + \(\xi\) (pre-fix).}
+Survival \(100\), \(43\), \(82\) out of 225; last-epoch returns
+\(37.6/45.1\), \(27.9/31.1\), \(48.3/43.8\).
+Seed~2 last epoch: agent 1 \(14\times 2\), agent 2 \(13\times 1\)
+(leave-2 last3 \(24\%\) / \(87\%\)).
+Seed~1 both still mostly opened 2 (survival \(43/225\)), where all three
+Stage~A naive--naive seeds had left 2.
+
+\textbf{H3, naive--shaper versus slow2, pre-fix.}
+On the shared stream, naive--shaper survival \(90\), \(71\), \(75\) out
+of 225; slow2 \(53\), \(44\), \(39\).
+Agent 1 leave-2 last3: \(96\%\), \(93\%\), \(89\%\) against the shaper
+versus \(69\%\), \(67\%\), \(40\%\) against slow2.
+Agent 2 leave-2 last3: \(0\%\), \(11\%\), \(11\%\) (shaper) versus
+\(18\%\), \(18\%\), \(20\%\) (slow2).
+A more stationary hawk produced a more reliable dove on all three
+\emph{nominal} paired seeds.
+That agreement is one observation counted three times.
+
+\textbf{H3, seed-fixed, same noise-table pairing, all L40S.}
+Seed 0 of each arm is the pre-fix seed-0 tape (opening identity \(1.00\)).
+Seeds 1 and 2 are new.
+Naive--shaper last3 survival \(36/45\), \(12/45\), \(5/45\); last-epoch
+return \(49.7\), \(29.0\), \(12.3\); agent-1 leave-2 last3 \(96\%\),
+\(44\%\), \(33\%\); agent-2 leave-2 last3 \(0\%\), \(22\%\), \(22\%\).
+Slow2 last3 survival \(21/45\), \(24/45\), \(8/45\); last-epoch return
+\(44.8\), \(52.9\), \(13.0\); agent-1 leave-2 last3 \(69\%\), \(76\%\),
+\(27\%\); agent-2 leave-2 last3 \(18\%\), \(13\%\), \(22\%\).
+Sign of NS minus slow2 on agent-1 leave-2 last3 is \(+\), \(-\), \(+\);
+on last-epoch return \(+\), \(-\), \(-\).
+Both agent 2s stay mostly on 2.
+Learning rate and clip are matched; the remaining difference is the
+trial update and the extra prompt.
+The 36-unit DP interest in feedback restraint was not collected
+(seed-fixed NS leave-2 at \(R<12\) is \(51\%\), \(18\%\), \(27\%\)
+for the naive and \(2\%\), \(12\%\), \(5\%\) for the shaper; returns sit
+near hawk--dove or collapse, not \(72/68.8\)).
+H3 as a shaper-return and more-reliable-dove inequality fails at three
+independent seeds.
+The pre-fix ``more reliable dove on all three seeds'' does not survive
+the replica.
+A 50-epoch slow2 \(\xi\) seed 0 continues the 15-epoch snapshot: first
+agent-1 majority at epoch 10, last-open \(15\times 0\) versus mixed
+agent 2, last-epoch return \(70.5/69.2\), last3 survival \(37/45\).
+NS \(\xi\) at 50 epochs was not obtained.

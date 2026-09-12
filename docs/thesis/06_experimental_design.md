@@ -4,7 +4,7 @@ student-must-defend: yes
 
 # Experimental design
 
-All executed CPR training below is on the locked logistic chicken (\(R_0=8\), \(K=40\), \(T=36\), `rate_tenths=9`). Gemma-2-2b-it, entropy 0.05, `use_score_scaling=false`. 15 epochs unless noted, `e_max=5`, `n_games=3` (225 games per 15-epoch run).
+All executed CPR training below is on the locked logistic chicken (\(R_0=8\), \(K=40\), \(T=36\), `rate_tenths=9`). Gemma-2-2b-it, entropy 0.05, `use_score_scaling=false`. 15 epochs unless noted, `e_max=5`, `n_games=3` (225 games per 15-epoch run). An epoch is 15 games. **Last-open** is the 15 first-round harvests of epoch 15 (`10×0+5×1` is not ten epochs). **Last surv / last ret** are survival and mean return on those 15 games. **Leave-2 last3** pools epochs 13–15 (45 openings). **First majority** is the first epoch with leave-2 \(>8/15\).
 
 The first block is **learner versus frozen constant bot**. The second block is **two PPO learners**. Center moved opening-1 share against a frozen hawk; LIVE_FACTS forbids reading that as “shaping works.” Two-learner tables are outcomes. They are not followed by a claim in this chapter.
 
@@ -64,7 +64,11 @@ Run extras: take-3 live-step **8.5% → 0%**; survival **134/225**; last three e
 - Seed 1: open-1 **27% → 93%**, survival **113/225**, last epoch 14/15 opened 1.
 - Seed 2: open-1 **27% → 7%**, survival **160/225**, last epoch **14/15 opened 0**.
 
-Same center flag, same frozen hawk. Heterogeneity is a recorded outcome, not a claim.
+Same center flag, same frozen hawk. Heterogeneity is a recorded outcome, not a claim. These extra seeds are the pre-fix family (shared sampling stream).
+
+### Seed-fixed Test A, centre and whitened (8–9 Sep, all L40S)
+
+After the trainer reseed fix. Folders `checkpoints/cpr_log_testA_center_reseed`, `cpr_log_testA_whiten_reseed` (3×15); plus whitened seed 0 for 30 epochs (`cpr_log_testA_whiten_reseed_e30`). Identity of agent-1 openings in epochs 1–5: centre 0.56–0.61, whitened 0.63 (pre-fix whitened s1 vs s2 was 1.00). Outcomes in `07_results.md`. Do not call epoch 15 an endpoint.
 
 ## Executed runs — two learners
 
@@ -121,12 +125,36 @@ Config `configs/cpr_naive_shaper_center_info_off.json`. Trial update and LR unch
 
 Who leaves 2 did not swap. A2 leave-2 whole run is 16–19% vs 4–5% with the extra prompt.
 
-## Stage B — multiplicative ξ on growth (not yet launched)
+## Stage B — multiplicative ξ on growth (executed, 6 Sep)
 
-Same lock. ξ ∈ {0.7, 1.0, 1.3} on the growth increment, CRN table per seed.
-Launcher: `testA_center_xi_s012`, `naive_naive_center_xi_s012`, `naive_shaper_center_xi_s012`,
-`naive_naive_slow2_center_xi_s012`. Report against the LIVE_FACTS DP table.
-A retired ±1-on-stock Test A is archived; do not launch it.
+Against a near-constant partner the deterministic lock is decided by the opening: (1,2) at \(R=8\) goes to 9 (mutual-2 farm); (2,2) dies around round 4; (0,2) goes to 11, not that farm. A hawk gains one unit (72 vs 71) from a partner who opens 1 then farms. Stage B multiplies the growth increment by ξ ∈ {0.7, 1.0, 1.3} (mean one, `xi_tenths` 7/10/13, round-half-even) so the continuation is a decision problem. Discrete analogue of multiplicative growth uncertainty on this integer update. Not Reed’s policy. Not the historical park env. Not additive ±1.
+
+±30% is the largest symmetric three-point multiplier that leaves the constant-pair survival cells unchanged. Under i.i.d. ξ, (1,1) and (2,1) still live with p=1; (2,2) still dies (\(P<10^{-15}\); all-ξ=13 cycles at 8). Open-1-then-2s survives 0.80; hawk vs 1-then-2 survives 0.40. Feedback “1 if R<12 else 2” vs hawk lives p=1 (72/68.8). Opening Q vs hawk then BR: det (105, 104, 102, 6); ξ (102.5, 101.7, 99.1, 91.1). Mutual take-2 regions: R≥11 safe, {8,9,10} gamble, R≤7 dies fast.
+
+DP stakes, not a GPU result: a committed hawk gets 72 if the partner uses the feedback rule and 35.7 if the partner restrains only in round 1 (deterministic: 72 and 72). That is a 36-unit interest in stock-conditioned restraint.
+
+**H1.** Leave-2 on Test A ξ vs Stage A centre Test A. Not a claim the rates match. No Wilson intervals.
+**H2.** Leave-2 at R<12 and last openings vs DP 0.40 / 1.00. Open 0 counts as leave-2.
+**H3.** NS / slow2 / NN under ξ. Shaping = shaper return above hawk-role NN and learner leave-2 above NN, across seeds. Null is reportable.
+
+Protocol as executed: four centred arms, 3×15, CRN table per seed shared across arms (`noise_table.npy`), no extra prompt sentence (`XI_GROWTH_CLAUSE` unused), no whitened repeat on this arm. The 6 Sep packet is the pre-fix family. The 8–9 Sep packet repeats NS ξ and slow2 ξ after the fix, plus slow2 ξ e50 seed 0. Test A ξ and NN ξ were not repeated. NS ξ e50 was not obtained (OOM). Tests in `tests/test_cpr_xi.py`. Source of DP numbers: `python cpr_xi.py`.
+
+Folders (pre-fix): `checkpoints/cpr_log_testA_center_xi`, `cpr_log_naive_naive_center_xi`,
+`cpr_log_naive_shaper_center_xi`, `cpr_log_naive_naive_slow2_center_xi`.
+Folders (seed-fixed): `cpr_log_naive_shaper_center_xi_reseed`, `cpr_log_naive_naive_slow2_center_xi_reseed`, `cpr_log_naive_naive_slow2_center_xi_reseed_e50`.
+A retired ±1-on-stock Test A is archived; do not put those numbers in Results.
+
+| Arm | Survived (s0/s1/s2) | Leave-2 last3 (headline) |
+|---|---|---|
+| Test A ξ (pre-fix) | 119, 41, 93 / 225 | 98%, 64%, 98%; last openings 15×0 / (10×1+5×2) / 15×0 |
+| NN ξ (pre-fix) | 100, 43, 82 / 225 | who-doves mixed (seed 2 a2 87% leave-2; seed 1 both mostly 2) |
+| NS ξ (pre-fix) | 90, 71, 75 / 225 | a1 96/93/89%; **a2 0/11/11% hawk** |
+| slow2 ξ (pre-fix) | 53, 44, 39 / 225 | a2 last3 **18/18/20%**; last epoch 12–13×2 |
+| NS ξ reseed | 90, 44, 29 / 225 | a1 96/44/33%; a2 0/22/22%; last3 surv 36/45, 12/45, 5/45 |
+| slow2 ξ reseed | 53, 61, 34 / 225 | a1 69/76/27%; a2 18/13/22%; last3 surv 21/45, 24/45, 8/45 |
+| slow2 ξ e50 s0 | 443/750 | last-open a1 15×0; a2 mixed; last ret 70.5/69.2 |
+
+Interpretation is in `07_results.md`.
 
 ## Student-owned Results
 

@@ -66,6 +66,12 @@ def main():
         # Initialise agents
         agent1 = PPOAgent(ppo_agent_config1)
         agent2 = PPOAgent(ppo_agent_config2)
+        # TRL 0.11.4 PPOTrainer.__init__ calls transformers.set_seed(config.seed) with the
+        # PPOConfig default seed=0, which silently resets the global RNG that the sampler
+        # uses. Every experiment before this line was therefore drawn from the seed-0
+        # stream (see scripts/audit_seeds_and_scale.py). Re-seed after construction so
+        # exp k actually samples from seed k.
+        set_seed(seed)
         print("Agents initialised.")
 
         # Initialise game

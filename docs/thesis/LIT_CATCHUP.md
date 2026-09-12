@@ -32,17 +32,19 @@ Vault quote → allowed MSc sentence. Stochastic regen stays in the **aim** colu
    **MSc:** Deterministic logistic is the substrate we can measure. Noise on that same integer update is the increment we will try. A null is still a result. Do not write Gap 01 as demonstrated.
 
 4. **Genealogy “ours” row.** Vault (`Literature_Review/Concepts/Opponent_Shaping_Genealogy.md`): “**Ours** … Env dynamics: **Stochastic** (`ε_t` in regeneration).”  
-   **MSc:** Executed env is logistic *without* noise. Stochastic regen stays in the aim column.
+   **MSc (1 Sep):** Executed env is logistic *without* noise. Stochastic regen stays in the aim column.  
+   **MSc (6 Sep addendum):** Stage B ξ is now executed. Genealogy “Ours = stochastic” is still not a licence to close Gap 01.
 
 5. **Logistic-plus-noise as shipped.** Vault (`Literature_Review/Concepts/Logistic_Plus_Noise_CPR_Dynamics.md`): “Justifies the stochastic CPR transition used in the thesis env.”  
-   **MSc:** Design rationale only. Live executed path has no `ε_t`. Adding noise is planned, not run.
+   **MSc (1 Sep):** Design rationale only. Live executed path has no `ε_t`. Adding noise is planned, not run.  
+   **MSc (6 Sep addendum):** Live ε is ξ on the growth increment, not that note’s park / additive Gaussian. Banner it historical.
 
 ## Missing
 
 Closed by `docs/thesis/LIT_CLOSE.md` (1 Sep 2026). No invented citations.
 
 1. **Chicken / hawk-dove as the live payoff class.** **Narrow.** Live lock is chicken: `(1,1)` lives, `(2,2)` dies. ShapeLLM already evaluates ICG and cites Rapoport & Chammah (1966) (*ABS* 10(3):10–28) — chicken is not absent from the keep list. Rapoport body paywalled (Sage abstract + metadata only). Maynard Smith & Price (1973) fetched: hawk/mouse ESS; no \(V/C\) matrix in that paper. Use in `02` / `03`.
-2. **Discrete integer logistic / Reed (1979).** **Narrow** (Reed, aim only). Publisher abstract: constant escapement is optimal on a *stochastic* stock–recruitment model (JEEM 6(4):350–363). PDF **UNVERIFIED — not found**. Not a calibration of `R0=8, K=40, T=36, rate_tenths=9` — those stay a method fact. Aim column for planned noise on the locked update.
+2. **Discrete integer logistic / Reed (1979).** **Narrow** (Reed, form only). Publisher abstract: constant escapement is optimal on a *stochastic* stock–recruitment model (JEEM 6(4):350–363). PDF **UNVERIFIED — not found**. Not a calibration of `R0=8, K=40, T=36, rate_tenths=9` — those stay a method fact. Stage B ξ is executed; Reed wording is unsigned until `LIT_STAGEB.md`.
 3. **LLM numeric action-token priors.** **Drop** as a citation. No paper found for a digit/harvest-token prior. Gemma ~90% on token 2 is a `LIVE_FACTS` / `04_method` observation, not a literature claim.
 4. **PPO advantage whitening vs mean-centering.** **Narrow.** TRL `masked_whiten` and Huang et al. (ICLR Blogposts 2024) document batch `/std`. Engstrom et al. (2020) for code-level extras. Schulman 2017 PDF **UNVERIFIED — fetch failed**. Machinery in `04_method`, not a Related Work claim.
 5. **Tennant et al. (ICLR 2025).** **Keep** (one line). arXiv:2410.01639 HTML fetched. Same group; intrinsic-reward PPO moral alignment on IPD; interventional, not opponent shaping. `02_related_work` only.

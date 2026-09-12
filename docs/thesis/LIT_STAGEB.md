@@ -1,5 +1,7 @@
 # What writers may say — Stage B noise (lit agent → CoS, 6 Sep 2026)
 
+**Unsigned.** Alex has not read this. Seat 2 (Opus, vault) may revise it. Do not treat as signed citations.
+
 Vault notes: `Literature_Review/Papers/Reed_1979.md` (abstract only);
 `Papers/Sethi_2005.md` (CUDARE WP 13 Oct 2004 in hand);
 `Concepts/StageB_Multiplicative_Growth_Noise.md`.

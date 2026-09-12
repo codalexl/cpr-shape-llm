@@ -49,15 +49,17 @@ Live training (`LOGISTIC` in `cpr_env.py`; all `configs/cpr_*.json`):
 R_0=8,\quad K=40,\quad T=36,\quad \texttt{rate\_tenths}=9.
 \]
 
-Those integers are a method fact, not a literature calibration. Reed (1979) constant escapement (publisher abstract: a feedback policy on a *stochastic* stock–recruitment model; PDF not obtained) is an **aim-column** citation for planned noise on this same locked update, not a source of \((8,40,36,9)\).
+Those integers are a method fact, not a literature calibration. Reed (1979) constant escapement (publisher abstract: a feedback policy on a *stochastic* stock–recruitment model; PDF not obtained) is a **form** citation for Stage B, not a source of \((8,40,36,9)\). Citation wording is unsigned until Alex signs `LIT_STAGEB.md`.
 
 Growth after a strictly positive post-harvest stock \(R\):
 
 \[
-\text{growth} = \mathrm{round\_half\_even}\bigl(\texttt{rate\_tenths}\cdot R\cdot(K-R)/(10\cdot K)\bigr),
+\text{growth} = \mathrm{round\_half\_even}\bigl(\texttt{rate\_tenths}\cdot\texttt{xi\_tenths}\cdot R\cdot(K-R)/(100\cdot K)\bigr),
 \quad
 R_{\text{next}} = \min(K,\, R+\text{growth}).
 \]
+
+Stage A is `xi_tenths=10` (bit-identical to the old formula without ξ). Stage B draws `xi_tenths` ∈ {7, 10, 13} equally likely (ξ ∈ {0.7, 1.0, 1.3}, mean one) from a CRN table per seed, shared across arms. ξ is never applied at post-harvest \(R=0\). Not additive ±1 on stock. Not \(\mathcal{N}(0,5)\) on \(S\sim 80\).
 
 Rate is stored as tenths (9 → 0.9) so every reported quantity is an integer or a `Fraction`. Python binary float `round(rate * R * (1-R/K))` disagrees at 27 \((K,R,\text{rate})\) triples on this grid; training does not use that float. Growth is zero at \(R=0\) and \(R=K\). At this lock, there are **no** interior freeze stocks (`zero_growth_stocks(40, 9) == ()`); \(R=1\) still grows by 1. Low-rate freeze (e.g. rate 0.2 at \(K=40\)) exists as a logistic analogue of the cap-0 trap and was refused for shipping.
 

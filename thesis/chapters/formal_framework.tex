@@ -1,0 +1,421 @@
+% ---------------------------------------------------------------------------
+% formal_framework.tex
+% Sidecar (Fable, review round 2). NOT inputted by main.tex.
+% Harvested 7 Sep 2026 into ch 3 (Markov game, Bellman), ch 4 (operators,
+% logit-update, shaper objective), ch 6 (estimators, H1--H3).
+% Fully wired 7 Sep 2026 (round 3): every labelled equation below now
+% lives in chapters 3, 4 or 6 with the same label, plus tab:hyperparameters.
+% Corrections made while wiring (do not copy the text below verbatim):
+%   * sigma_B is 13-15 per update (live_adv logs), not 53; and under Adam
+%     the scale is not a step size (ch 4, "What the normalisation operator
+%     changes").
+%   * [CONFIRM] items resolved from TRL 0.11.4: naive clip 0.2; KL
+%     controller adaptive, init 0.2, target 6, horizon 1e4 (logged
+%     0.200 -> 0.181 over 75 updates).
+%   * Joint optimum under xi is 207.05 unconstrained; 206.6 is the
+%     symmetric optimum. cpr_xi.py now prints both and the BR Q-vector.
+%   * H2 uses leave-2 at R<12, not pi(1|R<12), as pre-registered.
+%   * pi(1) at the opening is about 0.10 (first-episode records), not 0.05.
+% Not harvested as-is: Perolat metrics as reported quantities,
+% pi(1|R<12) as H2, scripts/noise_dp.py (live source is cpr_xi.py),
+% unconfirmed KL coefficients, Barrett 2012.
+% ---------------------------------------------------------------------------
+% Three drop-in sections that define every object the thesis measures.
+%   Section 1 -> Chapter 3 (Environment), before the constant-pair table.
+%   Section 2 -> Chapter 4 (Method), replacing the "LoRA and PPO",
+%                "Advantage normalisation" and "Two-learner / shaper path"
+%                prose with these definitions plus your hyperparameter table.
+%   Section 3 -> Chapter 6 (Experimental design), before the executed runs.
+%
+% Requires amsmath, amssymb, booktabs (already loaded by main.tex).
+% Labels defined here: eq:harvest, eq:regen, eq:growth, eq:return,
+%   eq:collapse, eq:metrics, eq:bellman-br, eq:q-open, eq:bellman-joint,
+%   eq:policy, eq:klreward, eq:gae, eq:norm, eq:ppo, eq:logit-update,
+%   eq:shaper-objective, eq:naive-update, eq:estimators, eq:wilson,
+%   eq:paired, eq:h1, eq:h2, eq:h3.
+% Numbers quoted in the worked examples are your logged A0 values
+% (39.8 / 6.2 raw, 1.38 / 0.75 whitened, 16.7 / -5.7 centred) and the
+% untrained prior (about 0.90 on token 2). Replace pi(1) = 0.05 with the
+% measured pre-flight value.
+% Two items to confirm against the config before submission are marked
+% [CONFIRM].
+% ---------------------------------------------------------------------------
+
+% ===========================================================================
+\section{Problem formulation}
+\label{sec:formulation}
+% ===========================================================================
+
+\paragraph{The game.}
+The environment is a two-player, finite-horizon Markov game
+\(\mathcal{G} = (\mathcal{S}, \mathcal{A}, P, c, T, R_0)\).
+The state is the pre-harvest stock
+\(R_t \in \mathcal{S} = \{0, 1, \dots, K\}\) at the start of round
+\(t \in \{1, \dots, T\}\), with \(R_1 = R_0\).
+Each player \(i \in \{1, 2\}\) simultaneously submits a request
+\(a_{i,t} \in \mathcal{A} = \{0, 1, 2, 3\}\).
+Throughout, \(K = 40\), \(R_0 = 8\), \(T = 36\), and the growth rate is
+\(\rho = 0.9\).
+
+\paragraph{Harvest.}
+Requests are filled in full when the pool can cover them and are capped
+otherwise.
+Writing \(A_t = a_{1,t} + a_{2,t}\), the receipts \(c_{i,t}\) and the
+post-harvest stock \(\tilde{R}_t\) are
+\begin{equation}
+  (c_{1,t}, c_{2,t}, \tilde{R}_t) =
+  \begin{cases}
+    \bigl(a_{1,t},\; a_{2,t},\; R_t - A_t\bigr) & \text{if } A_t \le R_t, \\[2pt]
+    \bigl(\min(a_{1,t}, \lfloor R_t/2 \rfloor),\;
+          \min(a_{2,t}, \lfloor R_t/2 \rfloor),\; 0\bigr) & \text{if } A_t > R_t .
+  \end{cases}
+  \label{eq:harvest}
+\end{equation}
+The second branch is scarcity: whatever is not received is wasted and
+the pool is emptied.
+
+\paragraph{Regeneration.}
+A strictly positive post-harvest stock regrows by a rounded logistic
+increment, scaled by a multiplier \(\xi_t\); an empty pool is absorbing:
+\begin{align}
+  R_{t+1} &=
+  \begin{cases}
+    \min\bigl(K,\; \tilde{R}_t + g(\tilde{R}_t; \xi_t)\bigr) & \tilde{R}_t > 0, \\
+    0 & \tilde{R}_t = 0,
+  \end{cases}
+  \label{eq:regen} \\[4pt]
+  g(R; \xi) &= \Bigl\lfloor \xi\, \rho\, \frac{R\,(K - R)}{K} \Bigr\rceil ,
+  \label{eq:growth}
+\end{align}
+where \(\lfloor \cdot \rceil\) denotes rounding half to even, evaluated on
+the exact rational argument.
+In the deterministic game (Stage~A) \(\xi_t \equiv 1\).
+In the stochastic game (Stage~B) the multipliers are independent and
+identically distributed, uniform on \(\{0.7, 1.0, 1.3\}\), independent of
+all actions, and common to both players within a game.
+Setting \(\xi_t \equiv 1\) in \eqref{eq:growth} recovers the deterministic
+update exactly, so Stage~A is the special case of Stage~B.
+
+\paragraph{Return, collapse, survival.}
+Player \(i\)'s return is the undiscounted sum of receipts,
+\begin{equation}
+  G_i = \sum_{t=1}^{T} c_{i,t} .
+  \label{eq:return}
+\end{equation}
+The collapse round is the first round after which the pool is empty,
+\begin{equation}
+  \tau = \min\{\, t : \tilde{R}_t = 0 \,\},
+  \qquad
+  S = \mathbb{1}[\tau > T],
+  \label{eq:collapse}
+\end{equation}
+with \(\tau = \infty\) if the pool never empties, so \(S = 1\) means the
+pool survived the horizon.
+Because \(g \ge 0\) and \(\xi_t \ge 0\), the stock can fall only through
+harvest; collapse is therefore always the consequence of the players'
+requests.
+
+\paragraph{Social metrics.}
+For any pair of policies the outcome is summarised by three quantities
+in the sense of P\'erolat et al.\ \cite{perolat2017}:
+\begin{equation}
+  \begin{aligned}
+  \text{sustainability} &= \Pr(S = 1), &
+  \text{efficiency} &= \frac{\mathbb{E}[G_1 + G_2]}{W^{*}}, \\[2pt]
+  \text{equality} &= 1 - \frac{\mathbb{E}\,|G_1 - G_2|}{\mathbb{E}[G_1 + G_2]},
+  \end{aligned}
+  \label{eq:metrics}
+\end{equation}
+where \(W^{*}\) is the joint optimum defined in \eqref{eq:bellman-joint}
+(\(210\) in Stage~A, \(206.6\) in Stage~B).
+
+\paragraph{Policies and the constant-strategy reduction.}
+A policy \(\pi_i\) maps the player's observable history to a distribution
+over \(\mathcal{A}\).
+The constant policies \(\pi_i \equiv k\), \(k \in \mathcal{A}\), induce a
+\(4 \times 4\) matrix of returns and collapse rounds,
+\(M(k_1, k_2) = (G_1, G_2, \tau)\), which is the empirical payoff matrix of
+Leibo et al.\ \cite{leibo2017} restricted to constant strategies.
+Table~\ref{tab:chicken} reports its relevant cells.
+Under this reduction the game is a chicken game (the asymmetric profiles
+\((2,1)\) and \((1,2)\) are the strict pure equilibria and \((1,1)\) is not
+an equilibrium), with the degenerate feature that the dove's return is the
+same, \(36\), whether or not it is exploited.
+
+\paragraph{Best response to a fixed opponent.}
+Against an opponent playing a fixed policy \(\sigma\), the optimal value of
+player~1 satisfies the Bellman equation
+\begin{equation}
+  V^{\sigma}(R, t) = \max_{a \in \mathcal{A}}
+  \Bigl\{ c_1\bigl(R, a, \sigma(R, t)\bigr)
+  + \mathbb{E}_{\xi}\bigl[ V^{\sigma}(R', t+1) \bigr] \Bigr\},
+  \qquad V^{\sigma}(\cdot, T+1) = 0,
+  \label{eq:bellman-br}
+\end{equation}
+with \(R'\) given by \eqref{eq:harvest}--\eqref{eq:growth}.
+The value of each opening action is
+\begin{equation}
+  Q^{\sigma}_{\mathrm{open}}(a) = c_1\bigl(R_0, a, \sigma(R_0, 1)\bigr)
+  + \mathbb{E}_{\xi}\bigl[ V^{\sigma}(R', 2) \bigr] .
+  \label{eq:q-open}
+\end{equation}
+Against the frozen hawk \(\sigma \equiv 2\), \eqref{eq:q-open} gives
+\(Q_{\mathrm{open}} = (105, 104, 102, 6)\) in Stage~A and
+\((102.5, 101.7, 99.1, 91.1)\) in Stage~B for openings \(0, 1, 2, 3\).
+
+\paragraph{Joint optimum.}
+The largest achievable joint return is
+\begin{equation}
+  W^{*}(R, t) = \max_{(a_1, a_2) \in \mathcal{A}^2}
+  \Bigl\{ c_1 + c_2 + \mathbb{E}_{\xi}\bigl[ W^{*}(R', t+1) \bigr] \Bigr\},
+  \qquad W^{*} := W^{*}(R_0, 1),
+  \label{eq:bellman-joint}
+\end{equation}
+attained in Stage~A by one round of \((0,0)\) followed by \((3,3)\) at the
+fixed point \(R = 14\), for \(105\) per player.
+Since the state space has \(41\) stocks, \(36\) rounds and at most three
+draws, \eqref{eq:bellman-br} and \eqref{eq:bellman-joint} are solved
+exactly by backward induction in rational arithmetic
+(\texttt{scripts/noise\_dp.py}); every dynamic-programming value quoted
+in this thesis is an output of that computation.
+
+% ===========================================================================
+\section{Learning algorithm}
+\label{sec:algorithm}
+% ===========================================================================
+
+\paragraph{Policy.}
+Each learning agent is Gemma-2-2b-it with a rank-2 LoRA adapter
+\(\theta\) on the query and value projections and a scalar value head.
+At round \(t\) the agent receives a prompt \(x_t\) rendered from its
+observable history (the current stock, the previous round's requests and
+receipts, and, for a shaper with the trial prompt enabled, the joint
+request counts and episode summaries of the current trial).
+The action is one token drawn from the softmax over the four legal
+action tokens, all other vocabulary entries being masked:
+\begin{equation}
+  \pi_{\theta}(a \mid x_t) = \frac{\exp z_{\theta}(x_t)_a}
+  {\sum_{a' \in \mathcal{A}} \exp z_{\theta}(x_t)_{a'}},
+  \qquad a \in \mathcal{A},
+  \label{eq:policy}
+\end{equation}
+where \(z_{\theta}(x_t)\) are the model's logits at the answer position.
+The untrained model places about \(0.90\) of its mass on token~2 at the
+opening prompt.
+
+\paragraph{Per-step reward.}
+The reward handed to the optimiser is the receipt, penalised by the
+per-token divergence from the frozen reference model (the same weights
+with the adapter disabled):
+\begin{equation}
+  \tilde{r}_t = c_t - \beta_t \bigl[\log \pi_{\theta}(a_t \mid x_t)
+  - \log \pi_{\mathrm{ref}}(a_t \mid x_t)\bigr],
+  \label{eq:klreward}
+\end{equation}
+with \(\beta_t\) set by the adaptive controller of the TRL implementation
+[CONFIRM: initial coefficient and target from the config].
+Steps after collapse (\(R_t = 0\)) are masked out of every batch
+statistic and out of the loss; the collapse step itself is not masked.
+
+\paragraph{Advantages.}
+Advantages are generalised advantage estimates over each episode
+(naive agents) or over the concatenated episodes of a trial (shapers):
+\begin{equation}
+  \delta_t = \tilde{r}_t + \gamma V_{\theta}(x_{t+1}) - V_{\theta}(x_t),
+  \qquad
+  \hat{A}_t = \sum_{l \ge 0} (\gamma \lambda)^{l}\, \delta_{t+l},
+  \qquad \gamma = 1,\ \lambda = 0.97 .
+  \label{eq:gae}
+\end{equation}
+Before entering the loss, the advantages of a batch \(\mathcal{B}\) are
+transformed by one of two operators, where \(\mu_{\mathcal{B}}\) and
+\(\sigma_{\mathcal{B}}\) are the mean and standard deviation over the
+unmasked positions of the batch:
+\begin{equation}
+  \mathcal{N}_{\mathrm{whiten}}(\hat{A}_t) = \frac{\hat{A}_t - \mu_{\mathcal{B}}}
+  {\sqrt{\sigma_{\mathcal{B}}^2 + \varepsilon}},
+  \qquad
+  \mathcal{N}_{\mathrm{centre}}(\hat{A}_t) = \hat{A}_t - \mu_{\mathcal{B}} .
+  \label{eq:norm}
+\end{equation}
+Whitening is the TRL default (\texttt{masked\_whiten}); centring is the
+variant used in the centred runs.
+The two operators differ only by the factor \(1/\sigma_{\mathcal{B}}\), so
+at a fixed learning rate every centred update is \(\sigma_{\mathcal{B}}\)
+times larger than the corresponding whitened one.
+
+\paragraph{Objective.}
+With \(\tilde{A}_t = \mathcal{N}(\hat{A}_t)\), the probability ratio
+\(\varrho_t = \pi_{\theta}(a_t \mid x_t) / \pi_{\theta_{\mathrm{old}}}(a_t \mid x_t)\),
+and the empirical return-to-go \(\hat{G}_t\), each agent maximises the
+clipped surrogate
+\begin{equation}
+  \begin{aligned}
+  \mathcal{L}(\theta) = \mathbb{E}_{\mathcal{B}}\Bigl[
+    &\min\bigl(\varrho_t \tilde{A}_t,\;
+    \operatorname{clip}(\varrho_t, 1 - \epsilon, 1 + \epsilon)\, \tilde{A}_t\bigr) \\
+    &- c_v \bigl(V_{\theta}(x_t) - \hat{G}_t\bigr)^2
+    + c_e\, \mathcal{H}\bigl(\pi_{\theta}(\cdot \mid x_t)\bigr)
+  \Bigr],
+  \end{aligned}
+  \label{eq:ppo}
+\end{equation}
+with \(\epsilon = 0.2\) for naive learners and \(0.1\) for shapers
+[CONFIRM the naive value], \(c_v = 0.01\), and \(c_e\) decaying from
+\(0.05\) to \(0.01\) over the first 150 updates; one pass over the batch
+in minibatches of five; Adam with learning rate \(1.41 \times 10^{-6}\)
+(naive) or \(3 \times 10^{-7}\) (shaper).
+The remaining hyperparameters are collected in
+Table~\ref{tab:hyperparameters}.
+% [Add a single table with every hyperparameter: LR, clip, batch,
+%  minibatch, PPO epochs, gamma, lambda, vf_coef, entropy schedule, KL
+%  coefficient and controller, LoRA rank/alpha/dropout/targets, seeds,
+%  epochs, games per epoch, episodes per trial, hardware, wall-clock.]
+
+\paragraph{Expected update on the opening logits.}
+The effect of the normalisation operator on the opening decision can be
+read from the surrogate at \(\varrho_t = 1\).
+For a softmax policy, \(\partial \log \pi(a \mid x) / \partial z_k
+= \mathbb{1}[a = k] - \pi(k \mid x)\), so the expected gradient of the
+surrogate with respect to the logit of opening action \(k\) is
+\begin{equation}
+  \frac{\partial \mathcal{L}}{\partial z_k}\Big|_{x_1}
+  = \pi(k \mid x_1)\bigl(\tilde{A}(k) - \bar{A}\bigr),
+  \qquad
+  \bar{A} = \sum_{a \in \mathcal{A}} \pi(a \mid x_1)\, \tilde{A}(a),
+  \label{eq:logit-update}
+\end{equation}
+where \(\tilde{A}(a)\) is the normalised opening advantage of action
+\(a\).
+Two consequences follow.
+The sign of the update on logit \(k\) is the sign of
+\(\tilde{A}(k) - \bar{A}\), so an action whose advantage is positive but
+below the policy-weighted mean is pushed down, not up; and the magnitude
+is proportional to \(\pi(k \mid x_1)\), so a rare action moves slowly
+however large its advantage.
+With the untrained prior \(\pi(2) \approx 0.90\), \(\pi(1) \approx 0.05\)
+and the logged opening advantages of Test~A, whitening
+(\(\tilde{A}(1) = 1.38\), \(\tilde{A}(2) = 0.75\), \(\bar{A} \approx 0.78\))
+gives updates of about \(+0.03\) on logit~1 and \(-0.03\) on logit~2,
+whereas centring (\(\tilde{A}(1) = 16.7\), \(\tilde{A}(2) = -5.7\),
+\(\bar{A} \approx -4.3\)) gives about \(+1.0\) and \(-1.3\): the same
+signs, but a step some forty times larger at the same learning rate.
+The ratio is \(\sigma_{\mathcal{B}}\), the batch standard deviation of the
+raw advantages, which the logged values imply to be about \(53\); it is
+inflated by the large raw estimates on the later steps of surviving
+episodes that a lightly trained critic (\(c_v = 0.01\)) leaves in
+\eqref{eq:gae}.
+
+\paragraph{Naive and shaping objectives.}
+Training proceeds in trials of \(E = 5\) episodes.
+A naive learner updates its parameters after every episode \(e\) from
+that episode's batch,
+\begin{equation}
+  \theta_{e+1} = \theta_e + \alpha_{\mathrm{n}}\, \nabla_{\theta}
+  \mathcal{L}\bigl(\theta_e;\ \tau_e(\pi_{\theta_e}, \pi_{\phi})\bigr),
+  \label{eq:naive-update}
+\end{equation}
+where \(\tau_e\) is the trajectory of episode \(e\) and \(\pi_{\phi}\) is
+the partner.
+A shaper holds \(\phi\) fixed for the whole trial and updates once, from
+the concatenated trajectories, towards
+\begin{equation}
+  J(\phi) = \mathbb{E}\Bigl[\, \sum_{e=1}^{E} G_{\mathrm{shaper}}^{(e)}
+  \bigl(\pi_{\phi}, \pi_{\theta_e}\bigr) \Bigr],
+  \qquad \theta_{e+1} = \theta_e + \alpha_{\mathrm{n}} \nabla_{\theta}
+  \mathcal{L}(\theta_e; \tau_e(\pi_{\theta_e}, \pi_{\phi})),
+  \label{eq:shaper-objective}
+\end{equation}
+which is the model-free opponent-shaping objective of Lu et al.\
+\cite{lu2022} as instantiated for language-model agents by Garcia Segura
+et al.\ \cite{garciasegura2025}.
+The naive objective in \eqref{eq:naive-update} treats the partner as
+fixed within the episode; the shaper objective in
+\eqref{eq:shaper-objective} credits \(\phi\) for the partner's parameter
+change \(\theta_{e} \to \theta_{e+1}\) that \(\phi\) induced.
+That dependence is the only thing that distinguishes shaping from
+ordinary learning against a slowly changing opponent, and it can only be
+exploited if the shaper's own policy changes on a timescale at which the
+naive learner responds.
+The shaper's learning rate \(\alpha_{\mathrm{s}} = 3 \times 10^{-7}\),
+tighter clip and once-per-trial schedule therefore make it, as a side
+effect, a slower and more stationary opponent than a naive learner; the
+slow-learning-rate naive--naive control of Section~\ref{sec:executed-two}
+isolates that side effect from the shaping term.
+
+% ===========================================================================
+\section{Estimators and hypotheses}
+\label{sec:estimators}
+% ===========================================================================
+
+\paragraph{Estimators.}
+An epoch consists of \(n = 15\) games.
+For agent \(i\), the opening statistic, survival, and the stock-conditioned
+action frequency in an epoch are estimated by
+\begin{equation}
+  \begin{aligned}
+  \hat{L}_i &= \frac{1}{n} \sum_{j=1}^{n} \mathbb{1}\bigl[a^{(j)}_{i,1} \ne 2\bigr],
+  &\qquad
+  \hat{S} &= \frac{1}{n} \sum_{j=1}^{n} S^{(j)}, \\[2pt]
+  \hat{\pi}_i(a \mid R) &= \frac{\sum_{j,t} \mathbb{1}\bigl[R^{(j)}_t = R,\ a^{(j)}_{i,t} = a\bigr]}
+  {\sum_{j,t} \mathbb{1}\bigl[R^{(j)}_t = R\bigr]},
+  \end{aligned}
+  \label{eq:estimators}
+\end{equation}
+together with the mean return \(\hat{G}_i = \frac{1}{n}\sum_j G_i^{(j)}\).
+Last-epoch quantities are reported with the pooled estimate over the last
+three epochs (\(n = 45\)) alongside.
+For a count \(k\) out of \(n\), the \(95\%\) Wilson interval is
+\begin{equation}
+  \frac{\hat{p} + z^2/2n \;\pm\; z\sqrt{\hat{p}(1-\hat{p})/n + z^2/4n^2}}{1 + z^2/n},
+  \qquad \hat{p} = k/n,\ z = 1.96 ;
+  \label{eq:wilson}
+\end{equation}
+for example \(13/15\) gives \([0.62, 0.96]\) and \(9/15\) gives
+\([0.36, 0.80]\).
+Seeds are the unit of replication: every contrast between configurations
+is reported as the per-seed difference and its mean over the three seeds.
+In Stage~B the noise multipliers at a given (epoch, game, round) are
+identical across configurations for the same seed, so a between-arm
+difference on seed \(s\),
+\begin{equation}
+  \Delta_s = \hat{Y}^{(\mathrm{arm}\,1)}_s - \hat{Y}^{(\mathrm{arm}\,2)}_s ,
+  \label{eq:paired}
+\end{equation}
+is a paired comparison in which the environmental draws cancel; with three
+seeds, agreement of the sign of \(\Delta_s\) across all seeds is reported
+rather than a test statistic.
+
+\paragraph{Hypotheses.}
+The hypotheses are stated as inequalities between estimated quantities
+and values fixed in advance by \eqref{eq:bellman-br}--\eqref{eq:q-open}.
+\begin{align}
+  \text{H1:}\quad
+  & \hat{L}^{\mathrm{B}}_{\mathrm{last\,3}} \in
+    \mathrm{CI}_{95}\bigl(\hat{L}^{\mathrm{A}}_{\mathrm{last\,3}}\bigr)
+    \ \text{ on each seed (Test~A)},
+  \label{eq:h1} \\[3pt]
+  \text{H2:}\quad
+  & \widehat{\Pr}\bigl(S = 1 \,\big|\, a_{1,1} \ne 2\bigr)
+    \ \text{ against } 0.40 \text{ and } 1.00, \quad
+    \hat{\pi}_1(1 \mid R < 12) \ \text{ against } 1,
+  \label{eq:h2} \\[3pt]
+  \text{H3:}\quad
+  & \hat{G}_{\mathrm{shaper}} > \hat{G}^{\mathrm{ctrl}}_{\mathrm{hawk}}
+    \ \text{ and }\
+    \hat{L}^{\mathrm{vs\,shaper}}_{\mathrm{naive}} > \hat{L}^{\mathrm{ctrl}}_{\mathrm{naive}}
+    \ \text{ (every seed)},
+  \label{eq:h3}
+\end{align}
+where H1 (opening under variance) asks whether the Stage~B opening share
+lies inside the Stage~A interval, H2 (continuation) compares survival
+after a restrained opening with the two dynamic-programming values for a
+constant continuation and for the feedback rule, and H3 (shaping) asks
+whether the shaper out-earns the hawk role of the control while its
+partner restrains more.
+The control in \eqref{eq:h3} is the slow-learning-rate naive--naive
+configuration, so that the comparison holds the partner's learning
+timescale fixed and varies only the trial-level objective
+\eqref{eq:shaper-objective}.
+Failure of either inequality in \eqref{eq:h3} on any seed is reported as
+no detectable shaping effect at three seeds.

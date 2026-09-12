@@ -1,0 +1,187 @@
+\chapter{Regeneration models: logistic, multiplicative, binomial}
+\label{app:binomial}
+
+This appendix derives the deterministic increment of Chapter~\ref{ch:env}
+and the Stage~B multiplier of Chapter~\ref{ch:design} from a per-unit
+regrowth process, states the renewable-resource models the thesis is
+placed against, and reports the exact dynamic-programming values of every
+policy in the main text under a third, Pérolat-faithful, regeneration
+kernel.
+Every number is printed by \texttt{python cpr\_xi.py} and pinned by
+\texttt{tests/test\_cpr\_xi.py}.
+
+\section{Per-unit regrowth and its mean field}
+\label{app:meanfield}
+
+In Commons Harvest \cite{perolat2017} an empty cell regrows with a
+probability that rises with the number of apples nearby and is zero when
+none are nearby.
+The scalar version of that process on a pool of capacity \(K\) with
+escapement (post-harvest stock) \(S\) is: each of the \(K-S\) empty units
+regrows independently with probability \(\rho S/K\), so the increment is
+\begin{equation}
+  \begin{aligned}
+  g_{\mathrm{bin}}(S)&\sim\operatorname{Binomial}\!\bigl(K-S,\;\rho S/K\bigr),\\
+  \mathbb{E}\,g_{\mathrm{bin}}(S)&=\rho\,\frac{S\,(K-S)}{K},
+  \qquad
+  \operatorname{Var}g_{\mathrm{bin}}(S)=\rho\,\frac{S\,(K-S)}{K}\Bigl(1-\frac{\rho S}{K}\Bigr).
+  \end{aligned}
+  \label{eq:binomial}
+\end{equation}
+The mean is the logistic surplus-production increment of Schaefer
+\cite{schaefer1954}, and \eqref{eq:growth} with \(\xi\equiv 1\) is its
+rounding to the integers.
+The deterministic game of Stage~A is therefore the mean-field limit of the
+per-unit process, and Stage~B is a second-moment correction to it: the
+multiplier \(\xi_t\in\{0.7,1.0,1.3\}\) preserves the mean of
+\eqref{eq:binomial} exactly and adds a bounded, symmetric spread.
+Table~\ref{tab:moments} compares the two spreads at the escapement levels
+that decide the game.
+The binomial spread is proportionally largest at low stock (a coefficient
+of variation of \(0.53\) at \(S=4\), against \(0.27\) for \(\xi\)), which
+is why the two models differ on the constant-pair cells below.
+
+\begin{table}[ht]
+\centering
+\caption{Mean and standard deviation of the growth increment at
+  escapement \(S\) under the executed \(\xi\) multiplier and under the
+  binomial kernel \eqref{eq:binomial}.
+  The exact mean is \(\rho S(K-S)/K\); the deterministic increment is its
+  half-even rounding.
+  \(S=4\) is the escapement under mutual take-2 from \(R_0\); \(S=5\) under
+  hawk--dove; \(S=8\) after a symmetric restrained opening or at the joint
+  optimum's escapement; \(S=14\) at the joint-optimum stock.}
+\label{tab:moments}
+\begin{tabular}{rrrrrrr}
+\toprule
+\(S\) & exact mean & deterministic & \(\xi\) mean & \(\xi\) s.d. & binomial mean & binomial s.d. \\
+\midrule
+4  & 3.24 & 3 & 3.00 & 0.82 & 3.24 & 1.72 \\
+5  & 3.94 & 4 & 4.00 & 0.82 & 3.94 & 1.87 \\
+8  & 5.76 & 6 & 5.67 & 1.25 & 5.76 & 2.17 \\
+14 & 8.19 & 8 & 8.33 & 2.05 & 8.19 & 2.37 \\
+20 & 9.00 & 9 & 9.00 & 2.45 & 9.00 & 2.22 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{The renewable-resource models}
+\label{app:reed}
+
+The discrete-time harvesting model of Reed \cite{reed1979}, in the
+notation of Clark \cite{clark1990}, is
+\begin{equation}
+  X_{t+1}=Z_t\,G(S_t),
+  \qquad
+  S_t=X_t-h_t,
+  \qquad
+  Z_t\ \text{i.i.d.},\ \mathbb{E}Z_t=1,
+  \label{eq:reed}
+\end{equation}
+where \(X_t\) is the stock before harvest, \(h_t\) the harvest, \(S_t\)
+the escapement, \(G\) a concave stock--recruitment function and \(Z_t\) a
+multiplicative recruitment shock.
+Reed's result is that the policy maximising expected discounted net
+revenue is a constant-escapement rule, \(h_t=\max(0,X_t-S^{*})\), and that
+under a self-sustaining condition (the escapement is reachable from every
+realised stock) the stochastic optimum \(S^{*}\) coincides with the
+deterministic one.
+Sethi et al.\ \cite{sethi2005} separate three sources of uncertainty,
+growth (\(Z_t\)), measurement (the manager observes \(X_t\) with error) and
+implementation (the realised harvest differs from the intended one), and
+show that the constant-escapement result survives growth uncertainty alone
+but not large measurement or implementation uncertainty.
+
+The game of Chapter~\ref{ch:env} is \eqref{eq:reed} with two harvesters,
+\(h_t=a_{1,t}+a_{2,t}\) capped at 3 per player, the Schaefer recruitment
+\(G(S)=S+\rho S(K-S)/K\) rounded to the integers, and the shock applied to
+the surplus rather than to the whole recruitment:
+\begin{equation}
+  R_{t+1}=S_t+\xi_t\,g(S_t)
+  \qquad\text{instead of}\qquad
+  X_{t+1}=Z_t\bigl(S_t+g(S_t)\bigr).
+  \label{eq:surplus-shock}
+\end{equation}
+The difference is deliberate.
+Under \eqref{eq:reed} a small \(Z_t\) can take the stock below the
+escapement, so collapse can be environmental; under
+\eqref{eq:surplus-shock}, since \(\xi_t\ge 0\), the stock never falls below
+the escapement and collapse is always a consequence of the players'
+requests, which is what makes survival a behavioural statistic.
+In Sethi et al.'s taxonomy the thesis studies growth uncertainty only:
+the stock is reported to both players exactly every round, and requests
+are filled exactly unless the scarcity rule fires.
+This is the regime in which Reed's constant-escapement structure survives,
+and the dynamic programme confirms it in the two-player game: the joint
+optimum of \eqref{eq:bellman-joint} is the constant-escapement policy
+``harvest to \(S=8\)'' (one round of \((0,0)\) from \(R_0=8\), then
+\((3,3)\) at the fixed point \(R=14\)), and every safe policy of
+Table~\ref{tab:noise-dp} is a feedback rule of the same form, constrained
+by the per-player cap of 3, which binds below the maximum sustainable
+yield of \(\rho K/4=9\).
+Reed's model is thus not a form citation for Stage~B; it is the model, with
+the shock moved from recruitment to surplus and the harvest split between
+two players who do not coordinate.
+
+\section{Dynamic-programming values under the three kernels}
+\label{app:dp3}
+
+Table~\ref{tab:dp3} reports every policy of Table~\ref{tab:noise-dp}
+under the deterministic increment, the executed \(\xi\) multiplier, and
+the binomial kernel \eqref{eq:binomial}.
+Under the binomial kernel the constant-pair cells of Table~\ref{tab:chicken}
+are no longer invariant: mutual take-2 survives with probability
+\(0.17\) and hawk--dove dies with probability \(0.19\), so the opening
+incentives of Stage~A would not carry over and the two arms would not be
+comparable.
+That is the reason the executed Stage~B uses the bounded multiplier
+rather than the process it approximates.
+The stock-conditioned feedback rules keep their values under all three
+kernels (the symmetric rule ``3 if \(R\ge 14\), else 0'' earns
+\(102.7\) per player with survival \(1.00\) under both stochastic kernels),
+which is the constant-escapement result of Section~\ref{app:reed} in the
+two-player game.
+The best response to a partner that has learned the feedback rule is
+\(107.0\), \(105.5\) and \(104.2\) under the three kernels, against
+\(72\) for a hawk that stays on take-2; that gap is the ceiling for what a
+shaper could gain by exploiting a partner it has taught to restrain, and
+the shaper's return in Chapter~\ref{ch:results} is read against it.
+
+\begin{table}[ht]
+\centering
+\small
+\caption{Expected return per player and survival probability under the
+  three regeneration kernels.
+  ``Hawk'' is the frozen always-2 partner of Test~A.
+  The \(\xi\) column is the executed Stage~B; the binomial column is the
+  Pérolat-faithful reference of \eqref{eq:binomial}.
+  Exact backward induction, rounded to one decimal; \((1,1)\) under the
+  binomial kernel survives with probability \(0.999\).}
+\label{tab:dp3}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lcccccc}
+\toprule
+ & \multicolumn{2}{c}{Deterministic} & \multicolumn{2}{c}{\(\xi\in\{0.7,1,1.3\}\)} & \multicolumn{2}{c}{Binomial} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}
+Policy pair & Return & Survival & Return & Survival & Return & Survival \\
+\midrule
+\((1,1)\) throughout & 36 / 36 & 1.00 & 36.0 / 36.0 & 1.00 & 36.0 / 36.0 & 1.00 \\
+\((2,2)\) throughout & 7 / 7 & 0.00 & 7.4 / 7.4 & 0.00 & 18.1 / 18.1 & 0.17 \\
+\((2,1)\) hawk versus dove & 72 / 36 & 1.00 & 72.0 / 36.0 & 1.00 & 60.6 / 30.3 & 0.81 \\
+\midrule
+\((1,1)\) once, then \((2,2)\) & 71 / 71 & 1.00 & 59.3 / 59.3 & 0.80 & 51.6 / 51.6 & 0.68 \\
+Hawk versus ``1 once, then 2'' & 72 / 71 & 1.00 & 35.7 / 34.7 & 0.40 & 35.3 / 34.3 & 0.42 \\
+Hawk versus ``0 once, then 2'' & 72 / 70 & 1.00 & 60.3 / 58.3 & 0.80 & 52.6 / 50.6 & 0.68 \\
+\((0,0)\) once, then \((3,3)\) & 105 / 105 & 1.00 & 38.6 / 38.6 & 0.25 & 46.3 / 46.3 & 0.36 \\
+\midrule
+Hawk versus ``1 if \(R<12\), else 2'' & 72 / 69 & 1.00 & 72.0 / 68.8 & 1.00 & 60.6 / 56.9 & 0.81 \\
+Both ``2 if \(R\ge 9\), else 1'' & 71 / 71 & 1.00 & 70.8 / 70.8 & 1.00 & 69.7 / 69.7 & 0.99 \\
+Both ``3 if \(R\ge 14\), else 0'' & 105 / 105 & 1.00 & 102.7 / 102.7 & 1.00 & 102.7 / 102.7 & 1.00 \\
+\midrule
+Best response to hawk & 105 & 1.00 & 102.5 & 1.00 & 101.0 & 1.00 \\
+Best response to ``1 if \(R<12\), else 2'' & 107 & 1.00 & 105.5 & 1.00 & 104.2 & 1.00 \\
+Joint optimum \(W^{*}\) & 210 & 1.00 & 207.1 & 1.00 & 206.3 & 1.00 \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}

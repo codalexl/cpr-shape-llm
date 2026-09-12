@@ -13,7 +13,8 @@
 | `docs/thesis/LIT_AUDIT.md` | QA of keep-list notes vs papers | Current (CoS completed after LitAudit usage-cap) |
 | `docs/thesis/LIT_CLOSE.md` | Fill Catchup **Missing** from full text | Current (1 Sep) |
 | `docs/thesis/02_related_work.md` | Provisional Related Work | Synced 1 Sep (LIT_AUDIT + LIT_CLOSE) |
-| `docs/thesis/LIT_STAGEB.md` | What writers may say about ξ / Reed / Sethi | CoS copy of vault lit-agent patch, 6 Sep |
+| `docs/thesis/LIT_STAGEB.md` | What writers may say about ξ / Reed / Sethi | CoS copy of vault lit-agent patch, 6 Sep. **Unsigned** — Alex has not read it. |
+| `docs/thesis/LIT_HANDOVER.md` | Opus (Seat 2) brief; CoS Seat 1 frozen | Current. Vault canonical: `Literature_Review/HANDOVER_Opus_LitReview.md` |
 
 ## Audit oversight (CoS, 1 Sep)
 
