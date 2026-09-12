@@ -1,16 +1,14 @@
 \chapter{Related work}
 \label{ch:lit}
 
-This chapter positions the thesis against the opponent-shaping and
-commons literature.
-What has been run is learner-versus-frozen-bot PPO and centred
-two-learner PPO on a logistic chicken CPR
-(\(R_0=8\), \(K=40\), \(T=36\), \(\texttt{rate\_tenths}=9\)),
-first deterministic (Stage~A) then with multiplicative \(\xi\) on the
-growth increment (Stage~B).
-Two questions remain open after the executed ladder: whether noise as
-the object of study yields a shaping result, and whether a shaper in an
-LLM commons is a clear success.
+This chapter places the thesis in three literatures: opponent shaping,
+from differentiable to model-free to prompt-based; language-model agents
+in social dilemmas and commons; and the renewable-resource economics
+that supplies the regeneration model.
+The gap it identifies is precise: no published work trains a
+language-model shaper against an independently learning language-model
+partner on a resource stock, and none studies stochastic regeneration
+as the quantity that decides whether shaping has anything to buy.
 
 \section{Opponent shaping: from gradients to prompts}
 
@@ -29,10 +27,10 @@ gridworlds and split memory into \textbf{history} (intra-episode) and
 Both are necessary for shaping in their ablations.
 They also warn that CoinGame leaks past actions through current state, so a
 memoryless agent can look as if it shapes.
-A scalar CPR stock is itself a statistic of past harvests; any later shaping
-claim on this environment needs a memoryless / episode-reset control of the
-same kind.
-That control is design, not a result.
+A scalar CPR stock is itself a statistic of past harvests, so a shaping
+claim on this environment needs a control in which the partner has the
+same information but not the shaping objective; the info-off arm of
+Chapter~\ref{ch:design} is that control.
 
 Garcia Segura, Hailes and Musolesi \cite{garciasegura2025} adapt model-free
 opponent shaping to LLM agents: Gemma-2-2b-it, one action token, trial-level
@@ -46,10 +44,9 @@ Rapoport and Chammah \cite{rapoport1966} for that class (body paywalled;
 cited here via ShapeLLM and the journal record).
 The live CPR lock is the same payoff \emph{class} --- chicken, not
 prisoner's dilemma --- so chicken is already on the keep list.
-This thesis reuses that stack, with permission, on a sequential CPR.
-Related work may place ShapeLLM against a logistic chicken CPR.
-It may not write that ShapeLLM-style shaping has already steered LLM agents
-to sustainable cooperation in this environment.
+This thesis reuses that stack, with permission, on a sequential CPR, and
+asks whether the objective steers a learning partner there; that is the
+question of Chapter~\ref{ch:results}, not a premise of this chapter.
 
 \section{LLM agents in dilemmas and commons}
 
@@ -74,8 +71,7 @@ survival occurs.
 Agents do not fine-tune.
 Regeneration is piecewise doubling, not the live logistic lock.
 GovSim's own limitations name shocks to regeneration as missing realism;
-that sentence is a licence for an increment, not evidence that this
-repository has run one.
+Stage~B of this thesis supplies one, on a solvable stock.
 
 P{\'e}rolat et al.\ \cite{perolat2017} is the multi-agent RL commons this
 thesis is a reduction of: twelve independent DQNs on a gridworld harvest
@@ -124,9 +120,9 @@ There is no shaper-versus-independent-learner condition and no resource
 stock.
 Their group-relative common-random-number batches are prior art for variance
 reduction in LLM RL.
-Stage~B uses paired \(\xi\) tables as a measurement device (identical
-streams across arms); that is not Piche's training baseline and does not
-close Gap~01.
+Stage~B uses paired \(\xi\) tables as a variance-reduction device
+(identical draws across arms); that is a measurement design, not Piche's
+training baseline.
 
 \section{Renewable-resource economics}
 
@@ -157,22 +153,20 @@ same class ShapeLLM already runs as the Iterated Chicken Game.
 Maynard Smith and Price \cite{maynardsmith1973} is the hawk/mouse ESS
 ancestor: computer contests of always-dangerous Hawk versus never-escalate
 Mouse; Hawk is not an ESS when injury is costly.
-That paper does \textbf{not} print the later textbook \(V/C\) \(2\times 2\)
+That paper does not print the later textbook \(V/C\) \(2\times 2\)
 matrix, and it is not a calibration of \((R_0,K,T)\).
-Vault framing was prisoner's dilemma / tragedy / doubling commons; the
-executed lock is chicken.
 
-\section{What this chapter leaves to Results}
+\section{The gap}
 
 Observational LLM-commons work freezes every agent
 \cite{piatti2024,akata2025}.
-Interventional LLM shaping \cite{garciasegura2025,piche2025} on a
-resource stock is the executed two-learner ladder in this repository.
-Advantage Alignment's commons result is RL self-play.
-ShapeLLM's matrix games are deterministic.
+Interventional LLM shaping \cite{garciasegura2025,piche2025} has not been
+run on a resource stock, and ShapeLLM's matrix games are deterministic.
 Advantage Alignment and InvestESG-OS put opponent shaping in stochastic
-environments but use noise as texture, not as the quantity being ablated.
-Stage~B runs multiplicative \(\xi\) on the locked integer growth
-increment; whether that is a shaping result is Chapter~\ref{ch:results}.
-The orphan file \texttt{stochastic\_cpr\_env.py} is not the method in this
-literature or in this repository.
+environments but use noise as texture, not as the quantity that decides
+whether shaping has anything to buy.
+This thesis fills that gap with an exactly solvable stock in which the
+deterministic game bounds any shaping effect at one unit and the
+stochastic game does not (Section~\ref{sec:a-to-b}), and with a ladder
+that isolates the objective from the partner's timescale and prompt
+(Section~\ref{sec:ladder}).

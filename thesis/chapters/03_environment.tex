@@ -1,9 +1,9 @@
 \chapter{Environment}
 \label{ch:env}
 
-Two environments live in this repository.
-Only one is the live training game.
-The other is a linear fixture that must not be quoted as the thesis CPR.
+Two environments live in the repository: the logistic game on which
+every training run is executed, and a linear-regrowth fixture kept as the
+test of the harvest, scarcity and absorbing-zero rules.
 
 \section{Shared rules (linear and logistic)}
 
@@ -165,8 +165,9 @@ not use that float.
 Growth is zero at \(R=0\) and \(R=K\).
 At this lock, there are \textbf{no} interior freeze stocks
 (\(\texttt{zero\_growth\_stocks}(40, 9) = ()\)); \(R=1\) still grows by 1.
-Low-rate freeze (e.g.\ rate 0.2 at \(K=40\)) exists as a logistic analogue
-of the cap-0 trap and was refused for shipping.
+At low rates (for example \(0.2\) at \(K=40\)) rounding produces
+interior stocks with zero growth, a logistic analogue of the cap-0 trap;
+the rate was chosen so that none exists.
 
 A policy \(\pi_i\) maps the player's observable history to a distribution
 over \(\mathcal{A}\).
@@ -306,15 +307,6 @@ prior-dominated class; 0 and 1 are not the same basin.
   dove policy.}
 \label{fig:farm}
 \end{figure}
-
-\section{What is not the live environment}
-
-Linear \(R_0=20\), \(g=2\) is the harvest fixture only.
-A retired \(\pm 1\)-on-stock Test~A is archived and is not Stage~B.
-Stage~B is the mean-one three-point multiplier on the growth increment
-in \eqref{eq:growth}.
-The historical park file \texttt{stochastic\_cpr\_env.py} is not the
-live game.
 
 \section{Observation surface (prompts)}
 

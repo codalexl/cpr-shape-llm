@@ -15,6 +15,8 @@ Rules:
 - **R2 (length).** If the naive–shaper arm's shaper opening distribution or return is not stationary over epochs 81–100 on any seed, extend naive–shaper *and* slow-LR together to 200 on all seeds.
 - **R3 (learnability).** If Stage B Test A shows no seed with leave-2 at R<12 above 0.5 by epoch 100, H2 is negative and H3's return readout is reported against the constant-continuation cell (35.7), not the feedback cell (72); the shaping question becomes "does the shaper make the learner learn what it could not learn alone", which is a stronger claim if it holds and a weaker null if it does not.
 
+**Facts from the seed-fixed pilots (8–9 Sep, L40S, 15 epochs) that inform the rules above.** Whitened Test A on independent seeds left opening 2 on two of three seeds by epoch 15 and the third locked from epoch 23 of a 30-epoch run, so R1 is expected to pass; the probe still runs. With independent seeds the naive–shaper vs slow-LR contrast was mixed in sign on every readout (`python scripts/evaluate_grid.py --stage B --reseed --window 3`), where the shared-stream pilots had agreed on every seed; that is the reason for 100 epochs and five seeds on the Stage B ladder. Seed 0 of the Stage B arms is the pre-fix seed-0 tape; seeds 1–2 are new draws (LIVE_FACTS, "Seed-fixed reseed").
+
 ## 1. Hypotheses, audited
 
 The pre-registered H1–H3 (thesis eq. h1–h3) mix manipulation checks with the shaping claim and bundle four controls into one inequality. Revised set:

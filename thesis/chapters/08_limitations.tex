@@ -1,112 +1,85 @@
 \chapter{Limitations}
 \label{ch:lim}
 
-These constraints limit what the executed contrasts can be said to show.
+These are the constraints that bound what the design of
+Chapter~\ref{ch:design} can show, stated before the grid's results; the
+limitations that the results themselves impose are added in
+Chapter~\ref{ch:results} against each hypothesis.
 
-\section{Wrong efficiency benchmark}
+\section{What the exact solution bounds}
 
-Mutual take-1 returns 36; one \((0,0)\) then mutual 3 returns 105.
-Take-3 is the sustainable harvest at high stock.
-Language that treats take-3 as smash and take-1 as cooperation is
-calibrated to the constant-action reduction, not the dynamic program.
-Test~B last-epoch return \(72.4\) is the constant hawk--dove cell, not
-the best response \(107\).
+A shaping effect cannot exceed \eqref{eq:effect-bound}.
+In Stage~A the bound is one unit, so a null there is by design and a
+positive result would be an artefact; the deterministic arms exist to
+show the predicted null, not to detect shaping.
+In Stage~B the bound is conditional on C2: if a naive learner acquires
+the feedback rule alone, the control partner already collects most of
+what the shaper could, and the detectable effect shrinks to a difference
+in speed and reliability.
+The design measures speed (first majority) for that reason, but three to
+five seeds resolve a speed difference only if it is large.
 
-\section{Leave-2 is a near-constant-policy statistic}
+\section{Replication}
 
-Opening 2 dies only if the continuer stays on 2.
-Opening 0 and opening 1 versus a frozen 2 are different basins
-(\(8\to 11\) versus \(8\to 9\)).
-Last-epoch action frequencies at \(R=9\) under centred Test~A seed~0 are
-about 90~percent take-2.
-No executed run learned 0-then-3 as a stock-conditioned policy.
+The pilots of Section~\ref{sec:pilot-results} were run before the trainer
+reseed was found (Chapter~\ref{ch:method}); their nominal seeds shared
+one action-sampling stream, so every ``on all three seeds'' statement
+about them is closer to one replicate plus hardware noise than to three
+draws, and the seed-fixed pilots showed the fifteen-epoch shaper
+contrast to be mixed in sign once the seeds were independent.
+The grid runs three seeds per arm and five on the Stage~B ladder.
+With so few seeds the evidence is sign agreement and effect size against
+exact cells; no test statistic is reported, and a positive result on
+five seeds is a direction with a bound, not a law.
+The early pilots mixed Apple-silicon and L40S provenance; the grid runs
+on one platform, and the whitened seed-0 pilot that stayed on opening 2
+confounds seed with platform and is not a result.
 
-\section{Shaping contrast confounded with learning speed}
+\section{The learning loop}
 
-A shaper against a learner who only avoids death by opening 1 then
-taking 2 has about one unit to gain (\(72\) versus \(71\)).
-Slow-LR naive--naive already reproduces who-leaves-2 not swapping,
-without trial PPO.
+The reward carries an adaptive KL penalty to the reference model
+\eqref{eq:klreward} with coefficient about \(0.2\); it is a restoring
+force towards the digit prior that every result is obtained under, and
+its coefficient is one of the parameters whose sensitivity is checked
+one factor at a time, not swept.
+Adam makes the advantage operator a reweighting of the policy gradient
+against the critic, the entropy bonus and the other batches rather than a
+step size (Section~\ref{sec:operator}); the executed runs do not identify
+which of those weights matters, and the design does not try to.
+Several hyperparameters are this project's own choices rather than
+ShapeLLM's (Table~\ref{tab:provenance}); the sensitivity block checks
+each on the cheapest arm only, so an interaction between them on the
+two-learner arms is not excluded.
+The shaper receives one update per trial, 100 in the grid; the transfer
+test trains the fresh learner for 30 epochs.
+Both are budgets, and a shaper that needs more updates than that to
+express its objective would be missed.
 
-\section{Sample and critic}
+\section{Statistics}
 
-Pre-fix whitened Test~A is a three-nominal-seed family, not a law.
-MPS seed~0 last-epoch leave-2 \(2/15\), return \(11.3\), last-three-epoch
-survival \(5/45\).
-Seeds~1--2 left opening 2 (leave-2 last3 \(87\%\) and \(82\%\); survival
-\(97/225\) and \(80/225\)).
-Seed-fixed whitened Test~A on L40S is slower and more variable than
-centre (leave-2 last3 \(31\%\), \(96\%\), \(71\%\)); the slow seed locked
-only after epoch 23 on a 30-epoch continuation.
-Last-epoch counts are out of 15 games.
-Matched long naive, shaper-e50, whitened e30 and slow2 \(\xi\) e50 are
-one seed each.
-The value head uses \(\texttt{vf\_coef}=0.01\); opening advantages are
-close to return minus a poor baseline.
-Centre versus whiten is entangled with that.
+Leave-2 is a statistic of a near-constant-policy class: after a
+restrained opening against a hawk the tape is mostly take-2 whether or
+not the learner has acquired a stock-conditioned rule, which is why the
+low-stock restraint share and \(\hat{\pi}(a\mid R)\) are the primary
+continuation readouts and the opening share is not.
+Windows of the last twenty epochs average over whatever drift remains;
+the stationarity criterion is a one-standard-error rule, not a
+convergence proof.
 
-\section{Single stack, and why the shaping grid is centred}
+\section{The environment}
 
-All executed training is Gemma-2-2b-it, rank-2 LoRA, four harvest
-tokens, and this logistic lock.
-A different base model, a larger model, or a different environment could
-change both the digit prior and whether whitening hides the opening.
-The centre-versus-whiten contrast is therefore a finding on this stack,
-not a PPO law.
-Two-learner and Stage~B runs use mean-centring because, under the TRL
-default, a 15-epoch budget can still be mixed on opening 2 (seed-fixed
-whitened seed~0: \(8\times 1+7\times 2\) at epoch 15; lock only after
-epoch 23).
-That is a documented operator choice so that leave-2 is observable when
-both agents learn; it is not a claim that whitening never leaves, and it
-is not opponent shaping.
-
-\section{Seeds are not independent replicates (pre-fix)}
-
-TRL's \texttt{PPOTrainer} reseeds the global generator to 0 in its
-constructor, after the launcher's per-experiment seed
-(Chapter~\ref{ch:method}).
-Every run dated 6~September or earlier therefore drew its actions from
-one sampling stream; nominal seeds differ through the value-head
-initialisation, through non-deterministic bf16 kernels, and in Stage~B
-through the noise tables, which are seeded separately and correctly.
-Measured with \path{scripts/audit_seeds_and_scale.py}: pre-fix
-whitened Test~A seeds 1 and 2 opened identically on all 75 games of their
-first five epochs and on 80\% of games over the run; the Stage~B
-naive--naive, naive--shaper and slow-LR seeds 1 and 2 opened identically
-on 92--95\% of games over the whole run.
-Three consequences for those tables.
-``On all three seeds'' is closer to one replicate plus hardware noise
-than to three independent draws.
-The Stage~B paired design survives, because the pairing is within a
-seed across arms and the noise tables do differ by seed, but the
-agreement of \(\Delta_s\) across seeds 1 and 2 is close to one
-observation counted twice.
-The pre-fix whitened seed-0 run was the only whitened Test~A run on Apple
-silicon, so the tally ``whitening stayed on 2 on one seed of three''
-confounds seed with platform.
-The entry points re-seed after construction.
-The 8--9~September packet used the fix: Test~A centre pairs agree on
-\(0.56\)--\(0.61\) of openings in epochs 1--5; NS \(\xi\) and slow2
-\(\xi\) seed 0 match the pre-fix seed-0 tapes, and seeds 1--2 are new.
-H3 as a sign-agreement across three independent seeds fails.
-Test~A \(\xi\) and naive--naive \(\xi\) were not repeated, so those two
-Stage~B tables remain pre-fix.
-
-\section{Noise}
-
-Stage~B does not isolate shaping from timescale.
-Under \(\xi\), seed-fixed NS and slow2 both keep agent~2 mostly on 2;
-agent-1 leave-2 and last-epoch return do not favour the shaper on every
-seed (sign of \(\Delta\) is mixed).
-Matched-LR NN \(\xi\) was not repeated after the fix; the pre-fix table
-did not lock agent 2 hawk on every nominal seed.
-The dynamic program says \((1,1)\) and hawk--dove live with probability 1;
-\((2,2)\) dies.
-The 36-unit dynamic-program hawk interest (72 versus 35.7) was not
-collected.
-That is not a licence to write a growth-noise mechanism or a teaching
-success.
-Retired \(\pm 1\) Test~A is not a substitute.
-Epoch 15 is not an endpoint: seed-fixed whitened Test~A seed 0 locked
-leave-2 only after epoch 23.
+The commons is scalar and two-player, with the exclusion mechanism of
+the gridworld commons removed; a mechanism that produced sustainability
+there cannot appear here.
+Stage~B's multiplier is a bounded discretisation of the per-unit process,
+chosen for invariance of the constant-pair cells; under the exact
+binomial kernel those cells move (Appendix~\ref{app:binomial}), so the
+results are about growth uncertainty of a specific, mild form.
+The prompt does not state the regeneration law; the learner sees the
+stock every round and must infer the law from its trajectory.
+Both players observe the stock exactly and requests are filled exactly,
+so measurement and implementation uncertainty in the sense of Sethi et
+al.\ are absent by construction.
+The joint optimum harvests six units per round below the maximum
+sustainable yield because the per-player cap is three; a larger action
+set would change the game's optimum and possibly its class.

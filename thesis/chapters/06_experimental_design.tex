@@ -1,14 +1,98 @@
 \chapter{Experimental design}
 \label{ch:design}
 
-All executed CPR training below is on the locked logistic chicken
-(\(R_0=8\), \(K=40\), \(T=36\), \(\texttt{rate\_tenths}=9\)).
-Gemma-2-2b-it, entropy 0.05, \texttt{use\_score\_scaling=false}.
-15 epochs unless noted, \(\texttt{e\_max}=5\), \(\texttt{n\_games}=3\)
-(225 games per 15-epoch run).
+This chapter is the pre-registration of the final grid.
+Everything in it was fixed before any run of that grid was launched: the
+questions, the objects that answer them, the arms, the hypotheses with
+their readouts and their nulls, the hyperparameters and what is checked
+about them, the protocol, and the rules that decide what happens when a
+check fails.
+Chapter~\ref{ch:results} reports against this chapter.
+The runs executed while the design was being fixed, fifteen epochs each,
+are pilots; Section~\ref{sec:pilots} lists the design decisions they
+settled and Section~\ref{sec:pilot-results} reports them as pilots.
 
-The first block is learner versus a frozen constant bot.
-The second block is two PPO learners.
+\section{Questions and the shape of the evidence}
+\label{sec:questions}
+
+Three questions, in the order the evidence is built.
+\begin{enumerate}
+\item \textbf{Structure.} What does the exact solution of the game
+  (Chapter~\ref{ch:env}) imply about what a prior-dominated learner can
+  learn in it, and in particular whether a shaping objective has anything
+  to buy?
+  This is answered by dynamic programming before any training run, and it
+  is the reason the thesis moves from the deterministic game to
+  stochastic regeneration (Section~\ref{sec:a-to-b}).
+\item \textbf{Shaping.} Does the trial-level objective of
+  \eqref{eq:shaper-objective} change what a naive learner acquires, and
+  what the shaper earns, relative to a partner that is merely slow?
+  This is answered by an ablation ladder in which one ingredient changes
+  per rung (Section~\ref{sec:ladder}).
+\item \textbf{Transfer.} Does a trained shaper, frozen, steer a fresh
+  learner differently from a frozen hawk?
+  This is the claim of Garcia Segura et al.\ \cite{garciasegura2025}
+  stated for this game.
+\end{enumerate}
+The evidence takes one form throughout: an estimated quantity of
+\eqref{eq:estimators}, compared with a value fixed in advance by the
+dynamic programme or with the same quantity in a paired control, reported
+per seed with its interval and summarised across seeds by sign agreement.
+With three to five seeds no test statistic is reported; effect sizes
+against exact cells are.
+
+\section{From the deterministic game to stochastic regeneration}
+\label{sec:a-to-b}
+
+A shaping effect is measured against a counterfactual partner that does
+not shape.
+Write \(V_{\mathrm{h}}(\sigma)\) for the return of a partner committed to
+take-2 when the learner plays \(\sigma\).
+The largest effect a shaper can have on its own return is
+\begin{equation}
+  \Delta^{*}
+  =
+  V_{\mathrm{h}}(\sigma_{\mathrm{induced}})-V_{\mathrm{h}}(\sigma_{\mathrm{control}}),
+  \label{eq:effect-bound}
+\end{equation}
+the value of the learner policy it can induce minus the value of the
+policy the control partner induces.
+\eqref{eq:effect-bound} is a bound on power: no experiment can detect an
+effect larger than the game offers.
+
+\paragraph{Stage A.}
+After any safe opening the learner's best continuation is a constant
+action, so the deterministic game is decided in round~1.
+A naive learner leaves opening 2 against any hawk on its own
+(Section~\ref{sec:pilot-results}), so \(\sigma_{\mathrm{control}}\) already
+delivers the hawk its best outcome: \(V_{\mathrm{h}}=72\) against a
+partner that restrains at the opening, and \(72\) against a partner that
+has learned the feedback rule (Table~\ref{tab:noise-dp}).
+The bound \eqref{eq:effect-bound} is at most one unit.
+A null in Stage~A is therefore uninformative about the objective, and a
+positive result in Stage~A would be an artefact.
+Hypothesis H-A below tests this prediction with the same arms as Stage~B,
+which makes the move from A to B a result of the thesis rather than an
+assumption of it.
+
+\paragraph{Stage B.}
+Under the multiplier \(\xi_t\) of \eqref{eq:growth} the continuation is
+a decision (Section~\ref{sec:noise-arm}).
+A hawk earns \(72\) against a partner that plays the feedback rule
+``1 if \(R<12\), else 2'', \(35.7\) against a partner that restrains only
+at the opening, and \(7.4\) against mutual take-2, all exact
+(Table~\ref{tab:noise-dp}).
+If the naive learner does not acquire the feedback rule on its own, the
+bound is \(72-35.7=36.3\) on the hawk's side; if the shaper does more
+than commit to take-2 and exploits a partner it has taught to restrain,
+the best response to the feedback rule is \(105.5\)
+(Table~\ref{tab:dp3}), so the bound is \(69.8\).
+Whether the learner acquires the rule alone is check C2 below; the bound
+that applies to H-B is conditional on it.
+The learner's own stake is of the same size (\(68.8\) against \(34.7\),
+survival \(1.00\) against \(0.40\)), so both parties gain from the
+feedback rule and the question is whether the shaping objective supplies
+what a slow partner does not.
 
 \paragraph{Estimators.}
 An epoch is \(n=15\) games.
@@ -78,288 +162,137 @@ is a paired comparison in which the environmental draws cancel; with
 three seeds, agreement of the sign of \(\Delta_s\) across all seeds is
 reported rather than a test statistic.
 
-\section{Executed runs}
-\label{sec:executed-fixed}
 
-\subsection{Test A, whitened (\texttt{advantage\_norm=whiten})}
+Per-epoch series of the same quantities are the learning curves; the
+window statistics are taken over the last \(W=20\) epochs of a run
+(\(W=3\) for the fifteen-epoch pilots).
+Two derived quantities describe the dynamics: the first epoch at which a
+share exceeds one half (first majority), and stationarity, defined as the
+last-window mean differing from the preceding-window mean by less than
+the pooled standard error.
+Every estimator is implemented in \texttt{cpr\_eval.py} and tested
+against records simulated from policies of known value
+(\texttt{tests/test\_cpr\_eval.py}) before it is applied to a training
+run.
 
-Config: \path{configs/cpr_testA_always2.json}.
-Partner: frozen always-2.
-Folders: \path{checkpoints/cpr_log_testA_always2} (run) and
-\path{checkpoints/cpr_log_testA_a0} (same Test~A with opening A0
-logged --- the A0 photograph).
+\section{Arms and the ablation ladder}
+\label{sec:ladder}
 
-Outcomes:
-\begin{itemize}
-\item Opening-step critic: raw A0 \(\mathbf{+39.8}\) on 1 versus
-  \(\mathbf{+6.2}\) on 2.
-\item After batch whitening, A0 \(\mathbf{+1.38}\) versus
-  \(\mathbf{+0.75}\).
-\item Policy still peaked on 2.
-  Take-1 live-step \(\mathbf{6\% \to 3\%}\).
-  Survival \(\mathbf{28/225}\).
-\item Open-1 share: about \(\mathbf{27\%}\) floor, falling
-  (epoch \(1 \to 15\)).
-\item Take-1 live-step at epoch 15: \(\mathbf{3\%}\).
-\end{itemize}
-
-Read \textbf{openings}, not only live-step mix: after a first 1,
-\(R\colon 8\to 9\) and \((2,2)\) is a fixed point, so a surviving policy
-can be mostly 2s on the tape while every game opened 1.
-
-\subsection{Test B, whitened}
-
-Config: \texttt{configs/cpr\_testB\_always1.json}.
-Partner: frozen always-1.
-Opening A0 also logged (\texttt{testB\_a0}).
-
-Outcomes: survival \(\mathbf{219/225}\); opening 1 and opening 2 received
-the same star; mix \(\mathbf{80\% \to 38\%}\) on 2,
-\(\mathbf{18\% \to 62\%}\) on 3.
-
-Versus a dove, constant-2 pays 72 and lives; constant-1 pays 36.
-There is no 64-versus-7 basin that would force copy-1.
-
-\subsection{Test A, centered (\texttt{advantage\_norm=center})}
-
-Config: \texttt{configs/cpr\_testA\_center.json}.
-Same seed family as whitened Test~A.
-Mean-subtract, no \texttt{/std}.
-Folder: \texttt{checkpoints/cpr\_log\_testA\_center}.
-15 epochs, frozen always-2.
-
-Table~\ref{tab:whiten-vs-center} is the whitened-versus-centre contrast on
-that seed family.
+Agent~1 is always a naive learner with the hyperparameters of
+Table~\ref{tab:hyperparameters}.
+The arms differ in agent~2 (Table~\ref{tab:arms}) and are run in both
+stages with the same seeds and, in Stage~B, the same noise tables.
 
 \begin{table}[ht]
 \centering
 \small
-\caption{Test~A outcomes under batch whitening versus centre-only
-  advantages (same seed family, frozen always-2).
-  Open-1 share is the primary readout; live-step take-1 is not.}
-\label{tab:whiten-vs-center}
-\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.4cm}XX}
+\caption{Arms of the final grid.
+  Each rung of the ladder from naive--naive to naive--shaper changes one
+  ingredient of agent~2; the configuration files differ in exactly the
+  key named in the last column
+  (\texttt{scripts/make\_grid\_configs.py}).}
+\label{tab:arms}
+\begin{tabularx}{\textwidth}{l>{\raggedright\arraybackslash}p{4.6cm}X}
 \toprule
- & Whitened Test A & Center Test A \\
+Arm & Agent 2 & Isolates (key that changes) \\
 \midrule
-Take-1 live-step, epoch 15 & 3\% & 9\% \\
-Open-1 share, epoch \(1 \to 15\) &
-  \(\sim 27\%\) floor, falling &
-  \(\mathbf{27\% \to 87\%}\) (100\% at epoch 12) \\
-Survival & 28/225 &
-  epoch 1: 2/15; epoch 12: \(\mathbf{15/15}\); epoch 15: 13/15 \\
-Open-1 A0 (what PPO saw) & +1.38 whitened &
-  \(\mathbf{+16.7}\) centered (raw still \(\sim +40\)) \\
-Open-2 A0 & +0.75 & \(\mathbf{-5.7}\) \\
+Test A & frozen always-2 & what a naive learner can learn against a perfectly stationary hawk; the ceiling for C2 \\
+naive--naive & naive, learning rate \(1.41\times 10^{-6}\), clip 0.2 & symmetric baseline: who restrains, whether coordination breaks under \(\xi\) \\
+slow-LR & naive, learning rate \(3\times 10^{-7}\), clip 0.1 & stationarity of the partner alone (\texttt{learning\_rate}, \texttt{cliprange}) \\
+info-off shaper & trial objective \eqref{eq:shaper-objective}, no trial prompt & the trial-level objective (\texttt{is\_shaper}) \\
+naive--shaper & trial objective and trial prompt & the trial prompt (\texttt{transmit\_info}) \\
+transfer & frozen epoch-100 shaper adapter & whether the trained shaper's policy steers a fresh learner (Stage~B only) \\
 \bottomrule
 \end{tabularx}
 \end{table}
 
-Later 2s still have large \emph{raw} GAE (smear).
-After centering they sit near 0; openings of 1 do not.
+The rung slow-LR to info-off is the test of the objective itself: learning
+rate, clip and prompt are equal and only the once-per-trial update with
+trial-level advantages differs.
+Without it the contrast naive--shaper against slow-LR cannot separate
+the objective from the prompt.
+The cell ``trial prompt without trial objective'' is not run; if H-B3 is
+positive and H-B2 null it becomes the follow-up.
 
-Run extras: take-3 live-step \(\mathbf{8.5\% \to 0\%}\); survival
-\(\mathbf{134/225}\); last three epochs \(\mathbf{41/45}\) openings were
-1.
+\section{Hypotheses}
+\label{sec:hypotheses}
 
-\subsection{Test B, centered}
+All quantities are last-window estimates of \eqref{eq:estimators};
+\(\hat{L}_i(R<12)\) is leave-2 restricted to unmasked rounds with
+\(0<R_t<12\); superscripts A and B denote the stage; \(s\) indexes seeds;
+\(\Delta_s\) is the paired difference \eqref{eq:paired} between the arms
+named.
+Two checks precede the hypotheses.
+\begin{align}
+  \text{C1 (opening invariance):}\quad
+  & \hat{L}^{\mathrm{B}}_{1}(s)\in
+    \mathrm{CI}_{95}\bigl(\hat{L}^{\mathrm{A}}_{1}(s)\bigr)
+    \ \text{ for each } s \text{ (Test~A)},
+  \label{eq:c1}\\[3pt]
+  \text{C2 (learnability):}\quad
+  & \hat{L}^{\mathrm{B}}_{1}(R<12)\ge 0.5
+    \ \text{ and }\
+    \widehat{\Pr}(S=1\mid a_{1,1}\ne 2)\ge 0.40 .
+  \label{eq:c2}
+\end{align}
+C1 says the noise did not change the opening incentive, which the
+dynamic programme predicts (Table~\ref{tab:noise-level}); a shift from
+opening 1 to opening 0 within leave-2 is consistent with it, since
+\(Q(0)>Q(1)\).
+C2, evaluated on Stage~B Test~A, says a naive learner can acquire
+stock-conditioned restraint against a stationary hawk within the
+horizon; the constants are the
+constant-continuation survival cell and a majority of low-stock rounds.
+The hypotheses follow.
+\begin{align}
+  \text{H-A:}\quad
+  & \bigl|\Delta_s(\hat{G}_2)\bigr|\le 1
+    \ \text{ and }\ \Delta_s(\hat{L}_1)\in\mathrm{CI}_{95}
+    \quad\text{for every } s \ \text{(Stage~A)},
+  \label{eq:ha}\\[3pt]
+  \text{H-B}k\text{:}\quad
+  & \Delta^{(k)}_s(\hat{G}_2)>0
+    \ \text{ and }\ \Delta^{(k)}_s\bigl(\hat{L}_1(R<12)\bigr)>0
+    \quad\text{for every } s,\ k\in\{1,2,3\} \ \text{(Stage~B)},
+  \label{eq:hb}\\[3pt]
+  \text{H-B4:}\quad
+  & \hat{G}^{\mathrm{shaper}}_{2}(s)-1.96\,\widehat{\mathrm{se}}
+    > 72 \quad\text{for every } s,
+  \label{eq:hb4}\\[3pt]
+  \text{H-T:}\quad
+  & \Delta^{(\mathrm{T})}_s\bigl(\hat{L}_1(R<12)\bigr)>0
+    \ \text{ and }\ \Delta^{(\mathrm{T})}_s(\text{first majority})<0
+    \quad\text{for every } s.
+  \label{eq:ht}
+\end{align}
+H-A is the contrast naive--shaper minus slow-LR in Stage~A.
+The rungs \(\Delta^{(k)}_s\) are \(k=1\): slow-LR minus naive--naive
+(stationarity); \(k=2\): info-off minus slow-LR (trial objective);
+\(k=3\): naive--shaper minus info-off (trial prompt); the overall
+contrast naive--shaper minus slow-LR is reported alongside.
+H-B4 compares the shaper's return with the plain-hawk cell \(72\) and
+reads the excess against the ceiling \(105.5\).
+\(\Delta^{(\mathrm{T})}_s\) is the fresh learner against the frozen
+shaper minus the same learner against the frozen hawk.
+Survival and the first-majority epoch of low-stock restraint are reported
+for every rung as secondary readouts.
 
-Config: \path{configs/cpr_testB_center.json}.
-Folder: \path{checkpoints/cpr_log_testB_center}.
-Frozen always-1, seed 0.
+\paragraph{Nulls.}
+For H-A the null is the prediction: no rung in Stage~A moves the shaper's
+return by more than the one-unit bound.
+For H-B\(k\) the null is a mixed sign of \(\Delta_s\) across seeds or a
+mean below the sampling interval; the effect size is reported against the
+bound of Section~\ref{sec:a-to-b} whichever way it falls.
+For H-B4 the null is a shaper return inside the interval of the plain-hawk
+cell, which means the shaper committed to take-2 and nothing more.
+For H-T the null is no difference between the frozen shaper and the
+frozen hawk in what the fresh learner acquires.
+A null on any hypothesis is reported as a null with its effect size; none
+is rescued by a secondary readout.
 
-Outcomes: survival \(\mathbf{223/225}\); live mix \(\mathbf{98\%}\) on 2;
-open-1 share \(\mathbf{13\% \to 13\%}\) (2/15 last epoch).
-Did not copy-1.
-Opening A0 on 1 and 2 both large and similar (centred \(\sim +20\) /
-\(+22\)).
-
-\subsection{Test A center, extra seeds}
-
-Folder: \texttt{checkpoints/cpr\_log\_testA\_center\_s12}
-(\texttt{exp1\_} seed 1, \texttt{exp2\_} seed 2).
-
-\begin{itemize}
-\item Seed 1: open-1 \(\mathbf{27\% \to 93\%}\), survival
-  \(\mathbf{113/225}\), last epoch 14/15 opened 1.
-\item Seed 2: open-1 \(\mathbf{27\% \to 7\%}\), survival
-  \(\mathbf{160/225}\), last epoch \(\mathbf{14/15}\) opened 0.
-\end{itemize}
-
-Same center flag, same frozen hawk.
-Heterogeneity is a recorded outcome, not a claim.
-These extra seeds are the pre-fix family (shared sampling stream;
-Chapter~\ref{ch:method}).
-
-\subsection{Seed-fixed Test A, centre and whitened (8--9 Sep, all L40S)}
-
-After the trainer reseed fix.
-Configs \path{configs/cpr_testA_center.json} and
-\path{configs/legacy/cpr_testA_always2.json}.
-Folders \path{checkpoints/cpr_log_testA_center_reseed} and
-\path{checkpoints/cpr_log_testA_whiten_reseed}, three seeds \(\times\) 15
-epochs; plus whitened seed~0 for 30 epochs
-(\path{checkpoints/cpr_log_testA_whiten_reseed_e30}).
-
-Identity of agent-1 openings in epochs 1--5: centre pairs \(0.56\)--\(0.61\),
-whitened pairs \(0.63\) (pre-fix whitened \(s1\) vs \(s2\) was \(1.00\)).
-Outcomes are in Chapter~\ref{ch:results}.
-Table shorthand (last-open, last surv, last ret, leave-2 last3, first
-majority) is defined at the start of this chapter: last-open is the 15
-first-round harvests of epoch 15, not a count of epochs.
-Do not call epoch 15 an endpoint: the 30-epoch whitened seed~0 is the
-continuation of the 15-epoch snapshot.
-
-Figure~\ref{fig:openings} plots the first-to-last open-1 share for
-whitened Test~A and the three centred seeds, using only those endpoint
-numbers.
-
-\begin{figure}[ht]
-\centering
-\begin{tikzpicture}
-\begin{axis}[
-  ybar,
-  bar width=8pt,
-  width=0.92\textwidth,
-  height=7.2cm,
-  ylabel={Open-1 share (\%)},
-  ymin=0, ymax=100,
-  symbolic x coords={Whitened, Center 0, Center 1, Center 2},
-  xtick=data,
-  xticklabel style={font=\small},
-  legend style={at={(0.5,1.05)}, anchor=south, legend columns=2,
-    font=\small, draw=none},
-  nodes near coords,
-  nodes near coords style={font=\scriptsize, /pgf/number format/fixed},
-  every node near coord/.append style={yshift=1pt},
-]
-\addplot coordinates {(Whitened,27) (Center 0,27) (Center 1,27) (Center 2,27)};
-\addplot coordinates {(Whitened,27) (Center 0,87) (Center 1,93) (Center 2,7)};
-\legend{Epoch 1, Epoch 15}
-\end{axis}
-\end{tikzpicture}
-\caption{Test~A open-1 share at the first and last epoch against a frozen
-  hawk.
-  Whitened last-epoch share is not recorded as a separate number; the
-  executed note is a \(\sim 27\%\) floor, falling, so the last bar repeats
-  that floor rather than inventing a lower point.
-  Centre seeds~0 and~1 rise to \(87\%\) and \(93\%\).
-  Centre seed~2 falls to \(7\%\) (last epoch almost all opening~0, not~1).
-  Survival: whitened \(28/225\); seeds \(0/1/2\): \(134/225\),
-  \(113/225\), \(160/225\).}
-\label{fig:openings}
-\end{figure}
-
-\section{Executed runs --- two learners}
-\label{sec:executed-two}
-
-Same lock, \texttt{advantage\_norm=center}, entropy 0.05.
-Claim statistic: share of episodes that do \textbf{not} open 2.
-Do not put unmatched epoch lengths in one versus-naive table.
-
-\subsection{Centred naive--naive, 15 epochs, seeds 0--2}
-
-Config \path{configs/cpr_naive_naive_center.json}.
-Folders \path{checkpoints/cpr_log_naive_naive_center} (seed 0) and
-\path{checkpoints/cpr_log_naive_naive_center_s12} (seeds 1--2).
-
-\begin{table}[ht]
-\centering
-\small
-\caption{Centred naive--naive, 15 epochs.
-  Who leaves opening 2 swaps across seeds.
-  Live mix at epoch 15 is still mostly 2s on the tape.}
-\label{tab:nn}
-\begin{tabular}{llll}
-\toprule
- & Seed 0 & Seed 1 & Seed 2 \\
-\midrule
-Surv e1 / e15 & 2/15 / 15/15 & 2/15 / 13/15 & 2/15 / 14/15 \\
-Survived & 119/225 & 98/225 & 115/225 \\
-A1 last openings & \(15\times 0\) & \(9\times 1\), \(5\times 2\), \(1\times 3\) &
-  \(1\times 0\), \(8\times 1\), \(6\times 2\) \\
-A2 last openings & \(3\times 1\), \(12\times 2\) &
-  \(1\times 0\), \(14\times 1\) & \(13\times 1\), \(2\times 2\) \\
-A1 leave-2 first3\(\to\)last3 & \(11\%\to 96\%\) & \(7\%\to 53\%\) &
-  \(7\%\to 64\%\) \\
-A2 leave-2 first3\(\to\)last3 & \(11\%\to 29\%\) & \(16\%\to 84\%\) &
-  \(20\%\to 84\%\) \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\subsection{Centred naive--shaper, three seeds by 15 epochs}
-
-Config \path{configs/cpr_naive_shaper_center.json}.
-Folder \path{checkpoints/cpr_log_naive_shaper_center}.
-Agent 2: trial update, LR \(3\times 10^{-7}\), \texttt{cliprange=0.1},
-extra trial prompt on.
-
-\begin{table}[ht]
-\centering
-\small
-\caption{Centred naive--shaper, 15 epochs.
-  Who leaves 2 did not swap: agent 1 dove, agent 2 hawk on all three seeds.}
-\label{tab:ns}
-\begin{tabular}{llll}
-\toprule
- & Seed 0 & Seed 1 & Seed 2 \\
-\midrule
-Surv e15 & 13/15 & 9/15 & 13/15 \\
-Survived & 113/225 & 120/225 & 100/225 \\
-A1 last openings & \(1\times 0\), \(13\times 1\), \(1\times 2\) &
-  \(1\times 0\), \(14\times 1\) & \(7\times 0\), \(8\times 1\) \\
-A2 last openings & \(14\times 2\), \(1\times 3\) &
-  \(2\times 1\), \(9\times 2\), \(4\times 3\) & \(14\times 2\), \(1\times 3\) \\
-A1 / A2 leave-2 last3 & \(96\%\) / \(0\%\) & \(93\%\) / \(7\%\) &
-  \(87\%\) / \(2\%\) \\
-A2 leave-2 whole run & 5\% & 5\% & 4\% \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\subsection{Shaper 50 epochs, seed 0}
-
-Folder \path{checkpoints/cpr_log_naive_shaper_center_e50}.
-Compare to naive at epoch 15 only.
-
-Epoch 15: 13/15 survived, agent 1 \(13\times 1\), agent 2 \(14\times 2\).
-Epoch 50: 15/15, agent 1 \(15\times 1\), agent 2 \(15\times 2\).
-Whole run 572/750.
-Agent 2 opened 0 or 1 on 25/750 (3.3\%).
-No epoch with agent-2 leave-2 majority.
-
-\subsection{Info-off shaper, three seeds by 15 epochs}
-
-Config \path{configs/cpr_naive_shaper_center_info_off.json}.
-Trial update and LR unchanged; \texttt{transmit\_info=false}.
-
-\begin{table}[ht]
-\centering
-\small
-\caption{Centred naive--shaper with \texttt{transmit\_info=false}.
-  Who leaves 2 did not swap.
-  Agent-2 leave-2 over the whole run is 16--19\% versus 4--5\% with the
-  extra prompt.}
-\label{tab:infooff}
-\begin{tabular}{llll}
-\toprule
- & Seed 0 & Seed 1 & Seed 2 \\
-\midrule
-Surv e15 & 14/15 & 13/15 & 14/15 \\
-Survived & 118/225 & 107/225 & 89/225 \\
-A1 last openings & \(14\times 0\) & \(1\times 0\), \(14\times 1\) &
-  \(14\times 0\), \(1\times 1\) \\
-A2 last openings & \(13\times 2\) & \(12\times 2\) & \(12\times 2\) \\
-A1 / A2 leave-2 last3 & \(96\%\) / \(18\%\) & \(89\%\) / \(22\%\) &
-  \(89\%\) / \(13\%\) \\
-A2 leave-2 whole run & 16\% & 19\% & 16\% \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\section{Executed arm --- Stage B multiplicative \(\xi\)}
+\section{Stage B: multiplicative noise on the growth increment}
 \label{sec:noise-arm}
+
 
 The deterministic lock limits what a shaping experiment on it can show.
 Against a near-constant partner the fate of the pool is decided by the
@@ -549,176 +482,134 @@ a partner it has taught to restrain is \(105.5\) against the \(72\) of a
 plain hawk (Table~\ref{tab:dp3}).
 These values are from \texttt{cpr\_xi.py}.
 
-\subsection{Hypotheses}
-\label{sec:hypotheses}
 
-The arm tests three statements, each an inequality between an estimated
-quantity of \eqref{eq:estimators} and a value fixed in advance by
-\eqref{eq:bellman-br}--\eqref{eq:q-open} or by a paired control.
-Leave-2 counts opening 0 or 1; \(\hat{L}_i(R<12)\) is the same statistic
-restricted to unmasked rounds with \(0<R_t<12\); superscripts A and B
-denote the deterministic and noisy arms; \(s\) indexes seeds.
-\begin{align}
-  \text{H1:}\quad
-  & \hat{L}^{\mathrm{B}}_{1,\mathrm{last\,3}}(s)\in
-    \mathrm{CI}_{95}\bigl(\hat{L}^{\mathrm{A}}_{1,\mathrm{last\,3}}(s)\bigr)
-    \ \text{ for each } s \text{ (Test~A, frozen hawk)},
-  \label{eq:h1}\\[3pt]
-  \text{H2:}\quad
-  & \widehat{\Pr}\bigl(S=1\,\big|\,a_{1,1}\ne 2\bigr)
-    \ \text{ against } 0.40 \text{ and } 1.00;
-    \qquad
-    \hat{L}_1(R<12)\ \text{ against } 1,
-  \label{eq:h2}\\[3pt]
-  \text{H3:}\quad
-  & \Delta_s\bigl(\hat{G}_2\bigr)>0
-    \ \text{ and }\
-    \Delta_s\bigl(\hat{L}_1\bigr)>0
-    \ \text{ for every } s
-    \ \text{ (naive--shaper minus slow-LR control)}.
-  \label{eq:h3}
-\end{align}
+\section{Hyperparameters and sensitivity}
+\label{sec:sensitivity}
 
-\paragraph{H1 (opening under variance).}
-Because the opening incentives are invariant (Table~\ref{tab:noise-level}),
-a learner that responds to them should leave opening 2 under noise at a
-rate inside the Stage~A interval of the same seed.
-Since \(Q(0)>Q(1)\) under noise and open-0-then-2s against a hawk
-survives with probability \(0.80\) against \(0.40\) for open-1-then-2s,
-a shift from opening 1 to opening 0 within leave-2 is the DP-better exit,
-not a failed replicate.
-
-\paragraph{H2 (continuation).}
-After a restrained opening against a frozen hawk, survival to the horizon
-is \(0.40\) for a constant continuation of the opening-1 kind and
-\(1.00\) for the feedback rule of Table~\ref{tab:noise-dp}.
-Conditional survival near \(0.40\) with \(\hat{L}_1(R<12)\) far below one
-means the learner did not condition on stock; intermediate values are read
-through \(\hat{\pi}_1(a\mid R)\), not through survival alone.
-
-\paragraph{H3 (shaping).}
-With the noise tables paired, a shaping effect is a shaper return above
-the hawk-role (agent~2) return of the slow-learning-rate control and a
-learner leave-2 share above the control's, on every seed.
-The control copies the shaper's learning rate and clip but keeps the
-naive schedule and no trial prompt, so the comparison holds the partner's
-learning timescale fixed and varies only the trial-level objective
-\eqref{eq:shaper-objective}; matched-learning-rate naive--naive is
-reported alongside.
-Failure of either inequality in \eqref{eq:h3} on any seed is reported as
-no detectable shaping effect at three seeds.
-
-\subsection{Protocol (as executed)}
-
-Four centred configurations, \(\xi\) on, no other change:
-Test~A against a frozen hawk, naive--naive, naive--shaper, and slow-LR
-naive--naive, each three seeds \(\times\) 15 epochs of 15 games.
-Advantages are mean-centred.
-The batch-whitened variant is not repeated on this arm.
-The 6~September packet is the pre-fix family (shared seed-0 action
-stream).
-The 8--9~September packet repeats naive--shaper \(\xi\) and slow-LR
-\(\xi\) after the fix, plus a 50-epoch slow-LR \(\xi\) seed~0; Test~A
-\(\xi\) and naive--naive \(\xi\) were not repeated; naive--shaper
-\(\xi\) at 50 epochs was not obtained (OOM).
-A 30-epoch whitened Test~A (deterministic, not \(\xi\)) is in the
-seed-fixed Test~A subsection.
-The rules text was left unchanged: it does not state a regeneration
-schedule, the stock is reported every round, and the unused prompt
-clause \texttt{XI\_GROWTH\_CLAUSE} was not spliced in.
-
-For each seed a table of shape (epochs, games, rounds) is drawn once
-from a dedicated seed sequence (\texttt{cpr\_env.make\_noise\_table}),
-stored as \texttt{noise\_table.npy}, and loaded by every configuration
-on the arm.
-The draw at a given (epoch, game, round) is therefore identical across
-the four arms for the same seed, and independent of any action taken.
-That is a measurement device, not a new algorithm
-\cite{piche2025}.
-
-Exact checks live in \texttt{tests/test\_cpr\_xi.py}: mean-one
-multiplier; \(\xi=1.0\) bit-identical to Stage~A; constant-pair
-invariance under i.i.d.\ tables; absorbing zero.
-
-Folders (pre-fix):
-\path{checkpoints/cpr_log_testA_center_xi},
-\path{checkpoints/cpr_log_naive_naive_center_xi},
-\path{checkpoints/cpr_log_naive_shaper_center_xi},
-\path{checkpoints/cpr_log_naive_naive_slow2_center_xi}.
-Folders (seed-fixed):
-\path{checkpoints/cpr_log_naive_shaper_center_xi_reseed},
-\path{checkpoints/cpr_log_naive_naive_slow2_center_xi_reseed},
-\path{checkpoints/cpr_log_naive_naive_slow2_center_xi_reseed_e50}.
-A retired \(\pm 1\)-on-stock Test~A is archived; those numbers are not a
-Results table.
+Table~\ref{tab:hyperparameters} lists every hyperparameter.
+Table~\ref{tab:provenance} states where each came from, because several
+that earlier drafts described as inherited from ShapeLLM are not: the
+released ShapeLLM configurations use an entropy coefficient of zero and
+a value coefficient of \(0.1\) for two learners, and a clip of \(0.1\), a
+value coefficient of \(0.01\) and a KL coefficient of \(2.0\) with target
+\(1\) for a learner against a fixed opponent.
 
 \begin{table}[ht]
 \centering
 \small
-\caption{Stage~B GPU, three \emph{nominal} seeds \(\times\) 15 epochs
-  (pre-fix, shared action stream).
-  Report against Table~\ref{tab:noise-dp}, not only against each other.
-  Seed-fixed NS and slow2 are Table~\ref{tab:stageb-reseed}.
-  Interpretation is in Chapter~\ref{ch:results}.}
-\label{tab:stageb}
-\begin{tabular}{lp{3.4cm}p{7.4cm}}
+\caption{Provenance of the hyperparameters.
+  ``Ours'' means chosen in this project; the sensitivity column names the
+  alternative value checked in Section~\ref{sec:sensitivity}.}
+\label{tab:provenance}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{2.7cm}>{\raggedright\arraybackslash}p{3.6cm}>{\raggedright\arraybackslash}p{2.6cm}X}
 \toprule
-Arm & Survived (s0/s1/s2) & Leave-2 last3 \\
+Parameter & ShapeLLM release & Live value & Status; sensitivity check \\
 \midrule
-Test~A \(\xi\) & 119, 41, 93 / 225 &
-  98\%, 64\%, 98\%.
-  Last openings \(15\times 0\) / \((10\times 1+5\times 2)\) / \(15\times 0\). \\
-NN \(\xi\) & 100, 43, 82 / 225 &
-  who-doves mixed (seed~2 a2 87\% leave-2; seed~1 both mostly 2) \\
-NS \(\xi\) & 90, 71, 75 / 225 &
-  a1 96/93/89\%; a2 0/11/11\% hawk \\
-slow2 \(\xi\) & 53, 44, 39 / 225 &
-  a2 last3 18/18/20\%; last epoch 12--13\(\times 2\) \\
+Naive learning rate & \(1.41\times 10^{-6}\) & \(1.41\times 10^{-6}\) & inherited \\
+Shaper learning rate & not released & \(3\times 10^{-7}\) & ours; \(1.41\times 10^{-6}\) \\
+Policy clip & 0.2 (two learners), 0.1 (fixed opponent) & 0.2 naive, 0.1 shaper & mixed inheritance \\
+Value coefficient \(c_v\) & 0.1 (two learners), 0.01 (fixed opponent) & 0.01 & taken from the fixed-opponent file; 0.1 \\
+Entropy coefficient & 0 & \(0.05\to 0.01\) & ours (a pilot at 0.15 bought take-3); 0 \\
+KL coefficient & 2.0, target 1 (fixed opponent); default otherwise & 0.2, target 6 (TRL default) & differs; 2.0 with target 1 \\
+\(\gamma\), \(\lambda\) & defaults & 1, 0.97 & ours \\
+Minibatch & 10 / 6 & 5 & ours \\
+Advantage operator & whitening (TRL default) & whitening & inherited; centring in the pilots \\
 \bottomrule
-\end{tabular}
+\end{tabularx}
 \end{table}
 
-\begin{table}[ht]
-\centering
-\small
-\caption{Stage~B GPU after the trainer reseed fix, three independent
-  seeds \(\times\) 15 epochs, all L40S.
-  Seed~0 of each arm is the pre-fix seed-0 tape.
-  Test~A \(\xi\) and NN \(\xi\) were not repeated.
-  Report against Table~\ref{tab:noise-dp}.}
-\label{tab:stageb-reseed}
-\begin{tabular}{lp{3.4cm}p{7.4cm}}
-\toprule
-Arm & Survived (s0/s1/s2) & Leave-2 last3 \\
-\midrule
-NS \(\xi\) reseed & 90, 44, 29 / 225 &
-  a1 96/44/33\%; a2 0/22/22\%.
-  Last3 surv \(36/45\), \(12/45\), \(5/45\). \\
-slow2 \(\xi\) reseed & 53, 61, 34 / 225 &
-  a1 69/76/27\%; a2 18/13/22\%.
-  Last3 surv \(21/45\), \(24/45\), \(8/45\). \\
-slow2 \(\xi\) e50 s0 & 443/750 &
-  last-open a1 \(15\times 0\); a2 mixed \(6\times 1+8\times 2+1\times 3\);
-  last ret \(70.5/69.2\). \\
-\bottomrule
-\end{tabular}
-\end{table}
+A full sweep is neither affordable nor what the argument needs.
+The parameters marked ours or mixed are checked one at a time from the
+live setting on the cheapest arm that exercises the learner, Stage~B
+Test~A, one seed, the full epoch budget: entropy \(0\) against
+\(0.05\); \(c_v=0.1\) against \(0.01\); the ShapeLLM fixed-opponent KL
+setting against the TRL default; and the shaper learning rate
+\(1.41\times 10^{-6}\) against \(3\times 10^{-7}\) on the naive--shaper
+arm, because that is the shaper's own parameter and the timescale
+confound is this thesis's concern.
+The readout is the C2 triple (low-stock restraint, conditional survival,
+return).
+The result is reported as one table with the statement that the
+learnability result is or is not sensitive to each parameter; the grid is
+not rerun on that basis unless a setting flips C2, in which case rule R3
+below applies.
 
-\section{Not run (launcher exists)}
+\section{Protocol}
+\label{sec:protocol}
 
-\texttt{baseline} / \texttt{shaper} (3 seeds \(\times\) 50 epochs) and
-\texttt{stageA} / \texttt{stageA\_shaper} still point at
-\texttt{cpr\_naive\_naive.json} / \texttt{cpr\_naive\_shaper.json}
-(\textbf{entropy 0.15}, default \textbf{whiten}).
-They are not the live CPR protocol.
-Long jobs must use the centred JSON files under \texttt{configs/}, not
-those two.
+\paragraph{Seeds and platform.}
+Three seeds per arm, five on the Stage~B ladder where the thesis claim
+lives.
+Every run on one NVIDIA L40S; the Apple-silicon pilots are not results,
+because bf16 kernels differ between backends and the seed audit of
+Chapter~\ref{ch:method} showed platform-dependent divergence.
+The entry points re-seed after the trainer is constructed, so seeds are
+independent draws; the first epoch of seeds 0 and 1 is compared before
+any arm continues and the launch stops if their openings are identical.
 
-\section{GPU ladder}
+\paragraph{Length.}
+Every arm runs 100 epochs (1{,}500 games, 500 naive updates, 100 shaper
+updates), with the stationarity criterion of Section~\ref{sec:questions}
+evaluated over epochs 81--100.
+Paired arms share a length: if the naive--shaper arm is not stationary on
+any seed, naive--shaper and slow-LR are extended together to 200 on all
+seeds.
+The Stage~B noise tables are generated at 200 epochs for every seed and
+sliced, so an extension keeps the draws of its first 100 epochs and every
+arm sees the same draw at the same (epoch, game, round)
+(\texttt{tests/test\_cpr\_xi.py}).
 
-Stage~B \(3\times 15\times\) four arms (pre-fix) and the 8--9~September
-seed-fixed packet are on disk.
-NS \(\xi\) at 50 epochs was not obtained.
-No further GPU jobs.
+\paragraph{Transfer.}
+The epoch-100 adapter of each naive--shaper seed is saved; a fresh naive
+learner is trained against it, frozen, for 30 epochs, with the shaper's
+own prompt rendered as in training, and compared with Stage~B Test~A.
 
-Findings from these runs are in Chapter~\ref{ch:results}.
+\paragraph{Decision rules.}
+R1: Stage~A Test~A with whitened advantages launches first; if any seed's
+last-window leave-2 share is below one half, the grid runs with centred
+advantages and the operator contrast returns as a result.
+R2: the length rule above.
+R3: if C2 fails on every seed, H-B is read against the
+constant-continuation cell (\(35.7\)) rather than the feedback cell
+(\(72\)), and the shaping question becomes whether the shaper makes the
+learner acquire what it could not acquire alone.
+
+\paragraph{Budget.}
+Measured on the L40S, one two-learner epoch costs about 50 seconds and
+one Test~A epoch about 20 seconds.
+Stage~B (Test~A, four ladder arms, transfer) at three seeds is about
+20 GPU-hours; Stage~A the same without transfer; the sensitivity block
+five hours; two further seeds on the Stage~B ladder eight hours.
+On five GPUs the whole grid is one working day.
+
+\paragraph{Readouts.}
+\texttt{scripts/evaluate\_grid.py} reads the records of every arm and
+writes, per stage, the per-arm table of last-window estimates with
+intervals, the paired ladder table with sign agreement, \(\hat{\pi}_1(a\mid
+R)\) over the last window per arm, and the learning curves; the tables in
+Chapter~\ref{ch:results} are those files.
+
+\section{Pilot runs and the decisions they fixed}
+\label{sec:pilots}
+
+Fifteen-epoch runs were executed while the design was being fixed:
+Tests A and B against frozen bots, the four two-learner arms in Stage~A
+and Stage~B, two 50-epoch single-seed extensions, and, after the seed fix,
+Test~A under both operators and the Stage~B naive--shaper and slow-LR
+arms with independent seeds.
+They are reported in Section~\ref{sec:pilot-results} as pilots.
+They fixed five decisions.
+An entropy coefficient of \(0.15\) moved the learner onto take-3 rather
+than restraint; \(0.05\) is used.
+Centred advantages left opening 2 within 15 epochs and whitened advantages
+did so on a slower, more variable schedule (locking from epoch 23 on a
+30-epoch seed); the grid uses the TRL default with rule R1.
+The seed audit showed the nominal seeds shared one sampling stream; the
+entry points were fixed and the seed-fixed pilots confirmed independent
+divergence.
+With independent seeds the 15-epoch contrast naive--shaper against
+slow-LR had mixed sign on every readout, where the shared-stream pilots
+had agreed on every seed; that is why the grid runs 100 epochs and five
+seeds on that contrast.
+The mixed Apple-silicon and L40S provenance of the early pilots is why the
+grid runs on one platform.

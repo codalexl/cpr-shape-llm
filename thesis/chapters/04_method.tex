@@ -72,11 +72,13 @@ At the opening prompt of the executed runs, the first episode of every run
 \(0.10\) on token~1, \(0.04\) on token~3 and effectively zero on token~0
 (these draws are not independent; see the seeds paragraph below).
 That is an executed observation, not a literature citation.
-The method does \textbf{not} flatten the prior, does \textbf{not} turn on
-\texttt{use\_score\_scaling} / \texttt{use\_score\_norm}, and does
-\textbf{not} add a take-1 bonus.
-An entropy coefficient of \(0.15\) in early runs bought take-3, not
-restraint; all live configurations use \(0.05\), decaying to \(0.01\).
+The prior is not flattened, score scaling and score normalisation are
+off, and no action-specific bonus is added: the reward is the receipt of
+\eqref{eq:harvest} and the penalty of \eqref{eq:klreward} and nothing
+else.
+An entropy coefficient of \(0.15\) in an early pilot moved the learner
+onto take-3 rather than restraint; every live configuration uses
+\(0.05\), decaying to \(0.01\).
 
 \section{Learning algorithm}
 \label{sec:algorithm}
@@ -244,9 +246,10 @@ The 8--9~September packet used that fix: seed-fixed Test~A centre pairs
 agree on \(0.56\)--\(0.61\) of openings in epochs 1--5 (pre-fix whitened
 \(s1\) vs \(s2\) was \(1.00\)); NS~\(\xi\) seed~0 is identical to the
 pre-fix seed-0 tape, as expected.
-Chapter~\ref{ch:lim} states what this does to the inference.
-Write ``three seeds'' for the seed-fixed packet; write ``three nominal
-seeds'' for every earlier GPU table.
+Every run of the final grid uses the fix.
+Chapter~\ref{ch:lim} states what the shared stream does to the inference
+from the earlier pilots; the seed-fixed pilots and the grid are the only
+runs described as having independent seeds.
 
 \section{What the normalisation operator changes}
 \label{sec:operator}
@@ -487,7 +490,7 @@ The shaper's learning rate \(\alpha_{\mathrm{s}}=3\times 10^{-7}\),
 tighter clip and once-per-trial schedule therefore also make it a slower,
 more stationary opponent than a matched-learning-rate naive learner.
 The slow-learning-rate naive--naive control of
-Section~\ref{sec:executed-two} gives agent~2 the same learning rate and
+Section~\ref{sec:ladder} gives agent~2 the same learning rate and
 clip but the naive schedule and no trial prompt, and so isolates that side
 effect from the shaping term.
 When \texttt{transmit\_info=true}, the shaper prompt also keeps

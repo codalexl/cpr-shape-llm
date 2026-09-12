@@ -48,41 +48,37 @@ Supervisors: Prof.\ Mirco Musolesi; Marta Emili Garcia Segura}
 \maketitle
 
 \begin{abstract}
-This report asks whether ShapeLLM-style opponent shaping can be applied to a
-sequential common-pool resource (CPR) game played by language-model agents.
-The executed substrate is a two-player, integer logistic CPR
-(\(R_0=8\), \(K=40\), \(T=36\), \(\texttt{rate\_tenths}=9\)),
-first deterministic (Stage~A) then with a mean-one three-point multiplier
-\(\xi\in\{0.7,1.0,1.3\}\) on the growth increment (Stage~B).
-The game is chicken, not a prisoner's dilemma: mutual take-1 lives (return 36);
-mutual take-2 dies around round~4 (return 7); hawk versus a frozen dove scores
-72 and the pool lives.
-Training reuses Gemma-2-2b-it, rank-2 LoRA, and trial PPO from ShapeLLM, with
+This report asks whether opponent shaping, as instantiated for
+language-model agents by ShapeLLM, has anything to buy in a sequential
+common-pool resource, and whether it buys it.
+The environment is a two-player integer logistic stock
+(\(R_0=8\), \(K=40\), \(T=36\), \(\rho=0.9\)), the mean-field reduction
+of the Commons Harvest gridworld, small enough to be solved exactly:
+under constant strategies it is a chicken game, and its best-response
+and joint-optimum Bellman equations fix every value a learner is compared
+against.
+Agents are Gemma-2-2b-it with rank-2 LoRA adapters trained by PPO, with
+the naive and trial-level (shaping) schedules of ShapeLLM, reused with
 permission.
 
-The untrained prior sits near 90~percent on take-2.
-Against a frozen hawk (one learner, partner fixed at take-2),
-centre-only advantages left opening 2 on three seeds by epoch 8;
-whitening did so more slowly and on two of three within 15 epochs.
-That contrast is a precondition for the shaping grid, not a shaping
-result: two-learner runs use mean-centring so that leave-2 is observable
-within the 15-epoch budget.
-The operators differ by the per-update advantage scale, measured at
-13--15; under Adam that is a reweighting of the policy gradient against
-the critic and entropy terms rather than a larger step, and the run that
-stayed on opening 2 is the one whose batches never contained a surviving
-game.
-Against a frozen dove the learner did not copy take-1.
-Two centred PPO learners split hawk--dove: who doves swapped under
-matched-LR naive--naive and did not when agent 2 was slowed (shaper or
-slow-LR control).
-Under Stage~B \(\xi\), pre-fix Test~A seeds opened 0 against a hawk (the
-higher-survival exit) and did not learn stock-conditioned feedback.
-After an independent-seed replica, naive--shaper versus slow-LR is mixed
-across three seeds; the 36-unit DP interest in feedback restraint was
-not collected.
-A library reseed had meant that earlier nominal seeds shared one
-action-sampling stream; the 8--9~September packet used the fix.
+The exact solution shows that in the deterministic game a committed hawk
+gains at most one unit from anything a shaper could induce, so a shaping
+experiment there is unpowered by construction; under a mean-one
+multiplicative shock on the growth increment, chosen so that the
+constant-strategy cells are invariant, the hawk's stake in its partner's
+stock-conditioned restraint is 36 units and its ceiling 105.5.
+The experiments are pre-registered as an ablation ladder that changes one
+ingredient of the partner per rung (learning timescale, trial-level
+objective, trial prompt), with a transfer test of the frozen shaper
+against a fresh learner, hypotheses stated as inequalities against exact
+cells with paired controls and common random numbers, and a one-factor
+sensitivity check on every hyperparameter that differs from ShapeLLM's
+release.
+Pilot runs fixed the design and exposed three properties of the training
+loop: a library reseed that made nominal seeds share one sampling
+stream, an unreported KL-to-prior term in the reward, and the Adam
+invariance that voids the step-size reading of advantage normalisation.
+% [Results sentence: to be written from Chapter 7 once the grid has run.]
 \end{abstract}
 
 \noindent

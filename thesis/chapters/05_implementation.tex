@@ -1,133 +1,99 @@
 \chapter{Implementation}
 \label{ch:impl}
 
-The live training path is a duck-typed CPR wrapped onto unmodified
+The live training path is a duck-typed CPR wrapped onto the unmodified
 ShapeLLM rollout.
-Linear \texttt{verify\_cpr.py} stays a fixture.
-Logistic growth, tests, and the launcher jointly pin the lock
-\(R_0=8\), \(K=40\), \(T=36\), \(\texttt{rate\_tenths}=9\).
+Logistic growth, the tests and the launcher jointly pin the lock
+\(R_0=8\), \(K=40\), \(T=36\), \(\rho=0.9\); the launcher refuses any
+other point.
+This chapter names the modules an examiner would open, the entry points,
+the analysis scripts that produce every number in
+Chapters~\ref{ch:design} and~\ref{ch:results}, and the tests that pin
+the environment and the estimators.
 
 \section{Modules}
 
 \begin{table}[ht]
 \centering
-\caption{Load-bearing modules on the live training path.
-  \texttt{verify\_cpr.py} is the linear harvest fixture only and is not
-  rewritten as live logistic.}
+\caption{Load-bearing modules.
+  \texttt{verify\_cpr.py} is the linear harvest fixture and is not a
+  training environment.}
 \label{tab:modules}
-\begin{tabularx}{\textwidth}{lX}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{4.6cm}X}
 \toprule
 Path & Role \\
 \midrule
-\texttt{cpr\_env.py} &
-  \texttt{CPRDynamics}, integer logistic/linear growth, masking,
-  \texttt{LOGISTIC} constant \\
-\texttt{cpr\_game.py} &
-  \texttt{CPRGame}: \texttt{step}, records, NaN rewards for PPO, outcome
-  bins \\
-\texttt{cpr\_observation\_managers.py} &
-  Prompt render from structured state; no regex parse of prior prompts \\
-\texttt{cpr\_bots.py} &
-  \texttt{ConstantActionAgent} for Tests~A/B \\
-\texttt{logistic\_cpr.py} &
-  Scout: constant matrix, DP openings, reproduce environment numbers \\
-\texttt{agents.py} / \texttt{utils/training\_utils.py} &
-  Gemma PPO, legal-token mask, \texttt{advantage\_norm}, A0 / live-A logs \\
-\texttt{environment.py} &
-  \texttt{inner\_rollout} / \texttt{outer\_rollout} reused verbatim \\
-\texttt{init\_lora\_adapters.py} &
-  Rank-2 LoRA on \texttt{q\_proj}/\texttt{v\_proj} \\
-\texttt{verify\_cpr.py} &
-  Linear harvest fixture only \\
+\texttt{cpr\_env.py} & \texttt{CPRDynamics}: integer harvest, scarcity, absorbing zero, logistic growth with \(\xi\); CRN noise tables \\
+\texttt{cpr\_game.py} & \texttt{CPRGame}: rollout surface, records, NaN masking of post-collapse steps, noise-table attachment at fixed capacity \\
+\texttt{cpr\_observation\_managers.py} & prompts rendered from structured state; trial memory for the shaper \\
+\texttt{cpr\_bots.py} & frozen partners: constant action; frozen adapter (transfer arm) \\
+\texttt{cpr\_xi.py} & exact dynamic programme: expected values of policy pairs, best response to any fixed policy, joint optimum, under the deterministic, \(\xi\) and binomial kernels \\
+\texttt{cpr\_eval.py} & estimators, intervals, paired contrasts, hypothesis readouts, LaTeX emitters \\
+\texttt{agents.py}, \texttt{utils/training\_utils.py} & Gemma PPO, legal-token mask, advantage operator, opening and live-advantage logs \\
+\texttt{environment.py} & \texttt{inner\_rollout} / \texttt{outer\_rollout}, reused verbatim from ShapeLLM \\
 \bottomrule
 \end{tabularx}
 \end{table}
 
-\section{Entry points}
+\section{Entry points and launcher}
 
-\paragraph{\texttt{finetuning\_cpr.py}.}
-Two PPO learners (naive--naive or naive--shaper).
-Extra work: serialise \texttt{game.records} (per-step \(R\), requests,
-receipts).
-Without that file, survival and mix metrics are not recoverable from the
-reused logger.
+\texttt{finetuning\_cpr.py} trains two learners (naive--naive,
+slow-LR, info-off, naive--shaper); \texttt{finetuning\_cpr\_fixed.py}
+trains one learner against a frozen partner (Tests~A/B, transfer).
+Both re-seed after the trainer is constructed
+(Chapter~\ref{ch:method}), name experiments by seed, and write the
+epoch-1 openings so that seed independence can be checked while a run is
+in progress.
+Per run they serialise the step records (\(R\), requests, receipts,
+collapse, mask), the opening advantages, the live advantages, and the
+training statistics; without the records none of the survival or
+policy readouts is recoverable.
 
-\paragraph{\texttt{finetuning\_cpr\_fixed.py}.}
-Tests~A/B only.
-One \texttt{PPOAgent} versus \texttt{ConstantActionAgent}.
-Reuses \texttt{outer\_rollout} unchanged.
-\texttt{fixed\_partner\_action} in the JSON is 2~(A) or 1~(B).
-Prints epoch mix via \texttt{\_print\_epoch\_summary}, opening A0
-(\texttt{\_print\_opening\_a0}), and live raw GAE by action
-(\texttt{\_print\_live\_a\_raw}).
-Writes \texttt{opening\_a0.json} and \texttt{live\_adv.json} beside
-records.
+\texttt{scripts/run\_cpr.sh} asserts \texttt{trl} 0.11.4, runs the
+linear fixture and the test suite, checks that the configuration is the
+locked logistic point, and launches one configuration; its \texttt{grid}
+mode takes the stage, arm, operator and seed from the environment and
+\texttt{scripts/launch\_grid.sh} fans seeds out over GPUs.
+\texttt{scripts/make\_grid\_configs.py} derives every grid configuration
+from the executed Stage~B files so that arms differ in exactly one key.
 
-Do not reuse \texttt{finetuning\_fixed\_opponent.py} (matrix-game ShapeLLM
-entry, not CPR).
+\section{Analysis scripts}
 
-\section{Launcher}
+Every number in the design and results chapters is produced by a script
+from the records or the dynamic programme.
+\texttt{cpr\_xi.py} prints the values of Tables~\ref{tab:noise-dp}
+and~\ref{tab:dp3}.
+\texttt{scripts/evaluate\_grid.py} reads one stage of the grid and writes
+the per-arm, paired-ladder and \(\hat{\pi}(a\mid R)\) tables, the
+learning curves, and a JSON summary of every hypothesis readout;
+Chapter~\ref{ch:results} inputs those files.
+\texttt{scripts/audit\_seeds\_and\_scale.py} reproduces the seed-identity
+and advantage-scale audit; \texttt{scripts/check\_seed\_divergence.py}
+is the launch gate; \texttt{scripts/make\_a0\_table.py} produces the
+per-epoch opening-advantage table.
 
-\texttt{scripts/run\_cpr.sh} selects config, output directory, seeds,
-epochs, and entry point.
-Before launch it:
+\section{Tests}
 
-\begin{enumerate}
-\item Asserts \texttt{trl==0.11.4}.
-\item Runs \texttt{verify\_cpr.py} as the \textbf{linear} fixture
-  (deliberate).
-\item Asserts the chosen config is logistic \textbf{and} equal to
-  \texttt{LOGISTIC} (refuses linear training and refuses a drifted
-  logistic point).
-\item Runs \texttt{pytest tests/}.
-\item Creates \texttt{adapter/cpr\_learner\_r2} (and
-  \texttt{cpr\_shaper\_r2} when not a Test~A/B mode) if missing.
-\end{enumerate}
-
-Modes that exist in the script include \texttt{smoke}, \texttt{stageA},
-\texttt{stageA\_shaper}, \texttt{testA}, \texttt{testB},
-\texttt{testA\_a0}, \texttt{testB\_a0}, \texttt{testA\_center},
-\texttt{baseline}, and \texttt{shaper}.
-Centred two-learner configs are
-\path{configs/cpr_naive_naive_center.json},
-\path{configs/cpr_naive_shaper_center.json}, and
-\path{configs/cpr_naive_shaper_center_info_off.json}.
-Which of those have been \textbf{executed} as thesis runs is listed in
-Chapter~\ref{ch:design}.
-The launcher is not itself a result.
-Old \texttt{baseline} / \texttt{shaper} JSON still points at entropy 0.15
-and default whitening; those files are not the live protocol.
-
-Supporting scripts: \texttt{scripts/cpr\_preflight.py} (token ids versus
-loaded tokenizer; untrained action distribution);
-\texttt{scripts/analyse\_cpr\_run.py} (\texttt{std\_score} / value\_loss /
-mix gates on a checkpoint folder).
-
-\section{Tests as lock evidence}
-
-\texttt{run\_cpr.sh} runs the full \texttt{tests/} suite.
-The suite is the criterion-4 pin of the live lock, not a file dump.
-
+The suite runs before every launch.
 \begin{itemize}
-\item \texttt{test\_cpr\_env.py} --- linear 16-cell parity with
-  \texttt{verify\_cpr.py}; scarcity, cap-0, absorbing zero, exact
-  depletion; logistic headlines \((1,1)=36\) lives, \((2,2)=7\) dies
-  round~4, \((3,3)=5\) dies round~2.
-\item \texttt{test\_logistic\_cpr.py} --- half-even rounding; no interior
-  freeze at rate \(9/10\), \(K=40\); scout table matches
-  \texttt{CPRDynamics}.
-\item \texttt{test\_cpr\_game.py} --- NaN masking versus records zeros;
-  \texttt{outer\_rollout} trial; frozen always-2 / always-1 payoffs
-  \(36/7/72\).
-\item \texttt{test\_cpr\_observations.py} --- previous-round line moves;
-  requests \(\neq\) receipts under scarcity; Gemma tags; naive reset
-  versus shaper trial memory.
-\item \texttt{test\_opening\_log.py} --- opening index; center keeps the
-  raw gap that whitening shrinks.
-\item \texttt{test\_action\_sampling.py} --- illegal-token redraw.
-\item \texttt{test\_cpr\_solve.py} --- integer tables from dynamics;
-  constant-matrix cells.
+\item \texttt{test\_cpr\_env.py}, \texttt{test\_logistic\_cpr.py},
+  \texttt{test\_cpr\_solve.py}: harvest, scarcity, cap-0, exact
+  depletion and absorbing zero; half-even rounding; no interior freeze at
+  the lock; the constant-pair cells \(36/7/72\).
+\item \texttt{test\_cpr\_xi.py}: \(\xi=1\) is bit-identical to Stage~A;
+  constant-pair invariance under i.i.d.\ tables; the best-response
+  Q-vectors and joint optima of Table~\ref{tab:noise-dp}; the binomial
+  kernel's mean identity and broken invariance; noise-table prefix
+  invariance across lengths.
+\item \texttt{test\_cpr\_eval.py}: every estimator against records
+  simulated from policies of known value, the Wilson examples of
+  \eqref{eq:wilson}, paired sign agreement, first-majority and
+  stationarity, the DP anchors, and the LaTeX emitters.
+\item \texttt{test\_cpr\_game.py} and \texttt{test\_cpr\_observations.py}:
+  NaN masking against record zeros; prompt rendering.
+\item \texttt{test\_opening\_log.py} and \texttt{test\_action\_sampling.py}:
+  opening index and the centre/whiten operators; illegal-token redraw.
 \end{itemize}
-
-Checkpoints and adapters are gitignored.
-The experimental record is \texttt{docs/LIVE\_FACTS.md}.
+Checkpoints and adapters are not tracked; the experimental record is
+\texttt{docs/LIVE\_FACTS.md} and the pre-registration is
+\texttt{docs/EXPERIMENT\_PLAN.md}.

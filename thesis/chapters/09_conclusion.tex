@@ -1,62 +1,59 @@
 \chapter{Conclusion}
 \label{ch:conc}
 
-\section{RQ1 --- structure}
+% Results-dependent paragraphs are marked; they are written from
+% Section~\ref{sec:grid-results} once the grid has run.
 
-A sequential integer CPR can be specified so that a linear-regrowth grid
-is a dead learning problem against a take-2 opponent, and a logistic lock
-has an interior dilemma that a peaked digit prior actually hits.
-The live game is chicken: \((1,1)\) lives, \((2,2)\) dies around round~4,
-hawk versus dove scores 72.
-Mutual take-1 is not the joint optimum (\(W^{*}=210\) in Stage~A).
-Leave-2 is a statistic for a near-constant prior class; opening 0 and
-opening 1 versus a hawk are different basins.
+\section{Structure}
 
-\section{RQ2 --- advantage normalisation}
+The two-player integer logistic CPR is the mean-field reduction of
+Commons Harvest, solvable exactly, and under constant strategies it is a
+chicken game: mutual restraint lives, mutual take-2 dies, and the
+asymmetric hawk--dove profiles are the strict equilibria.
+Its exact solution answers the first question before any training run.
+In the deterministic game a naive learner already leaves the collapsing
+opening against a hawk, the continuation after a safe opening is a
+constant action, and a committed hawk gains at most one unit from
+anything a shaper could induce; a shaping experiment there is unpowered
+by construction.
+Under a mean-one multiplicative shock on the growth increment, chosen so
+that the constant-strategy cells are invariant, the continuation becomes
+a stock-conditioned decision, the hawk's stake in its partner's feedback
+rule is 36 units and its ceiling against a partner it has taught to
+restrain is 105.5, and the joint optimum and every safe policy are
+constant-escapement rules in Reed's sense.
+That is why the thesis moves from Stage~A to Stage~B, and it is a result
+of the dynamic programme, not an assumption.
 
-Against a frozen hawk, seed-fixed centre-only advantages left opening 2
-on three independent L40S seeds by epoch 8.
-Whitening left on a longer and more variable schedule (majority at
-epochs 15, 7, 13); the slow seed locked only after epoch 23 on a
-30-epoch continuation.
-Do not write that whitening always keeps the death-open.
-They differ by \(1/\sigma_{\mathcal{B}}\), measured per update at
-\(13\)--\(15\); under Adam that is a reweighting of the policy gradient
-against the critic, the entropy bonus and the other batches, not a
-larger step \eqref{eq:logit-update}.
-In the pre-fix MPS run that stayed on opening 2 the post-operator
-advantage of opening 2 never turned negative, because no batch contained
-a surviving game to compare against.
-The prior yields on the first action; it does not become a tape-wide
-take-1 habit.
-Against a frozen dove the learner does not copy take-1.
-The finding is a precondition for opponent shaping on this stack, not a
-shaping result: two-learner runs use mean-centring so that leave-2 is
-visible inside 15 epochs.
-It is not claimed for other models or environments.
+\section{Shaping}
 
-\section{RQ3 --- opponent shaping}
+% [Pending: written from H-A and H-B1--H-B4 in Section~\ref{sec:grid-results}.]
+The pilots established what the grid had to fix: the operator leaves the
+collapsing opening on a longer schedule under whitening than under
+centring; nominal seeds had shared one sampling stream; and, once the
+seeds were independent, the fifteen-epoch contrast between the shaper and
+a merely slow partner had mixed sign on every readout.
+The grid's answer to the second question is reported against the ladder
+in Chapter~\ref{ch:results}.
 
-Two centred learners split hawk--dove.
-Who doves swapped under matched-LR naive--naive and did not under the
-shaper (info-on and info-off) or under a slow-LR naive--naive control
-that matches the shaper's learning rate and clip.
-On one 50-epoch seed the matched naive pair opened \((1,1)\) and agent 2
-earned \(98.1\), in the direction of the \((1,1)\)-then-\((2,3)\) cell;
-the matched shaper pair earned about \(143\) joint against that pair's
-\(167\).
-One seed each.
+\section{Transfer}
 
-Under Stage~B \(\xi\), pre-fix Test~A seeds 0 and 2 opened 0 (the
-\(0.80\)-survival exit versus a hawk) and did not learn stock-conditioned
-feedback; that arm was not repeated after the seed fix.
-Paired on the same noise tables after the fix, naive--shaper versus
-slow2 is mixed: agent-1 leave-2 last3 \(96/44/33\%\) versus
-\(69/76/27\%\), last-epoch return \(49.7/29.0/12.3\) versus
-\(44.8/52.9/13.0\); both agent 2s stay mostly on 2.
-Learning rate and clip are matched, trial update and prompt are not.
-The 36-unit DP interest in feedback restraint was not collected.
-H3 as a shaper-return and more-reliable-dove inequality fails at three
-independent seeds.
+% [Pending: written from H-T in Section~\ref{sec:grid-results}.]
 
-Code: \url{https://github.com/codalexl/cpr-shape-llm}.
+\section{What was learned about the method}
+
+Three findings about the training loop stand independently of the grid.
+A library reseed in the PPO trainer silently replaced the experiment's
+seed, so that replicate counts in earlier drafts overstated the evidence;
+the audit script that found it is part of the repository.
+The reward carries an adaptive KL penalty to the reference model that
+earlier drafts did not name and that defends the digit prior the learner
+starts from.
+Under Adam the difference between whitened and centred advantages is not
+a step size but a reweighting of the policy gradient against the critic,
+the entropy bonus and the other batches, and the run that stayed on the
+collapsing opening is the one whose batches never contained a survivor to
+compare against.
+
+Code, records, noise tables and every script that produced a number in
+this report: \url{https://github.com/codalexl/cpr-shape-llm}.

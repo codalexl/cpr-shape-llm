@@ -1,6 +1,396 @@
 \chapter{Results}
 \label{ch:results}
 
+This chapter has two parts.
+Section~\ref{sec:pilot-results} reports the fifteen-epoch pilot runs
+that fixed the design (Section~\ref{sec:pilots}); their numbers are
+correct records of what happened but their seeds, platforms and lengths
+are those of pilots, and no claim of the thesis rests on them alone.
+Section~\ref{sec:grid-results} reports the final grid against the
+hypotheses of Section~\ref{sec:hypotheses}.
+
+\section{Pilot runs}
+\label{sec:pilot-results}
+
+\subsection{Executed runs}
+\label{sec:executed-fixed}
+
+\subsubsection{Test A, whitened (\texttt{advantage\_norm=whiten})}
+
+Config: \path{configs/cpr_testA_always2.json}.
+Partner: frozen always-2.
+Folders: \path{checkpoints/cpr_log_testA_always2} (run) and
+\path{checkpoints/cpr_log_testA_a0} (same Test~A with opening A0
+logged --- the A0 photograph).
+
+Outcomes:
+\begin{itemize}
+\item Opening-step critic: raw A0 \(\mathbf{+39.8}\) on 1 versus
+  \(\mathbf{+6.2}\) on 2.
+\item After batch whitening, A0 \(\mathbf{+1.38}\) versus
+  \(\mathbf{+0.75}\).
+\item Policy still peaked on 2.
+  Take-1 live-step \(\mathbf{6\% \to 3\%}\).
+  Survival \(\mathbf{28/225}\).
+\item Open-1 share: about \(\mathbf{27\%}\) floor, falling
+  (epoch \(1 \to 15\)).
+\item Take-1 live-step at epoch 15: \(\mathbf{3\%}\).
+\end{itemize}
+
+Read \textbf{openings}, not only live-step mix: after a first 1,
+\(R\colon 8\to 9\) and \((2,2)\) is a fixed point, so a surviving policy
+can be mostly 2s on the tape while every game opened 1.
+
+\subsubsection{Test B, whitened}
+
+Config: \texttt{configs/cpr\_testB\_always1.json}.
+Partner: frozen always-1.
+Opening A0 also logged (\texttt{testB\_a0}).
+
+Outcomes: survival \(\mathbf{219/225}\); opening 1 and opening 2 received
+the same star; mix \(\mathbf{80\% \to 38\%}\) on 2,
+\(\mathbf{18\% \to 62\%}\) on 3.
+
+Versus a dove, constant-2 pays 72 and lives; constant-1 pays 36.
+There is no 64-versus-7 basin that would force copy-1.
+
+\subsubsection{Test A, centered (\texttt{advantage\_norm=center})}
+
+Config: \texttt{configs/cpr\_testA\_center.json}.
+Same seed family as whitened Test~A.
+Mean-subtract, no \texttt{/std}.
+Folder: \texttt{checkpoints/cpr\_log\_testA\_center}.
+15 epochs, frozen always-2.
+
+Table~\ref{tab:whiten-vs-center} is the whitened-versus-centre contrast on
+that seed family.
+
+\begin{table}[ht]
+\centering
+\small
+\caption{Test~A outcomes under batch whitening versus centre-only
+  advantages (same seed family, frozen always-2).
+  Open-1 share is the primary readout; live-step take-1 is not.}
+\label{tab:whiten-vs-center}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.4cm}XX}
+\toprule
+ & Whitened Test A & Center Test A \\
+\midrule
+Take-1 live-step, epoch 15 & 3\% & 9\% \\
+Open-1 share, epoch \(1 \to 15\) &
+  \(\sim 27\%\) floor, falling &
+  \(\mathbf{27\% \to 87\%}\) (100\% at epoch 12) \\
+Survival & 28/225 &
+  epoch 1: 2/15; epoch 12: \(\mathbf{15/15}\); epoch 15: 13/15 \\
+Open-1 A0 (what PPO saw) & +1.38 whitened &
+  \(\mathbf{+16.7}\) centered (raw still \(\sim +40\)) \\
+Open-2 A0 & +0.75 & \(\mathbf{-5.7}\) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Later 2s still have large \emph{raw} GAE (smear).
+After centering they sit near 0; openings of 1 do not.
+
+Run extras: take-3 live-step \(\mathbf{8.5\% \to 0\%}\); survival
+\(\mathbf{134/225}\); last three epochs \(\mathbf{41/45}\) openings were
+1.
+
+\subsubsection{Test B, centered}
+
+Config: \path{configs/cpr_testB_center.json}.
+Folder: \path{checkpoints/cpr_log_testB_center}.
+Frozen always-1, seed 0.
+
+Outcomes: survival \(\mathbf{223/225}\); live mix \(\mathbf{98\%}\) on 2;
+open-1 share \(\mathbf{13\% \to 13\%}\) (2/15 last epoch).
+Did not copy-1.
+Opening A0 on 1 and 2 both large and similar (centred \(\sim +20\) /
+\(+22\)).
+
+\subsubsection{Test A center, extra seeds}
+
+Folder: \texttt{checkpoints/cpr\_log\_testA\_center\_s12}
+(\texttt{exp1\_} seed 1, \texttt{exp2\_} seed 2).
+
+\begin{itemize}
+\item Seed 1: open-1 \(\mathbf{27\% \to 93\%}\), survival
+  \(\mathbf{113/225}\), last epoch 14/15 opened 1.
+\item Seed 2: open-1 \(\mathbf{27\% \to 7\%}\), survival
+  \(\mathbf{160/225}\), last epoch \(\mathbf{14/15}\) opened 0.
+\end{itemize}
+
+Same center flag, same frozen hawk.
+Heterogeneity is a recorded outcome, not a claim.
+These extra seeds are the pre-fix family (shared sampling stream;
+Chapter~\ref{ch:method}).
+
+\subsubsection{Seed-fixed Test A, centre and whitened (8--9 Sep, all L40S)}
+
+After the trainer reseed fix.
+Configs \path{configs/cpr_testA_center.json} and
+\path{configs/legacy/cpr_testA_always2.json}.
+Folders \path{checkpoints/cpr_log_testA_center_reseed} and
+\path{checkpoints/cpr_log_testA_whiten_reseed}, three seeds \(\times\) 15
+epochs; plus whitened seed~0 for 30 epochs
+(\path{checkpoints/cpr_log_testA_whiten_reseed_e30}).
+
+Identity of agent-1 openings in epochs 1--5: centre pairs \(0.56\)--\(0.61\),
+whitened pairs \(0.63\) (pre-fix whitened \(s1\) vs \(s2\) was \(1.00\)).
+Outcomes are in Chapter~\ref{ch:results}.
+Table shorthand (last-open, last surv, last ret, leave-2 last3, first
+majority) is defined at the start of this chapter: last-open is the 15
+first-round harvests of epoch 15, not a count of epochs.
+Do not call epoch 15 an endpoint: the 30-epoch whitened seed~0 is the
+continuation of the 15-epoch snapshot.
+
+Figure~\ref{fig:openings} plots the first-to-last open-1 share for
+whitened Test~A and the three centred seeds, using only those endpoint
+numbers.
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  ybar,
+  bar width=8pt,
+  width=0.92\textwidth,
+  height=7.2cm,
+  ylabel={Open-1 share (\%)},
+  ymin=0, ymax=100,
+  symbolic x coords={Whitened, Center 0, Center 1, Center 2},
+  xtick=data,
+  xticklabel style={font=\small},
+  legend style={at={(0.5,1.05)}, anchor=south, legend columns=2,
+    font=\small, draw=none},
+  nodes near coords,
+  nodes near coords style={font=\scriptsize, /pgf/number format/fixed},
+  every node near coord/.append style={yshift=1pt},
+]
+\addplot coordinates {(Whitened,27) (Center 0,27) (Center 1,27) (Center 2,27)};
+\addplot coordinates {(Whitened,27) (Center 0,87) (Center 1,93) (Center 2,7)};
+\legend{Epoch 1, Epoch 15}
+\end{axis}
+\end{tikzpicture}
+\caption{Test~A open-1 share at the first and last epoch against a frozen
+  hawk.
+  Whitened last-epoch share is not recorded as a separate number; the
+  executed note is a \(\sim 27\%\) floor, falling, so the last bar repeats
+  that floor rather than inventing a lower point.
+  Centre seeds~0 and~1 rise to \(87\%\) and \(93\%\).
+  Centre seed~2 falls to \(7\%\) (last epoch almost all opening~0, not~1).
+  Survival: whitened \(28/225\); seeds \(0/1/2\): \(134/225\),
+  \(113/225\), \(160/225\).}
+\label{fig:openings}
+\end{figure}
+
+\subsection{Executed runs --- two learners}
+\label{sec:executed-two}
+
+Same lock, \texttt{advantage\_norm=center}, entropy 0.05.
+Claim statistic: share of episodes that do \textbf{not} open 2.
+Do not put unmatched epoch lengths in one versus-naive table.
+
+\subsubsection{Centred naive--naive, 15 epochs, seeds 0--2}
+
+Config \path{configs/cpr_naive_naive_center.json}.
+Folders \path{checkpoints/cpr_log_naive_naive_center} (seed 0) and
+\path{checkpoints/cpr_log_naive_naive_center_s12} (seeds 1--2).
+
+\begin{table}[ht]
+\centering
+\small
+\caption{Centred naive--naive, 15 epochs.
+  Who leaves opening 2 swaps across seeds.
+  Live mix at epoch 15 is still mostly 2s on the tape.}
+\label{tab:nn}
+\begin{tabular}{llll}
+\toprule
+ & Seed 0 & Seed 1 & Seed 2 \\
+\midrule
+Surv e1 / e15 & 2/15 / 15/15 & 2/15 / 13/15 & 2/15 / 14/15 \\
+Survived & 119/225 & 98/225 & 115/225 \\
+A1 last openings & \(15\times 0\) & \(9\times 1\), \(5\times 2\), \(1\times 3\) &
+  \(1\times 0\), \(8\times 1\), \(6\times 2\) \\
+A2 last openings & \(3\times 1\), \(12\times 2\) &
+  \(1\times 0\), \(14\times 1\) & \(13\times 1\), \(2\times 2\) \\
+A1 leave-2 first3\(\to\)last3 & \(11\%\to 96\%\) & \(7\%\to 53\%\) &
+  \(7\%\to 64\%\) \\
+A2 leave-2 first3\(\to\)last3 & \(11\%\to 29\%\) & \(16\%\to 84\%\) &
+  \(20\%\to 84\%\) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Centred naive--shaper, three seeds by 15 epochs}
+
+Config \path{configs/cpr_naive_shaper_center.json}.
+Folder \path{checkpoints/cpr_log_naive_shaper_center}.
+Agent 2: trial update, LR \(3\times 10^{-7}\), \texttt{cliprange=0.1},
+extra trial prompt on.
+
+\begin{table}[ht]
+\centering
+\small
+\caption{Centred naive--shaper, 15 epochs.
+  Who leaves 2 did not swap: agent 1 dove, agent 2 hawk on all three seeds.}
+\label{tab:ns}
+\begin{tabular}{llll}
+\toprule
+ & Seed 0 & Seed 1 & Seed 2 \\
+\midrule
+Surv e15 & 13/15 & 9/15 & 13/15 \\
+Survived & 113/225 & 120/225 & 100/225 \\
+A1 last openings & \(1\times 0\), \(13\times 1\), \(1\times 2\) &
+  \(1\times 0\), \(14\times 1\) & \(7\times 0\), \(8\times 1\) \\
+A2 last openings & \(14\times 2\), \(1\times 3\) &
+  \(2\times 1\), \(9\times 2\), \(4\times 3\) & \(14\times 2\), \(1\times 3\) \\
+A1 / A2 leave-2 last3 & \(96\%\) / \(0\%\) & \(93\%\) / \(7\%\) &
+  \(87\%\) / \(2\%\) \\
+A2 leave-2 whole run & 5\% & 5\% & 4\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Shaper 50 epochs, seed 0}
+
+Folder \path{checkpoints/cpr_log_naive_shaper_center_e50}.
+Compare to naive at epoch 15 only.
+
+Epoch 15: 13/15 survived, agent 1 \(13\times 1\), agent 2 \(14\times 2\).
+Epoch 50: 15/15, agent 1 \(15\times 1\), agent 2 \(15\times 2\).
+Whole run 572/750.
+Agent 2 opened 0 or 1 on 25/750 (3.3\%).
+No epoch with agent-2 leave-2 majority.
+
+\subsubsection{Info-off shaper, three seeds by 15 epochs}
+
+Config \path{configs/cpr_naive_shaper_center_info_off.json}.
+Trial update and LR unchanged; \texttt{transmit\_info=false}.
+
+\begin{table}[ht]
+\centering
+\small
+\caption{Centred naive--shaper with \texttt{transmit\_info=false}.
+  Who leaves 2 did not swap.
+  Agent-2 leave-2 over the whole run is 16--19\% versus 4--5\% with the
+  extra prompt.}
+\label{tab:infooff}
+\begin{tabular}{llll}
+\toprule
+ & Seed 0 & Seed 1 & Seed 2 \\
+\midrule
+Surv e15 & 14/15 & 13/15 & 14/15 \\
+Survived & 118/225 & 107/225 & 89/225 \\
+A1 last openings & \(14\times 0\) & \(1\times 0\), \(14\times 1\) &
+  \(14\times 0\), \(1\times 1\) \\
+A2 last openings & \(13\times 2\) & \(12\times 2\) & \(12\times 2\) \\
+A1 / A2 leave-2 last3 & \(96\%\) / \(18\%\) & \(89\%\) / \(22\%\) &
+  \(89\%\) / \(13\%\) \\
+A2 leave-2 whole run & 16\% & 19\% & 16\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+\subsubsection{Protocol (as executed)}
+
+Four centred configurations, \(\xi\) on, no other change:
+Test~A against a frozen hawk, naive--naive, naive--shaper, and slow-LR
+naive--naive, each three seeds \(\times\) 15 epochs of 15 games.
+Advantages are mean-centred.
+The batch-whitened variant is not repeated on this arm.
+The 6~September packet is the pre-fix family (shared seed-0 action
+stream).
+The 8--9~September packet repeats naive--shaper \(\xi\) and slow-LR
+\(\xi\) after the fix, plus a 50-epoch slow-LR \(\xi\) seed~0; Test~A
+\(\xi\) and naive--naive \(\xi\) were not repeated; naive--shaper
+\(\xi\) at 50 epochs was not obtained (OOM).
+A 30-epoch whitened Test~A (deterministic, not \(\xi\)) is in the
+seed-fixed Test~A subsection.
+The rules text was left unchanged: it does not state a regeneration
+schedule, the stock is reported every round, and the unused prompt
+clause \texttt{XI\_GROWTH\_CLAUSE} was not spliced in.
+
+For each seed a table of shape (epochs, games, rounds) is drawn once
+from a dedicated seed sequence (\texttt{cpr\_env.make\_noise\_table}),
+stored as \texttt{noise\_table.npy}, and loaded by every configuration
+on the arm.
+The draw at a given (epoch, game, round) is therefore identical across
+the four arms for the same seed, and independent of any action taken.
+That is a measurement device, not a new algorithm
+\cite{piche2025}.
+
+Exact checks live in \texttt{tests/test\_cpr\_xi.py}: mean-one
+multiplier; \(\xi=1.0\) bit-identical to Stage~A; constant-pair
+invariance under i.i.d.\ tables; absorbing zero.
+
+Folders (pre-fix):
+\path{checkpoints/cpr_log_testA_center_xi},
+\path{checkpoints/cpr_log_naive_naive_center_xi},
+\path{checkpoints/cpr_log_naive_shaper_center_xi},
+\path{checkpoints/cpr_log_naive_naive_slow2_center_xi}.
+Folders (seed-fixed):
+\path{checkpoints/cpr_log_naive_shaper_center_xi_reseed},
+\path{checkpoints/cpr_log_naive_naive_slow2_center_xi_reseed},
+\path{checkpoints/cpr_log_naive_naive_slow2_center_xi_reseed_e50}.
+A retired \(\pm 1\)-on-stock Test~A is archived; those numbers are not a
+Results table.
+
+\begin{table}[ht]
+\centering
+\small
+\caption{Stage~B GPU, three \emph{nominal} seeds \(\times\) 15 epochs
+  (pre-fix, shared action stream).
+  Report against Table~\ref{tab:noise-dp}, not only against each other.
+  Seed-fixed NS and slow2 are Table~\ref{tab:stageb-reseed}.
+  Interpretation is in Chapter~\ref{ch:results}.}
+\label{tab:stageb}
+\begin{tabular}{lp{3.4cm}p{7.4cm}}
+\toprule
+Arm & Survived (s0/s1/s2) & Leave-2 last3 \\
+\midrule
+Test~A \(\xi\) & 119, 41, 93 / 225 &
+  98\%, 64\%, 98\%.
+  Last openings \(15\times 0\) / \((10\times 1+5\times 2)\) / \(15\times 0\). \\
+NN \(\xi\) & 100, 43, 82 / 225 &
+  who-doves mixed (seed~2 a2 87\% leave-2; seed~1 both mostly 2) \\
+NS \(\xi\) & 90, 71, 75 / 225 &
+  a1 96/93/89\%; a2 0/11/11\% hawk \\
+slow2 \(\xi\) & 53, 44, 39 / 225 &
+  a2 last3 18/18/20\%; last epoch 12--13\(\times 2\) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[ht]
+\centering
+\small
+\caption{Stage~B GPU after the trainer reseed fix, three independent
+  seeds \(\times\) 15 epochs, all L40S.
+  Seed~0 of each arm is the pre-fix seed-0 tape.
+  Test~A \(\xi\) and NN \(\xi\) were not repeated.
+  Report against Table~\ref{tab:noise-dp}.}
+\label{tab:stageb-reseed}
+\begin{tabular}{lp{3.4cm}p{7.4cm}}
+\toprule
+Arm & Survived (s0/s1/s2) & Leave-2 last3 \\
+\midrule
+NS \(\xi\) reseed & 90, 44, 29 / 225 &
+  a1 96/44/33\%; a2 0/22/22\%.
+  Last3 surv \(36/45\), \(12/45\), \(5/45\). \\
+slow2 \(\xi\) reseed & 53, 61, 34 / 225 &
+  a1 69/76/27\%; a2 18/13/22\%.
+  Last3 surv \(21/45\), \(24/45\), \(8/45\). \\
+slow2 \(\xi\) e50 s0 & 443/750 &
+  last-open a1 \(15\times 0\); a2 mixed \(6\times 1+8\times 2+1\times 3\);
+  last ret \(70.5/69.2\). \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+
 These first runs are \textbf{learner versus a frozen constant partner} on the
 locked logistic chicken (\(R_0=8\), \(K=40\), \(T=36\),
 \texttt{rate\_tenths=9}).
@@ -13,7 +403,7 @@ Default TRL \texttt{masked\_whiten} (batch mean and divide-by-std) is the
 whitened contrast.
 That difference is an implementation default, not a PPO-paper axiom.
 
-\section{What a claim is allowed to use}
+\subsection{What a claim is allowed to use}
 
 Mutual take-2 from \(R=8\) dies around round~4.
 A first-step take of \textbf{1} against a take-2 partner moves stock
@@ -52,7 +442,7 @@ Statistics, decoded for a reader who has not sat the runs
 Raw opening advantage already starred that basin.
 Under whitening the star was compressed until the prior won on count.
 
-\section{Test A --- frozen hawk (always 2)}
+\subsection{Test A --- frozen hawk (always 2)}
 
 \textbf{Whitened.}
 Live take-1 fell \(6\%\to 3\%\).
@@ -254,7 +644,7 @@ The live-step mix at epoch 15 is still mostly 2s under centre (take-1
 After open-1 that is the \(R=9\) farm.
 After open-0 it is a different stock path.
 
-\section{Test B --- frozen dove (always 1)}
+\subsection{Test B --- frozen dove (always 1)}
 
 There is no opening basin.
 Open 1 and open 2 receive the same star.
@@ -280,7 +670,7 @@ Whitened greed got louder (\(2\to 3\)).
 Centred greed got cleaner (stay on 2).
 Neither is a shaping result.
 
-\section{What these robots do not license}
+\subsection{What these robots do not license}
 
 A frozen hawk is not two learning agents.
 Centre-only Test~A does not imply that a shaper works.
@@ -295,7 +685,7 @@ opening 2 by epoch 8 on three independent seeds, rather than on whitening,
 which on this lock is slower and can still be mixed at epoch 15.
 That choice is reported as RQ2, not as a hidden extra.
 
-\section{Two learners}
+\subsection{Two learners}
 \label{sec:twolearners}
 
 Same lock, \texttt{advantage\_norm=center}, entropy 0.05.
@@ -433,7 +823,7 @@ frequencies by stock.
   Epoch 1 the shaper opened 2 while the naive still mostly opened 2.
 \end{itemize}
 
-\section{Noise arm (Stage B)}
+\subsection{Noise arm (Stage B)}
 
 Multiplicative \(\xi\in\{0.7,1.0,1.3\}\) on the growth increment.
 Numbers below are reported against Table~\ref{tab:noise-dp}.
@@ -509,3 +899,50 @@ A 50-epoch slow2 \(\xi\) seed 0 continues the 15-epoch snapshot: first
 agent-1 majority at epoch 10, last-open \(15\times 0\) versus mixed
 agent 2, last-epoch return \(70.5/69.2\), last3 survival \(37/45\).
 NS \(\xi\) at 50 epochs was not obtained.
+
+\section{Final grid}
+\label{sec:grid-results}
+
+The tables and figures in this section are written by
+\texttt{scripts/evaluate\_grid.py} from the records of the final grid
+(Chapter~\ref{ch:design}); where a file is absent the arm has not been
+run.
+\newcommand{\gridinput}[1]{\IfFileExists{tables/grid/#1}{\input{tables/grid/#1}}{\emph{[not yet run: }\texttt{\detokenize{#1}}\emph{]}}}
+
+\subsection{Checks C1 and C2}
+\gridinput{B_c2.tex}
+
+\subsection{Stage A: H-A}
+\begin{table}[ht]\centering\small
+\caption{Stage~A, last-window estimates per arm and seed (interval: Wilson 95\%; return: mean and standard error over the window's games).}
+\label{tab:grid-A-arms}
+\resizebox{\textwidth}{!}{\gridinput{A_arms.tex}}
+\end{table}
+\begin{table}[ht]\centering\small
+\caption{Stage~A, paired ladder differences \(\Delta_s\) with sign agreement over seeds.}
+\label{tab:grid-A-rungs}
+\resizebox{\textwidth}{!}{\gridinput{A_rungs.tex}}
+\end{table}
+
+\subsection{Stage B: the ladder, H-B1 to H-B4}
+\begin{table}[ht]\centering\small
+\caption{Stage~B, last-window estimates per arm and seed.}
+\label{tab:grid-B-arms}
+\resizebox{\textwidth}{!}{\gridinput{B_arms.tex}}
+\end{table}
+\begin{table}[ht]\centering\small
+\caption{Stage~B, paired ladder differences \(\Delta_s\) with sign agreement over seeds.}
+\label{tab:grid-B-rungs}
+\resizebox{\textwidth}{!}{\gridinput{B_rungs.tex}}
+\end{table}
+\begin{figure}[ht]\centering
+\IfFileExists{figures/grid/B_curves.pdf}{\includegraphics[width=\textwidth]{figures/grid/B_curves.pdf}}{\emph{[not yet run: B\_curves.pdf]}}
+\caption{Stage~B learning curves: survival, agent-1 return and agent-1 low-stock restraint per epoch, one line per seed, colour per arm.}
+\label{fig:grid-B-curves}
+\end{figure}
+
+\subsection{Transfer: H-T}
+\gridinput{B_transfer.tex}
+
+\subsection{Sensitivity}
+\gridinput{sensitivity.tex}

@@ -33,19 +33,24 @@ ARMS = ["testA", "nn", "slow2", "infooff", "ns", "transfer"]
 LADDER = [("H-B1 stationarity", "slow2", "nn"), ("H-B2 trial objective", "infooff", "slow2"),
           ("H-B3 trial prompt", "ns", "infooff"), ("H-B overall", "ns", "nn"), ("shaper vs slow-LR", "ns", "slow2")]
 
-LEGACY = {  # 15-epoch centred pilots; exp index k -> seed k-1 already holds for these folders
+LEGACY = {  # 15-epoch centred pilots; exp index k -> seed k-1 holds for these folders
     "A": {"testA": "cpr_log_testA_center", "nn": "cpr_log_naive_naive_center", "slow2": "cpr_log_naive_naive_slow2",
           "infooff": "cpr_log_naive_shaper_center_info_off", "ns": "cpr_log_naive_shaper_center"},
     "B": {"testA": "cpr_log_testA_center_xi", "nn": "cpr_log_naive_naive_center_xi",
           "slow2": "cpr_log_naive_naive_slow2_center_xi", "ns": "cpr_log_naive_shaper_center_xi"},
 }
+RESEED = {  # 8-9 Sep, after the trainer reseed fix, all L40S; seed 0 of B arms is the pre-fix seed-0 tape
+    "A": {"testA": "cpr_log_testA_center_reseed"},
+    "B": {"testA": "cpr_log_testA_center_xi", "nn": "cpr_log_naive_naive_center_xi",
+          "slow2": "cpr_log_naive_naive_slow2_center_xi_reseed", "ns": "cpr_log_naive_shaper_center_xi_reseed"},
+}
 
 
-def load_arms(stage, op, legacy):
+def load_arms(stage, op, legacy, reseed=False):
     arms = {}
     for arm in ARMS:
-        if legacy:
-            name = LEGACY[stage].get(arm)
+        if legacy or reseed:
+            name = (RESEED if reseed else LEGACY)[stage].get(arm)
             folder = ROOT / "checkpoints" / name if name else None
         else:
             folder = ROOT / "checkpoints" / "grid" / f"{stage}_{arm}_{op}"
@@ -96,14 +101,15 @@ def main():
     ap.add_argument("--stage", choices=["A", "B"], required=True)
     ap.add_argument("--op", default="whiten")
     ap.add_argument("--window", type=int, default=20)
-    ap.add_argument("--legacy", action="store_true")
+    ap.add_argument("--legacy", action="store_true", help="pre-fix 15-epoch centred pilots")
+    ap.add_argument("--reseed", action="store_true", help="seed-fixed 15-epoch centred pilots (8-9 Sep)")
     ap.add_argument("--out", default="results/grid")
     a = ap.parse_args()
 
     out = ROOT / a.out
     (out / "tables").mkdir(parents=True, exist_ok=True); (out / "figures").mkdir(exist_ok=True)
     anchors = ev.dp_anchors(a.stage)
-    arms = load_arms(a.stage, a.op, a.legacy)
+    arms = load_arms(a.stage, a.op, a.legacy, a.reseed)
     if not arms:
         raise SystemExit("no runs found")
     W = a.window
