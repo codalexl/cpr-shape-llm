@@ -104,6 +104,7 @@ def main():
     ap.add_argument("--legacy", action="store_true", help="pre-fix 15-epoch centred pilots")
     ap.add_argument("--reseed", action="store_true", help="seed-fixed 15-epoch centred pilots (8-9 Sep)")
     ap.add_argument("--out", default="results/grid")
+    ap.add_argument("--copy-to-thesis", action="store_true", help="also copy tables/figures into thesis/tables/grid and thesis/figures/grid")
     a = ap.parse_args()
 
     out = ROOT / a.out
@@ -151,8 +152,33 @@ def main():
     (out / f"{a.stage}_summary.json").write_text(json.dumps(jsonable(summary), indent=2))
     (out / "tables" / f"{a.stage}_arms.tex").write_text(ev.latex_arm_table(arms, W, anchors["W_star"]))
     (out / "tables" / f"{a.stage}_rungs.tex").write_text(ev.latex_paired_table(rungs))
+    if "C2" in summary["hypotheses"]:
+        (out / "tables" / f"{a.stage}_c2.tex").write_text(ev.latex_c2_table(summary["hypotheses"]["C2"], anchors))
+    if "H-T" in summary["hypotheses"]:
+        (out / "tables" / f"{a.stage}_transfer.tex").write_text(ev.latex_paired_table({"H-T": summary["hypotheses"]["H-T"]}))
+    # sensitivity block (plan section 4): live setting = Stage B testA seed 0 / ns seed 0, alternatives = sens_* folders
+    sens_rows = []
+    live = {"B_testA": arms.get("testA", []), "B_ns": arms.get("ns", [])}
+    for name, label in (("B_testA_ent0", "entropy 0"), ("B_testA_vf01", r"$c_v=0.1$"),
+                        ("B_testA_kl2", "KL 2.0, target 1"), ("B_ns_lr141", r"shaper LR $1.41\times 10^{-6}$")):
+        folder = ROOT / "checkpoints" / "grid" / f"sens_{name}"
+        runs = ev.discover_runs(folder, name) if folder.exists() else []
+        if runs:
+            sens_rows.append((label, runs[0]))
+    if sens_rows and a.stage == "B":
+        base_rows = [("live setting, Test A seed 0", r) for r in live["B_testA"][:1]] + [("live setting, naive--shaper seed 0", r) for r in live["B_ns"][:1]]
+        (out / "tables" / "sensitivity.tex").write_text(ev.latex_sensitivity_table(base_rows + sens_rows, W, anchors))
     curves_figure(arms, out / "figures" / f"{a.stage}_curves.pdf", a.stage)
 
+    if a.copy_to_thesis:
+        import shutil
+        (ROOT / "thesis" / "tables" / "grid").mkdir(parents=True, exist_ok=True)
+        (ROOT / "thesis" / "figures" / "grid").mkdir(parents=True, exist_ok=True)
+        for f in (out / "tables").glob(f"{a.stage}_*.tex"):
+            shutil.copy(f, ROOT / "thesis" / "tables" / "grid" / f.name)
+        if (out / "tables" / "sensitivity.tex").exists():
+            shutil.copy(out / "tables" / "sensitivity.tex", ROOT / "thesis" / "tables" / "grid" / "sensitivity.tex")
+        shutil.copy(out / "figures" / f"{a.stage}_curves.pdf", ROOT / "thesis" / "figures" / "grid" / f"{a.stage}_curves.pdf")
     print(f"stage {a.stage}, window {W}, arms: " + ", ".join(f"{k}({len(v)} seeds)" for k, v in arms.items()))
     for name, d in rungs.items():
         for key, p in d.items():

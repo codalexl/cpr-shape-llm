@@ -365,3 +365,30 @@ def latex_pi_table(counts: np.ndarray, R_range: Iterable[int]) -> str:
         rows.append(f"{R} & {n} & " + " & ".join(f"{counts[R, a] / n:.2f}" for a in range(4)) + r" \\")
     rows += [r"\bottomrule", r"\end{tabular}"]
     return "\n".join(rows) + "\n"
+
+
+def latex_c2_table(c2: dict, anchors: Dict[str, float]) -> str:
+    """C2 per seed: low-stock restraint, survival given a restrained opening, return, against the DP cells."""
+    rows = [r"\begin{tabular}{lrrrl}", r"\toprule",
+            r"Seed & $\hat L_1(R<12)$ & $\widehat{\Pr}(S=1\mid a_{1,1}\ne 2)$ & $\hat G_1$ & C2 \\", r"\midrule"]
+    for seed, d in sorted(c2.items()):
+        lo, hi = d["leave2_low_ci"]; slo, shi = d["surv_given_leave2_ci"]
+        rows.append(f"{seed} & {d['leave2_low']:.2f} [{lo:.2f}, {hi:.2f}] & {d['surv_given_leave2']:.2f} [{slo:.2f}, {shi:.2f}] & "
+                    f"{d['return']:.1f} ({d['return_se']:.1f}) & {'holds' if d['passes'] else 'fails'} \\\\")
+    rows += [r"\midrule",
+             f"DP cells & 1.00 (feedback rule) & {anchors['hawk_vs_restrain_once_survival']:.2f} / 1.00 & "
+             f"{anchors['hawk_vs_restrain_once_return_dove']:.1f} / {anchors['hawk_vs_feedback_return_dove']:.1f} & \\\\",
+             r"\bottomrule", r"\end{tabular}"]
+    return "\n".join(rows) + "\n"
+
+
+def latex_sensitivity_table(rows: List[Tuple[str, "Run"]], window: int, anchors: Dict[str, float]) -> str:
+    """One row per sensitivity run: the C2 triple at the live setting and at the alternative."""
+    out = [r"\begin{tabular}{lrrr}", r"\toprule",
+           r"Setting & $\hat L_1(R<12)$ & $\widehat{\Pr}(S=1\mid a_{1,1}\ne 2)$ & $\hat G_1$ \\", r"\midrule"]
+    for name, r in rows:
+        ws = r.last(window)
+        k, n = ws.leave2_low[0]; ks, ns = ws.surv_given_leave2[0]
+        out.append(f"{name} & {fmt_ci(k, n)} & {fmt_ci(ks, ns)} & {ws.ret[0][0]:.1f} ({ws.ret[0][1]:.1f}) \\\\")
+    out += [r"\bottomrule", r"\end{tabular}"]
+    return "\n".join(out) + "\n"
