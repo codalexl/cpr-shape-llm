@@ -152,3 +152,15 @@ def test_best_response_vs_feedback_dove():
     v_det, _ = best_response_vs(feedback_low(12), xi=(10,))
     v_xi, _ = best_response_vs(feedback_low(12))
     assert v_det >= 72.0 and v_xi >= 72.0
+
+
+def test_noise_table_prefix_is_length_invariant():
+    from cpr_game import CPRGame, CPRGameParams
+    from cpr_observation_managers import CPRObservationManagerConfig
+    toks = [235276, 235274, 235284, 235304]
+    gp = CPRGameParams(t_max=36, e_max=5, n_games=3, R0=8, g=0, ceiling=40, rate_tenths=9, xi_tenths=[7, 10, 13])
+    oc = CPRObservationManagerConfig(action_toks=toks, action_strings=["0", "1", "2", "3"], is_shaper=False, R0=8, model_name="gemma-2b")
+    g100 = CPRGame(gp, oc, oc); g200 = CPRGame(gp, oc, oc); g15 = CPRGame(gp, oc, oc)
+    a = g100.attach_noise_table(3, 100); b = g200.attach_noise_table(3, 200); c = g15.attach_noise_table(3, 15)
+    assert a.shape == (100, 15, 36) and b.shape == (200, 15, 36) and c.shape == (15, 15, 36)
+    assert np.array_equal(a, b[:100]) and np.array_equal(c, b[:15])

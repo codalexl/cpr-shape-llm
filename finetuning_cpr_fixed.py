@@ -42,11 +42,23 @@ def main():
     parser.add_argument("--seed_start", type=int, default=0)
     parser.add_argument("--no_epochs", type=int, default=15)
     parser.add_argument("--checkpoint_freq", type=int, default=0)
+    parser.add_argument("--partner_adapter", type=str, default=None,
+                        help="Transfer arm: path to a saved adapter; agent 2 is that policy, frozen. "
+                             "Overrides config key frozen_partner_adapter.")
     args = parser.parse_args()
 
     full_config = load_from_json(args.config_path)
-    partner_action = _validate(full_config)
-    print(f"Fixed partner: learner vs frozen always-{partner_action}")
+    partner_adapter = args.partner_adapter or full_config.get("frozen_partner_adapter")
+    partner_cfg = None
+    if partner_adapter:
+        assert "ppo_agent_parameters2" in full_config, "transfer config needs ppo_agent_parameters2"
+        p2 = dict(full_config["ppo_agent_parameters2"]); p2["adapter_path"] = partner_adapter
+        partner_cfg = AgentConfig(**p2)
+        partner_action = -1
+        print(f"Transfer arm: learner vs frozen adapter {partner_adapter}")
+    else:
+        partner_action = _validate(full_config)
+        print(f"Fixed partner: learner vs frozen always-{partner_action}")
 
     game_params = CPRGameParams(**full_config["game_parameters"])
     obs1 = CPRObservationManagerConfig(**full_config["obs_manager_parameters1"])
@@ -57,12 +69,17 @@ def main():
     experiment_path = lambda x: f"{args.saving_path}/exp{x}_"
     print("Ready to start experiments")
 
-    for ind in range(1, args.n_seeds + 1):
-        seed = args.seed_start + ind - 1
+    for seed in range(args.seed_start, args.seed_start + args.n_seeds):
+        ind = seed + 1  # exp index is seed + 1 so per-seed launches into one folder never collide
         set_seed(seed)
         print(f"RNG seed {seed} → {experiment_path(ind)}")
         learner = PPOAgent(learner_cfg)
-        partner = ConstantActionAgent(partner_action, action_toks=toks)
+        if partner_adapter:
+            from cpr_bots import FrozenAdapterAgent
+            partner = FrozenAdapterAgent(partner_cfg, adapter_path=partner_adapter)
+            print(f"Frozen adapter partner: {partner_adapter} (is_shaper={partner.is_shaper})")
+        else:
+            partner = ConstantActionAgent(partner_action, action_toks=toks)
         # TRL 0.11.4 PPOTrainer.__init__ calls transformers.set_seed(config.seed) with the
         # PPOConfig default seed=0, which silently resets the global RNG that the sampler
         # uses. Every experiment before this line was therefore drawn from the seed-0
@@ -81,6 +98,12 @@ def main():
             del traj1, traj2
             _print_epoch_summary(game, epoch)
             _print_opening_a0(learner, epoch)
+            if epoch == 0:
+                # Seed-divergence check reads this before the run finishes (scripts/check_seed_divergence.py).
+                _rows = game.records
+                _open = [(int(_rows["request_1"][i]), int(_rows["request_2"][i]))
+                         for i in range(len(_rows["epoch"])) if int(_rows["epoch"][i]) == 0 and int(_rows["step"][i]) == 1]
+                save_to_json({"seed": seed, "openings": _open}, experiment_path(ind) + "epoch1_openings")
             _print_live_a_raw(learner, epoch)
             if args.checkpoint_freq and (
                 ((epoch + 1) % args.checkpoint_freq) == 0 or epoch == args.no_epochs - 1

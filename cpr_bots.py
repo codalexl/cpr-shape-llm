@@ -35,3 +35,35 @@ class ConstantActionAgent:
 
     def update_vf_coef(self) -> None:
         pass
+
+
+class FrozenAdapterAgent:
+    """A trained policy used as a non-learning partner (transfer arm, H-T).
+
+    Wraps a PPOAgent built from a saved adapter checkpoint; `update_parameters`
+    is a no-op so the policy never changes. `is_shaper` follows the config so
+    the observation manager renders the prompt the policy was trained with
+    (trial counts and episode summaries for a shaper), and outer_rollout
+    treats it accordingly.
+    """
+
+    def __init__(self, config, adapter_path: str):
+        from agents import PPOAgent  # lazy: agents imports trl
+        config.adapter_path = adapter_path
+        self._agent = PPOAgent(config)
+        self.agent_id = self._agent.agent_id
+        self.is_shaper = self._agent.is_shaper
+        self.legal_tokens = self._agent.legal_tokens
+        self.current_epoch = 0
+
+    def tokenize_observation(self, obs):
+        return self._agent.tokenize_observation(obs)
+
+    def take_action(self, query_tensors):
+        return self._agent.take_action(query_tensors)
+
+    def update_parameters(self, traj_data) -> None:
+        return None
+
+    def update_vf_coef(self) -> None:
+        return None

@@ -52,7 +52,8 @@ def main():
     ppo_agent_config1 = AgentConfig(**full_config["ppo_agent_parameters1"])
     ppo_agent_config2 = AgentConfig(**full_config["ppo_agent_parameters2"])
 
-    seeds, exp_ids = list(range(seed_start, seed_start + n_seeds)), list(range(1, n_seeds + 1))
+    # exp index is seed + 1 so that per-seed launches into one folder never collide
+    seeds = list(range(seed_start, seed_start + n_seeds)); exp_ids = [sd + 1 for sd in seeds]
     experiment_path = lambda x: f"{saving_path}/exp{x}_"
 
     print("Ready to start experiments")
@@ -93,6 +94,12 @@ def main():
 
             _print_epoch_summary(game, epoch)
             _print_opening_a0(agent1, epoch)
+            if epoch == 0:
+                # Seed-divergence check reads this before the run finishes (scripts/check_seed_divergence.py).
+                _rows = game.records
+                _open = [(int(_rows["request_1"][i]), int(_rows["request_2"][i]))
+                         for i in range(len(_rows["epoch"])) if int(_rows["epoch"][i]) == 0 and int(_rows["step"][i]) == 1]
+                save_to_json({"seed": seed, "openings": _open}, experiment_path(ind) + "epoch1_openings")
             _print_opening_a0(agent2, epoch)
             _print_live_a_raw(agent1, epoch)
             _print_live_a_raw(agent2, epoch)

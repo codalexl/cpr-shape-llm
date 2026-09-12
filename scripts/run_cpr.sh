@@ -188,8 +188,29 @@ case "$MODE" in
     OUT="checkpoints/cpr_log_naive_shaper_center_e50"
     SEEDS=1; EPOCHS=50; CKPT_FREQ=0
     ;;
+  grid)
+    # Final grid (docs/EXPERIMENT_PLAN.md). One seed per process so seeds fan out over GPUs.
+    #   STAGE=B ARM=ns SEED=0 [OP=whiten] [EPOCHS=100] [CKPT_FREQ=100] ./scripts/run_cpr.sh grid
+    #   ARM=transfer needs PARTNER_ADAPTER=checkpoints/grid/B_ns_whiten/exp<seed+1>_model2_model_checkpoint_100
+    : "${STAGE:?set STAGE=A|B}" "${ARM:?set ARM=testA|nn|slow2|infooff|ns|transfer}" "${SEED:?set SEED}"
+    OP="${OP:-whiten}"; EPOCHS="${EPOCHS:-100}"; CKPT_FREQ="${CKPT_FREQ:-100}"
+    CONFIG="configs/grid/${STAGE}_${ARM}_${OP}.json"
+    OUT="checkpoints/grid/${STAGE}_${ARM}_${OP}"
+    SEEDS=1; SEED_START="$SEED"
+    case "$ARM" in testA|transfer) ENTRY="finetuning_cpr_fixed.py" ;; esac
+    if [[ "$ARM" == "transfer" ]]; then : "${PARTNER_ADAPTER:?set PARTNER_ADAPTER for ARM=transfer}"; fi
+    ;;
+  sens)
+    # Sensitivity runs (plan §4): NAME=B_testA_ent0|B_testA_vf01|B_testA_kl2|B_ns_lr141, one seed.
+    : "${NAME:?set NAME}" "${SEED:?set SEED}"
+    EPOCHS="${EPOCHS:-100}"; CKPT_FREQ="${CKPT_FREQ:-0}"
+    CONFIG="configs/grid/sens_${NAME}.json"
+    OUT="checkpoints/grid/sens_${NAME}"
+    SEEDS=1; SEED_START="$SEED"
+    case "$NAME" in *testA*) ENTRY="finetuning_cpr_fixed.py" ;; esac
+    ;;
   *)
-    echo "Usage: $0 {smoke|testA_center|testA_center_s12|testA_whiten_s12|testB_center|naive_naive_center|naive_naive_center_s12|naive_naive_center_e50|naive_naive_slow2_s012|naive_shaper_center|naive_shaper_center_s012|naive_shaper_center_info_off_s012|naive_shaper_center_e50|testA_center_xi_s012|naive_naive_center_xi_s012|naive_shaper_center_xi_s012|naive_naive_slow2_center_xi_s012|testA_center_reseed_s012|testA_whiten_reseed_s012|naive_shaper_center_xi_reseed_s012|naive_naive_slow2_center_xi_reseed_s012|testA_whiten_reseed_e30|naive_shaper_center_xi_reseed_e50|naive_naive_slow2_center_xi_reseed_e50}"
+    echo "Usage: $0 {grid|sens|smoke|testA_center|testA_center_s12|testA_whiten_s12|testB_center|naive_naive_center|naive_naive_center_s12|naive_naive_center_e50|naive_naive_slow2_s012|naive_shaper_center|naive_shaper_center_s012|naive_shaper_center_info_off_s012|naive_shaper_center_e50|testA_center_xi_s012|naive_naive_center_xi_s012|naive_shaper_center_xi_s012|naive_naive_slow2_center_xi_s012|testA_center_reseed_s012|testA_whiten_reseed_s012|naive_shaper_center_xi_reseed_s012|naive_naive_slow2_center_xi_reseed_s012|testA_whiten_reseed_e30|naive_shaper_center_xi_reseed_e50|naive_naive_slow2_center_xi_reseed_e50}"
     exit 1
     ;;
 esac
@@ -238,7 +259,7 @@ PY
 "$PY" -m pytest tests/ -q || { echo "CPR tests failed — not launching."; exit 1; }
 
 ADAPTERS=(cpr_learner_r2)
-if [[ "$MODE" != testA* && "$MODE" != testB* ]]; then
+if [[ "$MODE" != testA* && "$MODE" != testB* && "${ARM:-}" != "testA" ]]; then
   ADAPTERS+=(cpr_shaper_r2)
 fi
 for adapter in "${ADAPTERS[@]}"; do
@@ -273,4 +294,7 @@ CMD=(
   --checkpoint_freq "$CKPT_FREQ"
   --seed_start "$SEED_START"
 )
+if [[ -n "${PARTNER_ADAPTER:-}" ]]; then
+  CMD+=(--partner_adapter "$PARTNER_ADAPTER")
+fi
 "${CMD[@]}"

@@ -111,14 +111,23 @@ class CPRGame:
         self.epoch = 0
         self.noise_table = None  # (n_epochs, e_max * n_games, t_max) of xi tenths
 
-    def attach_noise_table(self, seed: int, n_epochs: int, save_path: Optional[str] = None):
-        """CRN table for Stage B. No-op when xi_tenths is unset (deterministic)."""
+    NOISE_TABLE_CAPACITY = 200  # epochs; every arm draws the same prefix of the same table
+
+    def attach_noise_table(self, seed: int, n_epochs: int, save_path: Optional[str] = None,
+                           capacity: Optional[int] = None):
+        """CRN table for Stage B. No-op when xi_tenths is unset (deterministic).
+
+        The table is generated at a fixed capacity (200 epochs) and sliced to
+        n_epochs, so a 100-epoch run and its 200-epoch extension see identical
+        draws at every (epoch, game, round) for the same seed.
+        """
         if not self.params.xi_tenths:
             return None
         from cpr_env import make_noise_table
+        cap = max(int(capacity or self.NOISE_TABLE_CAPACITY), int(n_epochs))
         table = make_noise_table(
-            seed, n_epochs, self.e_max * self.n_games, self.t_max, self.params.xi_tenths
-        )
+            seed, cap, self.e_max * self.n_games, self.t_max, self.params.xi_tenths
+        )[:n_epochs]
         self.noise_table = table
         if save_path:
             np.save(save_path, table)

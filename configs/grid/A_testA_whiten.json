@@ -1,0 +1,76 @@
+{
+  "game_parameters": {
+    "t_max": 36,
+    "e_max": 5,
+    "n_games": 3,
+    "R0": 8,
+    "g": 0,
+    "ceiling": 40,
+    "rate_tenths": 9,
+    "n_actions": 4
+  },
+  "fixed_partner_action": 2,
+  "obs_manager_parameters1": {
+    "action_toks": [
+      235276,
+      235274,
+      235284,
+      235304
+    ],
+    "action_strings": [
+      "0",
+      "1",
+      "2",
+      "3"
+    ],
+    "is_shaper": false,
+    "R0": 8,
+    "model_name": "gemma-2b"
+  },
+  "obs_manager_parameters2": {
+    "action_toks": [
+      235276,
+      235274,
+      235284,
+      235304
+    ],
+    "action_strings": [
+      "0",
+      "1",
+      "2",
+      "3"
+    ],
+    "is_shaper": false,
+    "R0": 8,
+    "model_name": "gemma-2b"
+  },
+  "ppo_agent_parameters1": {
+    "agent_id": 1,
+    "is_shaper": false,
+    "model_path": "google/gemma-2-2b-it",
+    "adapter_path": "adapter/cpr_learner_r2",
+    "action_toks": [
+      235276,
+      235274,
+      235284,
+      235304
+    ],
+    "advantage_norm": "whiten",
+    "ppo_params": {
+      "learning_rate": 1.41e-06,
+      "batch_size": 100,
+      "mini_batch_size": 5,
+      "gradient_accumulation_steps": 1,
+      "ppo_epochs": 1,
+      "gamma": 1.0,
+      "lam": 0.97,
+      "vf_coef": 0.01,
+      "use_score_scaling": false,
+      "use_score_norm": false
+    },
+    "init_entropy_coef": 0.05,
+    "final_entropy_coef": 0.01,
+    "entropy_coef_horizon": 150,
+    "track_gradients": true
+  }
+}
