@@ -684,6 +684,12 @@ curves, not only windows.
 (window 181–200), five seeds on the ladder; transfer 100 epochs. Logged in
 `docs/EXPERIMENT_PLAN.md` and thesis §6 Protocol.
 
+**Amendment (13 Sep, ladder).** New arm `tbn` (trial-batched naive): `ppo_agent_parameters2.trial_batched=true`,
+`episodes_per_trial=5`, otherwise identical to slow2. Rung order nn → slow2 → tbn → infooff → ns; the
+rung that tests the shaping term is infooff − tbn. H-B readouts role-invariant (hawk-role return,
+dove-role leave-2 at R<12, joint, equality). Exploitation hypothesis is H-X. The pilot "slowed agent
+2 stays hawk" is motivation only. Configs regenerated; `configs/grid/B_tbn_*.json`, `A_tbn_*.json`.
+
 **C1 literal.** Seed 1: B share 0.993 vs A Wilson upper 0.993 (outside by < 0.001). Report
 literally; read as passed (shares 0.98–1.00 both stages).
 

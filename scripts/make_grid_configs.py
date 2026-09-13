@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate the final-grid configs under configs/grid/ from the executed Stage B bases.
 
-Arms (docs/EXPERIMENT_PLAN.md §3): testA, nn, slow2, infooff, ns, transfer.
+Arms (docs/EXPERIMENT_PLAN.md §3): testA, nn, slow2, tbn, infooff, ns, transfer.
 Stages: A (xi_tenths removed) and B (xi 7/10/13). Operators: whiten (default) and
 center (R1 fallback). Sensitivity variants (§4) on B_testA and B_ns.
 Every file is derived programmatically so that arms differ in exactly one key.
@@ -49,6 +49,13 @@ def build():
     infooff = copy.deepcopy(ns)
     infooff["obs_manager_parameters2"]["transmit_info"] = False
     base["infooff"] = infooff
+
+    # trial-batched naive: slow-LR's agent 2 (same LR/clip, naive prompt, is_shaper false) that
+    # updates once per trial on the concatenated batch with episode-bounded GAE.
+    tbn = copy.deepcopy(base["slow2"])
+    tbn["ppo_agent_parameters2"]["trial_batched"] = True
+    tbn["ppo_agent_parameters2"]["episodes_per_trial"] = int(tbn["game_parameters"]["e_max"])
+    base["tbn"] = tbn
 
     transfer = copy.deepcopy(base["testA"])
     transfer.pop("fixed_partner_action", None)

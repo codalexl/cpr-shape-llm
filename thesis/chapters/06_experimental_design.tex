@@ -198,21 +198,30 @@ Arm & Agent 2 & Isolates (key that changes) \\
 \midrule
 Test A & frozen always-2 & what a naive learner can learn against a perfectly stationary hawk; the ceiling for C2 \\
 naive--naive & naive, learning rate \(1.41\times 10^{-6}\), clip 0.2 & symmetric baseline: who restrains, whether coordination breaks under \(\xi\) \\
-slow-LR & naive, learning rate \(3\times 10^{-7}\), clip 0.1 & stationarity of the partner alone (\texttt{learning\_rate}, \texttt{cliprange}) \\
-info-off shaper & trial objective \eqref{eq:shaper-objective}, no trial prompt & the trial-level objective (\texttt{is\_shaper}) \\
+slow-LR & naive, learning rate \(3\times 10^{-7}\), clip 0.1 & the shaper's learning rate and clip (\texttt{learning\_rate}, \texttt{cliprange}) \\
+trial-batched naive & slow-LR's agent 2, updated once per trial on the concatenated batch with the GAE reset at every episode boundary & the shaper's update schedule and batch without cross-episode credit (\texttt{trial\_batched}) \\
+info-off shaper & trial objective \eqref{eq:shaper-objective}, no trial prompt & cross-episode credit, the shaping term itself (\texttt{is\_shaper}; the rendered prompt is identical to the naive one, \texttt{tests/test\_cpr\_observations.py}) \\
 naive--shaper & trial objective and trial prompt & the trial prompt (\texttt{transmit\_info}) \\
 transfer & frozen epoch-100 shaper adapter & whether the trained shaper's policy steers a fresh learner (Stage~B only) \\
 \bottomrule
 \end{tabularx}
 \end{table}
 
-The rung slow-LR to info-off is the test of the objective itself: learning
-rate, clip and prompt are equal and only the once-per-trial update with
-trial-level advantages differs.
-Without it the contrast naive--shaper against slow-LR cannot separate
-the objective from the prompt.
-The cell ``trial prompt without trial objective'' is not run; if H-B3 is
-positive and H-B2 null it becomes the follow-up.
+The shaper differs from a naive learner in two things at once: its
+advantages pass across episode boundaries inside a trial, which is the
+shaping term of \eqref{eq:shaper-objective}, and it updates once per
+trial from a five-episode batch instead of five times from one-episode
+batches.
+Under Adam the second matters on its own (the slow-LR partner takes five
+times as many optimiser steps as the shaper at the same learning rate),
+so a contrast of info-off against slow-LR would conflate them.
+The trial-batched naive control keeps the schedule and the batch and
+resets the advantage pass at every episode boundary, which is the
+construction ShapeLLM's own rollout code anticipates in a comment
+(\texttt{environment.py}, episode-only ids); the rung trial-batched to
+info-off is then the test of the shaping term and nothing else.
+The cell ``trial prompt without trial objective'' is not run; if H-B4 is
+positive and H-B3 null it becomes the follow-up.
 
 \section{Hypotheses}
 \label{sec:hypotheses}
@@ -251,11 +260,11 @@ The hypotheses follow.
     \quad\text{for every } s \ \text{(Stage~A)},
   \label{eq:ha}\\[3pt]
   \text{H-B}k\text{:}\quad
-  & \Delta^{(k)}_s(\hat{G}_2)>0
-    \ \text{ and }\ \Delta^{(k)}_s\bigl(\hat{L}_1(R<12)\bigr)>0
-    \quad\text{for every } s,\ k\in\{1,2,3\} \ \text{(Stage~B)},
+  & \Delta^{(k)}_s(\hat{G}_{\mathrm{hawk}})>0
+    \ \text{ and }\ \Delta^{(k)}_s\bigl(\hat{L}_{\mathrm{dove}}(R<12)\bigr)>0
+    \quad\text{for every } s,\ k\in\{1,2,3,4\} \ \text{(Stage~B)},
   \label{eq:hb}\\[3pt]
-  \text{H-B4:}\quad
+  \text{H-X:}\quad
   & \hat{G}^{\mathrm{shaper}}_{2}(s)-1.96\,\widehat{\mathrm{se}}
     > 72 \quad\text{for every } s,
   \label{eq:hb4}\\[3pt]
@@ -267,11 +276,21 @@ The hypotheses follow.
 \end{align}
 H-A is the contrast naive--shaper minus slow-LR in Stage~A.
 The rungs \(\Delta^{(k)}_s\) are \(k=1\): slow-LR minus naive--naive
-(stationarity); \(k=2\): info-off minus slow-LR (trial objective);
-\(k=3\): naive--shaper minus info-off (trial prompt); the overall
-contrast naive--shaper minus slow-LR is reported alongside.
-H-B4 compares the shaper's return with the plain-hawk cell \(72\) and
-reads the excess against the ceiling \(105.5\).
+(learning rate and clip); \(k=2\): trial-batched minus slow-LR (update
+schedule); \(k=3\): info-off minus trial-batched (cross-episode credit,
+the shaping term); \(k=4\): naive--shaper minus info-off (trial prompt);
+the overall contrasts naive--shaper minus naive--naive and minus
+trial-batched are reported alongside.
+The readouts are role-invariant: \(\hat{G}_{\mathrm{hawk}}\) is the
+larger of the two agents' window returns and \(\hat{L}_{\mathrm{dove}}\)
+the low-stock restraint of the other agent, so a rung that involves
+naive--naive, where the roles are symmetric a priori and which agent
+doves is a coordination outcome, compares hawk with hawk and dove with
+dove whichever index took the role; joint return and equality are
+reported with them, and the agent-indexed readouts alongside for the
+rungs in which agent~2 is a hawk by construction.
+H-X (exploitation) compares the shaper's return with the plain-hawk cell
+\(72\) and reads the excess against the ceiling \(105.5\).
 \(\Delta^{(\mathrm{T})}_s\) is the fresh learner against the frozen
 shaper minus the same learner against the frozen hawk.
 Survival and the first-majority epoch of low-stock restraint are reported
@@ -283,7 +302,7 @@ return by more than the one-unit bound.
 For H-B\(k\) the null is a mixed sign of \(\Delta_s\) across seeds or a
 mean below the sampling interval; the effect size is reported against the
 bound of Section~\ref{sec:a-to-b} whichever way it falls.
-For H-B4 the null is a shaper return inside the interval of the plain-hawk
+For H-X the null is a shaper return inside the interval of the plain-hawk
 cell, which means the shaper committed to take-2 and nothing more.
 For H-T the null is no difference between the frozen shaper and the
 frozen hawk in what the fresh learner acquires.
@@ -571,6 +590,9 @@ Stage~A ladder arms keep 100 epochs, since H-A is a bound on a
 difference and not a convergence claim.
 This amendment is logged here and in \texttt{docs/EXPERIMENT\_PLAN.md}
 before any ladder run was launched.
+In the same amendment the trial-batched naive control was added as a
+rung between slow-LR and info-off, and the H-B readouts were made
+role-invariant, for the reasons given in Section~\ref{sec:ladder}.
 
 \paragraph{Transfer.}
 The epoch-200 adapter of each naive--shaper seed is saved; a fresh naive
@@ -623,7 +645,12 @@ entry points were fixed and the seed-fixed pilots confirmed independent
 divergence.
 With independent seeds the 15-epoch contrast naive--shaper against
 slow-LR had mixed sign on every readout, where the shared-stream pilots
-had agreed on every seed; that is why the grid runs 100 epochs and five
-seeds on that contrast.
+had agreed on every seed; that is why the grid runs long and five seeds
+on that contrast.
+The pilot observation that a slowed agent~2 stayed in the hawk role is
+recorded as motivation for the timescale rung, and nothing in the design
+rests on it: the rungs are justified by the keys they change, and the
+role-invariant readouts make the contrasts independent of which agent
+takes which role.
 The mixed Apple-silicon and L40S provenance of the early pilots is why the
 grid runs on one platform.

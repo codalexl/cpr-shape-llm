@@ -28,8 +28,9 @@ training, not a baseline estimated from another run.
   learner acquires, and what the shaper earns, relative to a partner that
   is merely slow?
   This is answered by an ablation ladder that changes one ingredient of
-  the partner per rung: its learning timescale, the trial-level
-  objective, and the trial prompt (Section~\ref{sec:ladder}).
+  the partner per rung: its learning rate, its update schedule, the
+  cross-episode credit that is the shaping term, and the trial prompt
+  (Section~\ref{sec:ladder}).
 \item \textbf{Transfer.}
   Does a trained shaper, frozen, steer a fresh learner differently from a
   frozen hawk?

@@ -300,6 +300,21 @@ def readout_rung(name: str, upper: List[Run], lower: List[Run], window: int) -> 
     f_surv = lambda r: (lambda kn: kn[0] / kn[1] if kn[1] else float("nan"))(r.last(window).survival)
     f_speed = lambda r: (lambda e: float(e) if e else float(r.epochs + 1))(
         first_majority_epoch([ws.leave2_low[0] for ws in r.curve()]))
+    # role-invariant readouts (plan amendment 13 Sep): in naive--naive the roles are symmetric a priori,
+    # so contrasts that involve it compare the hawk role (larger window return) and the dove role
+    # (the other agent) rather than agent indices.
+    def roles(r):
+        ws = r.last(window)
+        g = (ws.ret[0][0], ws.ret[1][0])
+        hawk = 0 if g[0] >= g[1] else 1
+        dove = 1 - hawk
+        k, n = ws.leave2_low[dove]
+        return {"hawk_return": g[hawk], "dove_low_restraint": (k / n if n else float("nan")),
+                "joint": ws.joint[0], "equality": (1 - ws.joint[1] / ws.joint[0]) if ws.joint[0] else float("nan")}
+    f_hawk = lambda r: roles(r)["hawk_return"]
+    f_dove = lambda r: roles(r)["dove_low_restraint"]
+    f_joint = lambda r: roles(r)["joint"]
+    f_eq = lambda r: roles(r)["equality"]
     return {
         "agent2_return": paired(f"{name}: agent-2 return", by_seed(upper, f_ret2), by_seed(lower, f_ret2)),
         "agent1_leave2": paired(f"{name}: agent-1 leave-2", by_seed(upper, f_l1), by_seed(lower, f_l1)),
@@ -307,6 +322,10 @@ def readout_rung(name: str, upper: List[Run], lower: List[Run], window: int) -> 
         "survival": paired(f"{name}: survival", by_seed(upper, f_surv), by_seed(lower, f_surv)),
         "speed_low_restraint": paired(f"{name}: epochs to majority low-stock restraint (lower is faster)",
                                       by_seed(lower, f_speed), by_seed(upper, f_speed)),
+        "hawk_role_return": paired(f"{name}: hawk-role return", by_seed(upper, f_hawk), by_seed(lower, f_hawk)),
+        "dove_role_low_restraint": paired(f"{name}: dove-role leave-2 at R<12", by_seed(upper, f_dove), by_seed(lower, f_dove)),
+        "joint_return": paired(f"{name}: joint return", by_seed(upper, f_joint), by_seed(lower, f_joint)),
+        "equality": paired(f"{name}: equality", by_seed(upper, f_eq), by_seed(lower, f_eq)),
     }
 
 

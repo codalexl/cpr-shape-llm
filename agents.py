@@ -52,6 +52,11 @@ class AgentConfig():
     a2_tok: Optional[int] = 235299
     a3_tok: Optional[int] = None
     action_toks: Optional[List[int]] = None  # overrides a1/a2/a3_tok when set (e.g. CPR's 4 actions)
+    # Trial-batched naive control (trial_batching.py): is_shaper=False so outer_rollout hands over one
+    # episode at a time, but the update is taken once per `episodes_per_trial` episodes on the
+    # concatenated batch with env ids unique per (episode, game), so GAE never crosses an episode.
+    trial_batched: Optional[bool] = False
+    episodes_per_trial: Optional[int] = 5
 
 @dataclass
 class EvalAgentConfig():
@@ -124,6 +129,10 @@ class PPOAgent():
         self.live_adv_log: List[Dict] = []
         self.n_updates = 0
         self.current_epoch = 0
+        self.trial_batched = bool(getattr(config, "trial_batched", False))
+        self.episodes_per_trial = int(getattr(config, "episodes_per_trial", 5) or 5)
+        self._trial_buffer: List = []
+        assert not (self.trial_batched and self.is_shaper), "trial_batched is a naive-schedule control; set is_shaper=false"
 
     def tokenize_observation(self, obs: List[str]) -> List[torch.Tensor]:
         """Tokenize observations. returns a List of torch.Tensors as it is the format required by the PPO Trainer"""
@@ -178,6 +187,21 @@ class PPOAgent():
         query_tensors = list(itertools.chain(*traj_data.query_tensors)) 
         response_tensors = list(itertools.chain(*traj_data.response_tensors)) 
         rewards = list(itertools.chain(*traj_data.rewards)) 
+        env_ids = list(itertools.chain(*traj_data.env_ids))
+
+        if self.trial_batched:
+            # Buffer this episode; update once per trial on the concatenated batch with
+            # episode-bounded GAE (trial_batching.concat_trial). Same schedule and batch as
+            # the shaper, no cross-episode credit.
+            from trial_batching import concat_trial
+            self._trial_buffer.append((query_tensors, response_tensors, rewards, env_ids))
+            if len(self._trial_buffer) < self.episodes_per_trial:
+                return
+            query_tensors, response_tensors, rewards, env_ids = concat_trial(self._trial_buffer)
+            self._trial_buffer = []
+        else:
+            from trial_batching import remap_env_ids
+            env_ids = remap_env_ids(env_ids)  # no-op for the naive/shaper layouts (ids already 0..n-1)
 
         # Soft NaN-filter can still shrink the batch (e.g. opponent illegal). Skip rather than
         # run score scaling / PPO on a degenerate sample size.
@@ -189,7 +213,7 @@ class PPOAgent():
             return
         
         self.trainer.config.batch_size = len(query_tensors) # Adjust batch size
-        self.trainer.env_ids, self.trainer.n = list(itertools.chain(*traj_data.env_ids)), len(set(itertools.chain(*traj_data.env_ids))) # Update environment ids for multi-turn advantage calculation
+        self.trainer.env_ids, self.trainer.n = env_ids, len(set(env_ids)) # Update environment ids for multi-turn advantage calculation
 
         stats = self.trainer.step(query_tensors, response_tensors, rewards) # Update parameters
         if self.trainer.track_gradients:

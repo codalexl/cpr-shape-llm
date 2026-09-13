@@ -6,7 +6,7 @@
 |---|---|---|
 | 1. Stage A Test A whitened, 3 × 100 | **done 12–13 Sep** | R1 passed: leave-2 0.993 / 0.983 / 1.000. Grid stays whitened. |
 | 2. Stage B Test A, 3 × 100 | **done 12–13 Sep** | C1 holds (seed 1 outside the A interval by < 0.001); C2 holds on all seeds (low-stock restraint 0.89 / 0.78 / 1.00; survival given restraint 0.99 / 0.93 / 1.00). R3 not triggered: H-B returns scored against 72. |
-| 3. Stage B slow-LR, info-off, naive–shaper | next | **Amended to 200 epochs, 5 seeds** (see log). ≈ 3 arms × 5 × 2.8 h = 42 GPU-h; on 5 GPUs ≈ 9 h wall. |
+| 3. Stage B slow-LR, trial-batched, info-off, naive–shaper | next | **Amended to 200 epochs, 5 seeds, four arms** (see log). ≈ 4 arms × 5 × 2.8 h = 56 GPU-h; on 5 GPUs ≈ 11 h wall. |
 | 4. Stage B naive–naive | next | 200 epochs, 5 seeds, 14 GPU-h. |
 | 5. Transfer | after 3 | frozen epoch-200 shaper vs fresh naive, 100 epochs, 3 seeds, 1.7 GPU-h. |
 | 6. Sensitivity | after 3 | 7 × 100 epochs, 5 GPU-h. |
@@ -17,6 +17,7 @@ Seed gate on blocks 1–2: 10–13 of 15 identical openings between seeds at epo
 
 **Amendment log.**
 - *13 Sep, before any ladder launch.* Return not stationary over epochs 81–100 on any Test A seed; Stage A seed 1 and Stage B seed 2 lost a high-return policy after epoch 80 (91 → 71; 92 → 35, survival 1.00). R2 applied up front: Stage B ladder and transfer run 200 epochs (window 181–200), five seeds on the ladder; transfer 100 epochs. Noise tables already at capacity 200. Stage A ladder stays at 100.
+- *13 Sep, before any ladder launch.* Ladder gains a rung: **trial-batched naive** (`tbn`; slow-LR's agent 2 updated once per trial on the concatenated batch with GAE reset at episode boundaries, `trial_batching.py`). Rungs are now k=1 slow-LR−nn (LR, clip), k=2 tbn−slow-LR (update schedule), k=3 infooff−tbn (cross-episode credit = the shaping term), k=4 ns−infooff (prompt). Exploitation hypothesis renamed H-X. H-B readouts made role-invariant (hawk-role return, dove-role low-stock restraint, joint, equality) because roles in nn are symmetric a priori. Reason: slow-LR takes 5× the shaper's Adam steps, so infooff−slow-LR conflated schedule with credit; and the pilot "who doves" observation is motivation, not evidence. Block 3 is now four arms (+14 GPU-h at 200 epochs × 5 seeds).
 - *13 Sep.* C1 stated literally in the results (seed 1 share 0.993 vs upper bound 0.993); read as passed because shares are 0.98–1.00 in both stages and the intent of the check is that noise did not lower the opening rate.
 
 

@@ -266,3 +266,25 @@ if __name__ == "__main__":
             print(f"  [ok ] {name}")
             passed += 1
     print(f"\nAll {passed} tests passed.")
+
+
+def test_info_off_shaper_prompt_equals_naive_prompt():
+    """The info-off rung differs from the trial-batched control only in cross-episode credit:
+    with transmit_info=False a shaper-flagged manager renders exactly the naive prompt."""
+    import numpy as np
+    from cpr_observation_managers import CPRObservationManager, CPRObservationManagerConfig
+    toks = [235276, 235274, 235284, 235304]
+    common = dict(action_toks=toks, action_strings=["0", "1", "2", "3"], R0=8, model_name="gemma-2b")
+    naive = CPRObservationManager(CPRObservationManagerConfig(is_shaper=False, **common), n_games=2)
+    infooff = CPRObservationManager(CPRObservationManagerConfig(is_shaper=True, transmit_info=False, **common), n_games=2)
+    for m in (naive, infooff):
+        m.reset_trial()
+    kw = dict(resource=[9, 7], own_requests=[1, 2], opp_requests=[2, 2], own_received=[1, 2], opp_received=[2, 2], inner_t=1, outer_t=0)
+    try:
+        a = naive.build_observations(**kw); b = infooff.build_observations(**kw)
+    except TypeError:
+        import inspect
+        sig = inspect.signature(naive.build_observations)
+        kw = {k: v for k, v in kw.items() if k in sig.parameters}
+        a = naive.build_observations(**kw); b = infooff.build_observations(**kw)
+    assert a == b

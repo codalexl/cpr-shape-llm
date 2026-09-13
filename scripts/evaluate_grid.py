@@ -29,9 +29,10 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 import cpr_eval as ev  # noqa: E402
 
-ARMS = ["testA", "nn", "slow2", "infooff", "ns", "transfer"]
-LADDER = [("H-B1 stationarity", "slow2", "nn"), ("H-B2 trial objective", "infooff", "slow2"),
-          ("H-B3 trial prompt", "ns", "infooff"), ("H-B overall", "ns", "nn"), ("shaper vs slow-LR", "ns", "slow2")]
+ARMS = ["testA", "nn", "slow2", "tbn", "infooff", "ns", "transfer"]
+LADDER = [("H-B1 LR and clip", "slow2", "nn"), ("H-B2 update schedule", "tbn", "slow2"),
+          ("H-B3 cross-episode credit", "infooff", "tbn"), ("H-B4 trial prompt", "ns", "infooff"),
+          ("H-B overall", "ns", "nn"), ("shaper vs slow-LR", "ns", "slow2"), ("shaper vs trial-batched", "ns", "tbn")]
 
 LEGACY = {  # 15-epoch centred pilots; exp index k -> seed k-1 holds for these folders
     "A": {"testA": "cpr_log_testA_center", "nn": "cpr_log_naive_naive_center", "slow2": "cpr_log_naive_naive_slow2",
@@ -156,7 +157,7 @@ def main():
             rungs[name] = ev.readout_rung(name, arms[up], arms[lo], W)
     summary["hypotheses"]["ladder"] = rungs
     if "ns" in arms:
-        summary["hypotheses"]["H-B4"] = ev.readout_HB4(arms["ns"], W, anchors)
+        summary["hypotheses"]["H-X"] = ev.readout_HB4(arms["ns"], W, anchors)  # exploitation
     if "transfer" in arms and "testA" in arms:
         summary["hypotheses"]["H-T"] = ev.readout_rung("H-T frozen shaper vs frozen hawk", arms["transfer"], arms["testA"], W)
 

@@ -139,3 +139,14 @@ def test_c1_and_pi_bands():
     t = ev.latex_pi_bands_table([a], 3)
     assert "1.00" in t and r"\addlinespace" in t
     assert "holds" in ev.latex_c1_table(c1)
+
+
+def test_role_invariant_readouts_ignore_which_agent_doves():
+    # same game seen from both labellings: agent 1 hawk vs agent 2 dove, and the swap
+    hawk_first = ev.Run("x", 0, simulate(const(2), feedback))
+    dove_first = ev.Run("y", 0, simulate(feedback, const(2)))
+    r = ev.readout_rung("swap", [hawk_first], [dove_first], window=3)
+    assert r["hawk_role_return"].per_seed[0] == 0.0          # 72 in both labellings
+    assert r["dove_role_low_restraint"].per_seed[0] == 0.0   # the dove restrains identically
+    assert r["joint_return"].per_seed[0] == 0.0
+    assert r["agent2_return"].per_seed[0] != 0.0             # the agent-indexed readout flips
