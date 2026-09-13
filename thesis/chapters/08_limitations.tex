@@ -55,6 +55,21 @@ test trains the fresh learner for 30 epochs.
 Both are budgets, and a shaper that needs more updates than that to
 express its objective would be missed.
 
+\section{What blocks 1 and 2 impose}
+
+The six Test~A runs were not stationary in return at epoch 100 and two
+lost a high-return policy late, so any window statistic on this loop is
+a snapshot and a run's best policy is not its final one.
+The ladder therefore runs 200 epochs, but a 200-epoch window is still a
+snapshot, and a collapse after the window would be missed; the curves
+are reported for that reason.
+C2 holding on every seed means the naive learner acquires the feedback
+rule without a shaper, so the detectable shaping effect in Stage~B is
+bounded by the difference between a learner that already restrains and
+one that is made to restrain sooner, more reliably, or exploited; the
+36-unit bound of Section~\ref{sec:a-to-b} is the ceiling of the game,
+not of the experiment.
+
 \section{Statistics}
 
 Leave-2 is a statistic of a near-constant-policy class: after a

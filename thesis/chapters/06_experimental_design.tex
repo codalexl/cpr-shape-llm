@@ -559,10 +559,24 @@ sliced, so an extension keeps the draws of its first 100 epochs and every
 arm sees the same draw at the same (epoch, game, round)
 (\texttt{tests/test\_cpr\_xi.py}).
 
+\paragraph{Amendment of 13 September (after blocks 1 and 2).}
+Rule R1 passed and C2 held on every seed (Section~\ref{sec:grid-c1c2}).
+Return was not stationary over epochs 81--100 on any of the six Test~A
+seeds, and two seeds lost a high-return policy after epoch 80, so the
+length rule R2 is applied before the ladder runs rather than after: the
+Stage~B ladder and transfer arms run 200 epochs from the start, with five
+seeds on the ladder, and the window is epochs 181--200.
+The noise tables were generated at 200 epochs, so no draw changes.
+Stage~A ladder arms keep 100 epochs, since H-A is a bound on a
+difference and not a convergence claim.
+This amendment is logged here and in \texttt{docs/EXPERIMENT\_PLAN.md}
+before any ladder run was launched.
+
 \paragraph{Transfer.}
-The epoch-100 adapter of each naive--shaper seed is saved; a fresh naive
-learner is trained against it, frozen, for 30 epochs, with the shaper's
-own prompt rendered as in training, and compared with Stage~B Test~A.
+The epoch-200 adapter of each naive--shaper seed is saved; a fresh naive
+learner is trained against it, frozen, for 100 epochs, with the shaper's
+own prompt rendered as in training, and compared with Stage~B Test~A
+over the same window.
 
 \paragraph{Decision rules.}
 R1: Stage~A Test~A with whitened advantages launches first; if any seed's

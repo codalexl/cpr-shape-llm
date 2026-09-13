@@ -909,10 +909,120 @@ The tables and figures in this section are written by
 run.
 \newcommand{\gridinput}[1]{\IfFileExists{tables/grid/#1}{\input{tables/grid/#1}}{\emph{[not yet run: }\texttt{\detokenize{#1}}\emph{]}}}
 
-\subsection{Checks C1 and C2}
+\subsection{Checks C1 and C2: Test A, both stages, 100 epochs}
+\label{sec:grid-c1c2}
+
+Six runs: a naive learner against the frozen hawk, whitened advantages,
+three independent seeds (epoch-1 openings identical on 10--13 of 15
+games between seeds, as expected of independent draws from one prior),
+100 epochs each, all on one L40S; Stage~B on the seed's noise table.
+Window statistics are over epochs 81--100 (300 games).
+
+\paragraph{R1.}
+Every Stage~A seed left opening 2: last-window leave-2 shares
+\(0.993\), \(0.983\) and \(1.000\) (Table~\ref{tab:grid-A-arms}), first
+majority at epochs 15, 7 and 13.
+The grid runs whitened; the centred runs of
+Section~\ref{sec:pilot-results} are pilots.
+
+\paragraph{C1.}
+Table~\ref{tab:grid-C1} compares the Stage~B leave-2 share with the
+Stage~A Wilson interval seed by seed.
+Shares are \(0.98\)--\(1.00\) in both stages; the inequality
+\eqref{eq:c1} holds on seeds 0 and 2, and on seed 1 the Stage~B share
+\(0.993\) exceeds the Stage~A upper bound \(0.993\) by less than
+\(0.001\).
+The opening incentive is unchanged by the noise, as
+Table~\ref{tab:noise-level} predicts; the check is reported literally
+and read as passed.
+
+\begin{table}[ht]\centering\small
+\caption{C1: leave-2 share over epochs 81--100, Stage~B against the
+  Stage~A Wilson interval, seed by seed \eqref{eq:c1}.}
+\label{tab:grid-C1}
+\gridinput{C1.tex}
+\end{table}
+
+\paragraph{C2.}
+Against a stationary hawk under \(\xi\), every seed acquired
+stock-conditioned restraint (Table~\ref{tab:grid-B-c2}): low-stock
+leave-2 \(0.89\), \(0.78\) and \(1.00\) against the threshold \(0.5\);
+survival given a restrained opening \(0.99\), \(0.93\) and \(1.00\)
+against the constant-continuation cell \(0.40\); last-window survival
+295, 276 and 300 of 300.
+C2 holds on all three seeds, so rule R3 does not fire and the ladder's
+return readouts are scored against the feedback cell \(72\), with the
+consequence for the bound stated in Section~\ref{sec:a-to-b}: a naive
+learner acquires the feedback rule alone within 100 epochs, so what a
+shaper can add is speed, reliability, or exploitation beyond \(72\).
+
+\begin{table}[ht]\centering\small
+\caption{C2 over epochs 81--100, Stage~B Test~A \eqref{eq:c2}.
+  DP cells: feedback rule (\(1.00\) low-stock restraint, survival
+  \(1.00\), return \(68.8\)) and restrain-once-then-take-2 (survival
+  \(0.40\), return \(34.7\)).}
+\label{tab:grid-B-c2}
 \gridinput{B_c2.tex}
+\end{table}
+
+\paragraph{The learned policies.}
+Table~\ref{tab:grid-pi-bands} gives each seed's action shares by stock
+band over the window.
+In Stage~A all three seeds take 1 below stock 9 (\(0.89\)--\(1.00\)) and
+take 3 at stock 20 and above (\(0.90\)--\(0.93\)): they climb the stock
+and harvest at the cap, the constant-escapement shape of the best
+response (Appendix~\ref{app:reed}), and earn \(91.0\), \(80.9\) and
+\(93.6\) against the best-response value \(105\) and the
+restrain-once-then-take-2 cell \(71\).
+The seeds differ in the band 9--11: seeds 0 and 1 take 2 there
+(\(0.77\), \(0.97\)) and seed 2 takes 1 (\(0.98\)); that difference,
+not the opening, is why their low-stock restraint shares are \(0.33\),
+\(0.08\) and \(1.00\).
+In Stage~B the policies are more conservative and more varied: seed 0
+takes 1 below stock 20 and 2 above it (return \(65.7\), the feedback
+cell is \(68.8\)); seed 1 takes 0 below stock 9 (\(0.78\)), 1 in the
+middle bands and 3 on half of its high-stock rounds (return \(76.7\),
+rising); seed 2 takes 1 in every band (return \(44.2\) in the window).
+The best response under noise is \(102.5\); no seed reached it.
+
+\begin{table}[ht]\centering\small
+\caption{Action shares by stock band over epochs 81--100, agent~1
+  against the frozen hawk, per seed; \(n\) is the number of unmasked
+  rounds in the band.}
+\label{tab:grid-pi-bands}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{@{}c@{\hspace{1em}}c@{}}
+\gridinput{A_pi_bands_testA.tex} & \gridinput{B_pi_bands_testA.tex}\\
+Stage A & Stage B
+\end{tabular}}
+\end{table}
+
+\paragraph{Stationarity and two late collapses.}
+Return is not stationary over epochs 81--100 on any of the six seeds
+(Section~\ref{sec:protocol}); low-stock restraint is stationary on Stage~A
+seed 2 (constant at \(1.00\)) and Stage~B seed 2 (constant at \(1.00\)).
+Four seeds are still improving at epoch 100.
+Two are not: Stage~A seed 1 fell from a ten-epoch mean of \(91.0\) to
+\(71.0\) over its last ten epochs, with survival dipping to \(0.67\) in
+one epoch, and Stage~B seed 2 fell from \(92.2\) (epochs 70--79) to
+\(35.3\) after epoch 80, with survival at \(1.00\) throughout: it gave up
+take-3 at high stock and retreated to take-1 in every band, the
+mutual-restraint value \(36\).
+A learner that has found the high-yield policy can lose it under the
+same objective; the window average reports the loss and the curves
+(Figures~\ref{fig:grid-A-curves} and~\ref{fig:grid-B-curves}) show it.
+This is a result about the training loop, not the game, and it is the
+reason the ladder runs to 200 epochs (amendment, Section~\ref{sec:protocol}).
+
+\begin{figure}[ht]\centering
+\IfFileExists{figures/grid/A_curves.pdf}{\includegraphics[width=\textwidth]{figures/grid/A_curves.pdf}}{\emph{[not yet run: A\_curves.pdf]}}
+\caption{Stage~A Test~A learning curves: survival, agent-1 return and
+  agent-1 low-stock restraint per epoch, one line per seed.}
+\label{fig:grid-A-curves}
+\end{figure}
 
 \subsection{Stage A: H-A}
+% [not yet run: the Stage A ladder]
 \begin{table}[ht]\centering\small
 \caption{Stage~A, last-window estimates per arm and seed (interval: Wilson 95\%; return: mean and standard error over the window's games).}
 \label{tab:grid-A-arms}

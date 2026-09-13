@@ -175,7 +175,7 @@ def stationary(series: Sequence[float], window: int = 20) -> Tuple[bool, float, 
     a, b = xs[-window:], xs[-2 * window:-window]
     diff = float(a.mean() - b.mean())
     se = float(math.sqrt(a.var(ddof=1) / window + b.var(ddof=1) / window))
-    return (abs(diff) < se, diff, se)
+    return (abs(diff) <= se, diff, se)
 
 
 # ----------------------------------------------------------------------------- paired contrasts
@@ -392,3 +392,55 @@ def latex_sensitivity_table(rows: List[Tuple[str, "Run"]], window: int, anchors:
         out.append(f"{name} & {fmt_ci(k, n)} & {fmt_ci(ks, ns)} & {ws.ret[0][0]:.1f} ({ws.ret[0][1]:.1f}) \\\\")
     out += [r"\bottomrule", r"\end{tabular}"]
     return "\n".join(out) + "\n"
+
+
+BANDS = (("$R<9$", range(1, 9)), ("$9\\le R\\le 11$", range(9, 12)), ("$12\\le R\\le 13$", range(12, 14)),
+         ("$14\\le R\\le 19$", range(14, 20)), ("$R\\ge 20$", range(20, 41)))
+
+
+def pi_bands(rec: dict, epochs: Iterable[int], agent: int):
+    """Action shares by stock band over a window: list of (band label, n, shares[4])."""
+    c = pi_given_R(rec, epochs, agent)
+    out = []
+    for label, rr in BANDS:
+        block = c[list(rr)]
+        n = int(block.sum())
+        out.append((label, n, (block.sum(axis=0) / n) if n else np.full(4, np.nan)))
+    return out
+
+
+def latex_pi_bands_table(runs: List["Run"], window: int, agent: int = 0) -> str:
+    """Per-seed action shares by stock band over the last window (thesis eq. estimators, banded)."""
+    rows = [r"\begin{tabular}{llrrrrr}", r"\toprule",
+            r"Seed & Stock band & $n$ & $\hat\pi(0)$ & $\hat\pi(1)$ & $\hat\pi(2)$ & $\hat\pi(3)$ \\", r"\midrule"]
+    for r in runs:
+        for i, (label, n, p) in enumerate(pi_bands(r.rec, range(max(0, r.epochs - window), r.epochs), agent)):
+            seed = str(r.seed) if i == 0 else ""
+            cells = " & ".join("--" if math.isnan(x) else f"{x:.2f}" for x in p)
+            rows.append(f"{seed} & {label} & {n} & {cells} \\\\")
+        rows.append(r"\addlinespace")
+    rows += [r"\bottomrule", r"\end{tabular}"]
+    return "\n".join(rows) + "\n"
+
+
+def readout_C1(runs_A: List["Run"], runs_B: List["Run"], window: int) -> dict:
+    """C1: Stage B leave-2 share inside the Stage A Wilson interval, seed by seed (thesis eq. c1)."""
+    A = {r.seed: r.last(window).leave2[0] for r in runs_A}
+    B = {r.seed: r.last(window).leave2[0] for r in runs_B}
+    out = {}
+    for s in sorted(set(A) & set(B)):
+        ka, na = A[s]; kb, nb = B[s]
+        lo, hi = wilson(ka, na)
+        pb = kb / nb if nb else float("nan")
+        out[s] = {"A": (ka, na), "A_ci": (lo, hi), "B": (kb, nb), "B_share": pb,
+                  "holds": bool(lo - 1e-9 <= pb <= hi + 1e-9)}
+    return out
+
+
+def latex_c1_table(c1: dict) -> str:
+    rows = [r"\begin{tabular}{lrrrl}", r"\toprule",
+            r"Seed & Stage A $\hat L_1$ [Wilson] & Stage B $\hat L_1$ & Stage B share & C1 \\", r"\midrule"]
+    for s, d in sorted(c1.items()):
+        rows.append(f"{s} & {fmt_ci(*d['A'])} & {d['B'][0]}/{d['B'][1]} & {d['B_share']:.3f} & {'holds' if d['holds'] else 'outside'} \\\\")
+    rows += [r"\bottomrule", r"\end{tabular}"]
+    return "\n".join(rows) + "\n"

@@ -1,0 +1,163 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=20mm]{geometry}
+\usepackage{booktabs,microtype,amsmath,enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage{titlesec}
+\titlespacing*{\section}{0pt}{0.7em}{0.2em}
+\setlist[enumerate]{leftmargin=1.4em,itemsep=0.5pt,topsep=2pt}
+\setlength{\parskip}{0.32em}
+\setlength{\parindent}{0pt}
+\pagestyle{plain}
+\begin{document}
+
+\begin{center}
+{\Large\bfseries Opponent shaping in an exactly solvable CPR}\\[3pt]
+{\large Briefing --- 13 September 2026}\\[2pt]
+\end{center}
+
+The game, the design, and the checks that finished yesterday.
+Not a shaping result. The remaining arms of the grid run together today; the write-up is in parallel.
+
+\section*{Question}
+Does opponent shaping, as instantiated for language-model agents by ShapeLLM, have anything to buy in a sequential common-pool resource, and does it buy it?
+The game is solved exactly, so every comparison value is fixed before training.
+
+\begin{enumerate}
+\item \textbf{Structure.} What can a prior-dominated learner learn, and does a shaping objective have anything to buy?
+\item \textbf{Shaping.} Does the trial-level objective change what a naive learner acquires, and what the shaper earns, relative to a partner that is merely slow?
+\item \textbf{Transfer.} Does a trained shaper, frozen, steer a fresh learner differently from a frozen hawk?
+\end{enumerate}
+
+\section*{The game}
+Two players, simultaneous requests \(a_i\in\{0,1,2,3\}\), horizon \(T=36\).
+Reward is units received that step (undiscounted sum).
+All arithmetic is integer; no float reaches a prompt.
+Lock: \(R_0=8\), \(K=40\), \(\rho=0.9\) (\texttt{rate\_tenths}=9).
+
+A step:
+\begin{enumerate}
+\item Both request.
+\item If \(a_1+a_2\le R\): each receives its request and \(R\leftarrow R-(a_1+a_2)\).
+  Else (scarcity): each receives \(\min(a_i,\lfloor R/2\rfloor)\); remainder wasted; \(R\leftarrow 0\).
+\item If \(R>0\): regenerate, capped at \(K\).
+  Else: \(R\) stays 0 (absorbing zero). A dead pool pays 0 for the rest of the horizon.
+\end{enumerate}
+Exact depletion (\(a_1+a_2=R\)) is the normal branch: it drives \(R\) to 0, then absorbing zero kills regeneration.
+The stock falls only through harvest.
+
+Growth after a strictly positive post-harvest stock \(S\) is rounded logistic surplus,
+\[
+  R'=\min\bigl(K,\,S+\mathrm{round\_half\_even}(\xi\,\rho\,S(K-S)/K)\bigr),
+\]
+with the argument the exact rational in tenths (not binary float).
+Stage~A is \(\xi\equiv 1\).
+Stage~B draws \(\xi\) i.i.d.\ on \(\{0.7,1.0,1.3\}\), common to both players, never applied at \(S=0\).
+At this lock there is no interior freeze: \(R=1\) still grows by 1.
+
+From \(R=8\) against a take-2 partner, the first action is the fork:
+open~1 moves \(8\to 9\), after which mutual take-2 is a live farm;
+open~2 stays at 8 and dies around round~4;
+open~0 moves \(8\to 11\), not onto that farm.
+Claim statistics are openings (share that are not 2) and survival, not the live-step mix after a save.
+
+Linear ``\(+2\) per round'' is retired: against a grabber, take-1 and take-2 paid the same.
+Agents: Gemma-2-2b-it, rank-2 LoRA, PPO, one-token actions; untrained prior opens 2 about 85\% of the time.
+
+\section*{Exact solution (not a training result)}
+The state is 41 stocks \(\times\) 36 rounds, so the Bellman equations for best response and joint optimum are solved exactly by backward induction (\texttt{cpr\_xi.py}; tests pin every cell).
+A GPU run is compared with these cells, not the other way around.
+Every specific decimal below that is not labelled as a training return is from this table.
+
+``Hawk'' is always-2.
+``Restrain-once'' is open 1 then 2 forever.
+``Feedback'' is take 1 if \(R<12\), else 2.
+Returns are player~1 / player 2.
+
+\begin{center}
+\small\vspace{-0.4em}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+Policy pair & Stage A (det.) & Stage B (\(\xi\)) \\
+\midrule
+\((1,1)\) & 36 / 36, lives & 36 / 36, lives \\
+\((2,2)\) & 7 / 7, dies & 7.44 / 7.44, dies \\
+hawk vs dove \((2,1)\) & 72 / 36, lives & 72 / 36, lives \\
+hawk vs restrain-once & 72 / 71, lives & 35.7 / 34.7, \(p=0.40\) \\
+hawk vs feedback & 72 / 69, lives & 72 / 68.8, lives \\
+best response vs hawk & 105, lives & 102.5, lives \\
+best response vs feedback & 107, lives & 105.5, lives \\
+joint optimum (per player) & 105 (\(W^{*}=210\)) & 103.3 (\(W^{*}=207.1\)) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{-0.3em}
+The first three rows are \textbf{chicken, not a prisoner's dilemma}.
+Constant pairs are invariant under \(\xi\).
+Open-then-constant is not: hawk vs restrain-once is safe in Stage~A and a gamble under \(\xi\).
+Feedback stays safe.
+
+\paragraph{Why two stages.}
+A shaping effect cannot exceed what the shaper earns against the partner it induces, minus what it earns against the partner a control induces.
+In Stage~A that difference is at most one unit (hawk gets 72 against both restrain-once and feedback).
+Under \(\xi\) the continuation is a decision: 72 against feedback, 35.7 against restrain-once, 7.44 against mutual take-2.
+If the naive learner cannot acquire feedback alone, the hawk-side bound is \(72-35.7=36\); if the shaper exploits a feedback dove rather than staying on 2, the ceiling is 105.5.
+C2 decides which bound applies to H-B.
+
+\section*{Design}
+Agent~1 is always naive.
+The ladder changes one ingredient of agent~2 per rung.
+100~epochs, seeds 0/1/2, L40S, TRL default (whitened) advantages, common random numbers across Stage~B arms.
+
+\begin{center}
+\small\vspace{-0.3em}
+\begin{tabular}{@{}lll@{}}
+\toprule
+Arm & Agent 2 & Isolates \\
+\midrule
+Test A & frozen always-2 & learnability (C1, C2) \\
+naive--naive & matched LR \(1.41\times10^{-6}\) & symmetric baseline \\
+slow-LR & naive, LR \(3\times10^{-7}\), clip 0.1 & stationarity (H-B1) \\
+info-off & trial objective, no prompt & the shaping objective (H-B2) \\
+naive--shaper & trial objective + trial prompt & the prompt (H-B3) \\
+transfer & frozen epoch-100 shaper & ShapeLLM's claim (H-T) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{C1}: Stage~B Test~A leave-2 (last 20 epochs) lies in Stage~A's Wilson interval, seed by seed.
+\textbf{C2}: vs a frozen hawk under \(\xi\), leave-2 at \(R<12\ge 0.5\) and survival given a leave-2 opening \(>0.40\) within 100 epochs.
+\textbf{H-A}: in Stage~A, naive--shaper vs slow-LR moves the shaper's return by at most one unit.
+\textbf{H-B1--3}: each rung raises shaper return and learner feedback share (sign agreement across seeds).
+\textbf{H-B4}: shaper return exceeds the plain-hawk cell 72, toward the DP ceiling 105.5.
+\textbf{H-T}: a fresh learner acquires feedback faster or more often against the frozen shaper than against the frozen hawk.
+A null is reported as a null.
+Fifteen-epoch runs that fixed the design (including a library reseed that had made nominal seeds share one sampling stream) are pilots, not evidence.
+
+\section*{Executed: C1 and C2}
+Learner vs frozen always-2, whitened, 100 epochs, three independent seeds.
+Window \(=\) last 20 epochs \(=\) 300 games.
+
+\begin{center}
+\small\vspace{-0.3em}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+ & A leave-2 & B leave-2 & B leave-2 at \(R<12\) & surv.\(|\)leave-2 \\
+\midrule
+seed 0 & \(298/300\) & \(298/300\) & 0.89 [0.87, 0.91] & 0.99 \\
+seed 1 & \(295/300\) & \(298/300\) & 0.78 [0.75, 0.81] & 0.93 \\
+seed 2 & \(300/300\) & \(300/300\) & 1.00 & 1.00 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+C1 holds in substance (0.98--1.00 on both stages).
+C2 holds on all three Stage~B seeds.
+Last-20 survival 295/300, 276/300, 300/300; frozen-hawk return 71.0 / 67.1 / 72.0, next to the DP hawk-vs-feedback cell (72), not restrain-once (35.7).
+Later H-B returns are therefore scored against 72.
+
+\section*{Today}
+All remaining arms run together today: Stage~A two-learner (H-A), the Stage~B ladder (naive--naive, slow-LR, info-off, naive--shaper), and transfer.
+The write-up proceeds in parallel against the pre-registered design and the C1/C2 tables.
+
+\end{document}

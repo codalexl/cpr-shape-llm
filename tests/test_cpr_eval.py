@@ -86,6 +86,7 @@ def test_first_majority_and_stationarity():
     rising = list(range(40))
     ok, diff, se = ev.stationary([float(x) for x in rising], window=20); assert not ok and diff == 20
     assert ev.stationary([1.0] * 10, window=20)[0] is False
+    assert ev.stationary([1.0] * 40, window=20)[0] is True
 
 
 def test_paired_sign_agreement():
@@ -125,3 +126,16 @@ def test_latex_emitters_render():
     assert "+0.00" in p
     pi = ev.latex_pi_table(ev.pi_given_R(runs["nn"][0].rec, range(3), 0), range(0, 41))
     assert "1.00" in pi
+
+
+def test_c1_and_pi_bands():
+    a = ev.Run("testA", 0, simulate(feedback, const(2)))
+    b = ev.Run("testA", 0, simulate(feedback, const(2)))
+    c1 = ev.readout_C1([a], [b], window=3)
+    assert c1[0]["holds"] and c1[0]["A"] == (45, 45)
+    bands = ev.pi_bands(a.rec, range(3), 0)
+    low = dict((lab, p) for lab, n, p in bands)["$R<9$"]
+    assert low[1] == 1.0                       # feedback rule takes 1 below 12
+    t = ev.latex_pi_bands_table([a], 3)
+    assert "1.00" in t and r"\addlinespace" in t
+    assert "holds" in ev.latex_c1_table(c1)

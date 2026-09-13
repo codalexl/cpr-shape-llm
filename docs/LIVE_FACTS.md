@@ -400,10 +400,12 @@ Who leaves 2 did **not** swap: agent 1 leave-2 last3 is higher on every seed; ag
 
 ## Next protocol (RunPod)
 
-Seed-fixed packet (8–9 Sep) is on disk. Pod `qloy0tepltaiwi` `podStop` → **EXITED**
-(9 Sep). If it still appears stopped in the console, terminate (trash) to drop
-volume-disk billing. No further GPU jobs. Write-up only. GPU cutoff was 12 Sep.
-NS ξ e50 was not obtained (OOM). Stage B Test A ξ and NN ξ were not repeated.
+C1/C2 grid packet (12–13 Sep) is on disk under `checkpoints/grid/A_testA_whiten`
+and `checkpoints/grid/B_testA_whiten`. Pod `x7o1cceisdt2vn` `podStop` → **EXITED**
+(13 Sep). If it still appears stopped in the console, terminate (trash) to drop
+volume-disk billing. Ladder (slow-LR / info-off / naive–shaper) was **not** launched.
+R1 passed (whitened). C2 holds on all three Stage B seeds. See section
+“Final grid — C1/C2, 12–13 Sep”.
 
 ---
 
@@ -617,6 +619,73 @@ never falls below escapement and collapse is always harvest-caused. The DP joint
 optimum ((0,0) then (3,3) at R=14) is a constant-escapement rule with S*=8, bound by
 the cap 6 < MSY 9. Cited: schaefer1954 (logistic surplus production), clark1990,
 reed1979, sethi2005.
+
+---
+
+## Final grid — C1/C2, 12–13 Sep 2026, 2×L40S
+
+Pod `x7o1cceisdt2vn`. Whitened, 100 epochs, seeds 0/1/2, `finetuning_cpr_fixed.py`
+after the trainer reseed. Folders `checkpoints/grid/A_testA_whiten` and
+`checkpoints/grid/B_testA_whiten`. Last-20-epoch window = 300 games. Evaluator:
+`python scripts/evaluate_grid.py --stage {A,B} --window 20`.
+
+**Seed gate (epoch 1).** A: seed 0 vs 1 = 12/15 identical joint openings (ok, not
+IDENTICAL). B: 12/15 (ok). Seed 2 launched after the first of 0/1 finished.
+
+**R1 (operator).** Stage A last-20 leave-2: 298/300, 295/300, 300/300 (0.993 /
+0.983 / 1.000). All ≥ 0.5. Grid stays whitened. 15-epoch centred runs remain pilots.
+
+**C1 (opening invariance).** Stage A vs Stage B last-20 leave-2, seed by seed:
+
+| | A leave-2 (Wilson) | B leave-2 |
+|---|---|---|
+| s0 | 298/300 [0.976, 0.998] | 298/300 = 0.993 |
+| s1 | 295/300 [0.962, 0.993] | 298/300 = 0.993 |
+| s2 | 300/300 [0.987, 1.000] | 300/300 = 1.000 |
+
+Rates are 0.98–1.00 on both stages. The literal “B point inside A’s Wilson interval”
+holds on seed 0; seed 1 misses the upper bound by ~0.0005; seed 2 is 1.00 against a
+Wilson upper bound of 1−ε. Do not read that as a failed manipulation check.
+
+**C2 (learnability ceiling, Stage B only).** leave-2 at R<12 ≥ 0.5 and survival
+given leave-2 > 0.40, last 20 epochs. All three seeds hold:
+
+| | leave-2 R<12 | surv \| leave-2 | G1 last20 |
+|---|---|---|---|
+| s0 | 0.89 [0.87, 0.91] (924/1034) | 0.99 | 65.7 |
+| s1 | 0.78 [0.75, 0.81] (547/697) | 0.93 | 76.7 |
+| s2 | 1.00 (959/959) | 1.00 | 44.2 |
+
+R3 therefore scores later H-B returns against the feedback cell (72), not 35.7.
+Survival last20: 295/300, 276/300, 300/300. Partner (frozen 2) last20 G2: 71.0 /
+67.1 / 72.0. Ladder was not run.
+
+**Last-20 Stage A (for the C1 comparison).** G1 91.0 / 80.9 / 93.6; survival
+298/300, 289/300, 300/300; leave-2 at R<12 0.33 / 0.08 / 1.00 (C2 is Stage B only).
+
+Pod `podStop` → EXITED 13 Sep. Trash in the console if it still lists as stopped.
+
+**Learned policies (last 20, per seed; `results/grid/tables/*_pi_bands_testA.tex`).** Stage A:
+take-1 at R<9 (0.97/0.89/1.00), take-3 at R≥20 (0.93/0.90/0.93); band 9–11 is take-2 on s0/s1
+(0.77/0.97) and take-1 on s2 (0.98) — that is the whole difference in leave-2 at R<12
+(0.33/0.08/1.00). Returns 91.0/80.9/93.6 vs BR 105, vs open-1-then-2 71. Stage B: s0 take-1
+below 20, take-2 at ≥20 (ret 65.7; feedback cell 68.8); s1 take-0 at R<9 (0.78), take-3 on
+half of R≥20 (ret 76.7, rising); s2 take-1 everywhere (ret 44.2). BR under ξ 102.5: unreached.
+
+**Stationarity.** Return NOT stationary (last-20 vs previous-20 beyond 1 SE) on any of the
+six seeds. Low-stock restraint stationary on A s2 and B s2 (constant 1.00).
+
+**Two late collapses.** A s1: 10-epoch mean 91.0 → 71.0 from epoch 90, survival dips to 0.67
+once. B s2: 92.2 (epochs 70–79) → 35.3 after epoch 80 with survival 1.00 throughout (retreated
+to take-1 in every band, ≈ the (1,1) cell 36). A run's best policy is not its final one; report
+curves, not only windows.
+
+**Amendment (13 Sep, before any ladder launch).** Stage B ladder + transfer at 200 epochs
+(window 181–200), five seeds on the ladder; transfer 100 epochs. Logged in
+`docs/EXPERIMENT_PLAN.md` and thesis §6 Protocol.
+
+**C1 literal.** Seed 1: B share 0.993 vs A Wilson upper 0.993 (outside by < 0.001). Report
+literally; read as passed (shares 0.98–1.00 both stages).
 
 ---
 

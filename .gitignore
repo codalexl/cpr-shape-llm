@@ -250,3 +250,6 @@ analysis/
 *.lot
 thesis/main.fdb_latexmk
 thesis/main.fls
+RUNPOD.md
+docs/*.fdb_latexmk
+docs/*.fls

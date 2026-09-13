@@ -136,9 +136,20 @@ def main():
             }
         counts = sum(ev.pi_given_R(r.rec, range(max(0, r.epochs - W), r.epochs), 0) for r in runs)
         (out / "tables" / f"{a.stage}_pi_{arm}.tex").write_text(ev.latex_pi_table(counts, range(1, 25)))
+        (out / "tables" / f"{a.stage}_pi_bands_{arm}.tex").write_text(ev.latex_pi_bands_table(runs, W, 0))
+        if arm != "testA":
+            (out / "tables" / f"{a.stage}_pi_bands_{arm}_agent2.tex").write_text(ev.latex_pi_bands_table(runs, W, 1))
+        for r in runs:
+            summary["arms"][arm][r.seed]["pi_bands"] = [(lab, n, [None if math.isnan(x) else float(x) for x in p])
+                                                      for lab, n, p in ev.pi_bands(r.rec, range(max(0, r.epochs - W), r.epochs), 0)]
 
     if "testA" in arms:
         summary["hypotheses"]["C2"] = ev.readout_C2(arms["testA"], W, anchors)
+        if a.stage == "B":
+            other = load_arms("A", a.op, a.legacy, a.reseed).get("testA", [])
+            if other:
+                summary["hypotheses"]["C1"] = ev.readout_C1(other, arms["testA"], W)
+                (out / "tables" / "C1.tex").write_text(ev.latex_c1_table(summary["hypotheses"]["C1"]))
     rungs = {}
     for name, up, lo in LADDER:
         if up in arms and lo in arms:
@@ -176,6 +187,8 @@ def main():
         (ROOT / "thesis" / "figures" / "grid").mkdir(parents=True, exist_ok=True)
         for f in (out / "tables").glob(f"{a.stage}_*.tex"):
             shutil.copy(f, ROOT / "thesis" / "tables" / "grid" / f.name)
+        if (out / "tables" / "C1.tex").exists():
+            shutil.copy(out / "tables" / "C1.tex", ROOT / "thesis" / "tables" / "grid" / "C1.tex")
         if (out / "tables" / "sensitivity.tex").exists():
             shutil.copy(out / "tables" / "sensitivity.tex", ROOT / "thesis" / "tables" / "grid" / "sensitivity.tex")
         shutil.copy(out / "figures" / f"{a.stage}_curves.pdf", ROOT / "thesis" / "figures" / "grid" / f"{a.stage}_curves.pdf")
