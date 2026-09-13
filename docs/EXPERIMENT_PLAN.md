@@ -38,6 +38,55 @@ Rules:
 
 **Facts from the seed-fixed pilots (8–9 Sep, L40S, 15 epochs) that inform the rules above.** Whitened Test A on independent seeds left opening 2 on two of three seeds by epoch 15 and the third locked from epoch 23 of a 30-epoch run, so R1 is expected to pass; the probe still runs. With independent seeds the naive–shaper vs slow-LR contrast was mixed in sign on every readout (`python scripts/evaluate_grid.py --stage B --reseed --window 3`), where the shared-stream pilots had agreed on every seed; that is the reason for 100 epochs and five seeds on the Stage B ladder. Seed 0 of the Stage B arms is the pre-fix seed-0 tape; seeds 1–2 are new draws (LIVE_FACTS, "Seed-fixed reseed").
 
+## Pre-launch audit and runbook for Stage B (13 September, before the pod starts)
+
+**Verified in the repository.**
+- Every Stage B config field, side by side (`configs/grid/B_*_whiten.json`): xi 7/10/13, e_max 5, n_games 3, T 36, whitened advantages on both agents, agent 1 identical in every arm (LR 1.41e-6, clip 0.2 default, entropy 0.05→0.01, vf_coef 0.01), agent 2 as in the ladder table. Each rung differs from the next in exactly the intended key; the info-off prompt renders identically to the naive prompt (test).
+- The finished Test A tables equal the 200-capacity prefix of each seed's noise table, so testA, the ladder and transfer share draws at every (epoch, game, round) for seeds 0–2. Seeds 3–4 have their own tables, shared across the ladder arms.
+- The saved checkpoints contain `adapter_config.json`, `adapter_model.safetensors` and the value head, which is what the frozen-adapter partner loads. Checkpoints are saved at epochs 100 and 200 (`CKPT_FREQ=100`); the transfer template must point at `_checkpoint_200`.
+- Both entry points re-seed after every agent, including the frozen partner, is constructed.
+- Training-metrics and gradient logs are per-update scalars (250 entries per 50 epochs); records and live-advantage logs are ~3 MB and ~3 MB per 50 epochs. No unbounded growth; ~20 MB per 200-epoch run plus two ~10 MB checkpoints.
+- The one OOM in the record (NS ξ e50 reseed) was two processes on one L40S (24 GiB + 20 GiB on a 44 GiB card), in epoch 1, not growth. **One process per GPU is a hard rule**; the launcher now refuses a repeated GPU index and sets `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`.
+- `launch_grid.sh` requires `EPOCHS` explicitly (no silent 100), checks the partner adapter exists before a transfer launch, and has `SMOKE=1` (2 epochs into `*_smoke` folders) for the two code paths that have never run on the real stack: `tbn` and `transfer`.
+
+**Design points to keep in view when reading the results.**
+- C2 holds, so the dove-role restraint readout is near its ceiling (0.78–1.00 at 100 epochs); the informative H-B readouts are hawk-role return, speed to majority restraint, and H-X. A null on dove restraint is expected and is not a null on shaping.
+- Roles in naive–naive are symmetric a priori; every contrast that includes nn is read on the role-invariant readouts. Agent-indexed readouts are for rungs where agent 2 is a hawk by construction.
+- Non-stationarity at 100 and two late collapses in Test A: the 200-epoch window is still a snapshot; curves are reported with every table, and a collapse inside the window is reported as such, not averaged away.
+- The trial-batched control is the shaper minus cross-episode credit; the rung info-off − tbn is the test of the shaping term. If tbn − slow-LR is large, the update schedule matters on its own and any ns − slow-LR effect must not be attributed to the objective.
+- Five seeds on the ladder: report per-seed Δ and sign agreement; no test statistic.
+
+**Runbook (five L40S, one process per GPU; total ≈ 56 + 14 + 2 + 5 GPU-h).**
+```
+git pull && git log --oneline -1            # must be at or after 84edb5a
+pip install -r requirements.txt             # trl 0.11.4; HF token for gemma-2-2b-it
+python scripts/make_grid_configs.py         # regenerates configs/grid (idempotent)
+# 0. smoke the two new paths (minutes)
+SMOKE=1 ./scripts/launch_grid.sh B tbn "0" "0"
+SMOKE=1 PARTNER_ADAPTER_TEMPLATE='checkpoints/grid/B_testA_whiten/exp%d_model1_model_checkpoint_100' \
+  ./scripts/launch_grid.sh B transfer "0" "1"
+#    -> both logs end with "Experiment 1 completed."; then rm -r checkpoints/grid/*_smoke
+# 1. ladder, wave 1 (5 GPUs): naive-shaper seeds 0-4
+EPOCHS=200 ./scripts/launch_grid.sh B ns "0 1 2 3 4" "0 1 2 3 4"
+python scripts/check_seed_divergence.py checkpoints/grid/B_ns_whiten     # after epoch 1 (~1 min)
+# 2. waves 2-4 as GPUs free up: infooff, tbn, slow2 (seeds 0-4 each), then nn
+EPOCHS=200 ./scripts/launch_grid.sh B infooff "0 1 2 3 4" "0 1 2 3 4"
+EPOCHS=200 ./scripts/launch_grid.sh B tbn     "0 1 2 3 4" "0 1 2 3 4"
+EPOCHS=200 ./scripts/launch_grid.sh B slow2   "0 1 2 3 4" "0 1 2 3 4"
+EPOCHS=200 ./scripts/launch_grid.sh B nn      "0 1 2 3 4" "0 1 2 3 4"
+# 3. transfer, after ns finishes (needs exp<k>_model2_model_checkpoint_200)
+EPOCHS=100 PARTNER_ADAPTER_TEMPLATE='checkpoints/grid/B_ns_whiten/exp%d_model2_model_checkpoint_200' \
+  ./scripts/launch_grid.sh B transfer "0 1 2" "0 1 2"
+# 4. sensitivity (one seed each, 100 epochs) on any free GPU
+for n in B_testA_ent0 B_testA_vf01 B_testA_kl2 B_ns_lr141; do
+  CUDA_VISIBLE_DEVICES=<g> nohup env NAME=$n SEED=0 EPOCHS=100 ./scripts/run_cpr.sh sens > checkpoints/grid/logs/sens_$n.log 2>&1 &
+done
+# 5. evaluate (window 20 = epochs 181-200 for 200-epoch arms), copy tables into the thesis
+python scripts/evaluate_grid.py --stage B --window 20 --out results/grid --copy-to-thesis
+# 6. copy checkpoints/grid (records, logs, noise tables, checkpoints) off the pod before terminating
+```
+Wall-clock: each 200-epoch two-learner run ≈ 2.8 h, so four ladder waves ≈ 11 h, then transfer (≈ 0.6 h) and sensitivity (≈ 2 h in parallel).
+
 ## 1. Hypotheses, audited
 
 The pre-registered H1–H3 (thesis eq. h1–h3) mix manipulation checks with the shaping claim and bundle four controls into one inequality. Revised set:

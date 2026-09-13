@@ -191,11 +191,11 @@ case "$MODE" in
   grid)
     # Final grid (docs/EXPERIMENT_PLAN.md). One seed per process so seeds fan out over GPUs.
     #   STAGE=B ARM=ns SEED=0 [OP=whiten] [EPOCHS=100] [CKPT_FREQ=100] ./scripts/run_cpr.sh grid
-    #   ARM=transfer needs PARTNER_ADAPTER=checkpoints/grid/B_ns_whiten/exp<seed+1>_model2_model_checkpoint_100
+    #   ARM=transfer needs PARTNER_ADAPTER=checkpoints/grid/B_ns_whiten/exp<seed+1>_model2_model_checkpoint_200
     : "${STAGE:?set STAGE=A|B}" "${ARM:?set ARM=testA|nn|slow2|infooff|ns|transfer}" "${SEED:?set SEED}"
     OP="${OP:-whiten}"; EPOCHS="${EPOCHS:-100}"; CKPT_FREQ="${CKPT_FREQ:-100}"
     CONFIG="configs/grid/${STAGE}_${ARM}_${OP}.json"
-    OUT="checkpoints/grid/${STAGE}_${ARM}_${OP}"
+    OUT="checkpoints/grid/${STAGE}_${ARM}_${OP}${OUT_SUFFIX:-}"
     SEEDS=1; SEED_START="$SEED"
     case "$ARM" in testA|transfer) ENTRY="finetuning_cpr_fixed.py" ;; esac
     if [[ "$ARM" == "transfer" ]]; then : "${PARTNER_ADAPTER:?set PARTNER_ADAPTER for ARM=transfer}"; fi
