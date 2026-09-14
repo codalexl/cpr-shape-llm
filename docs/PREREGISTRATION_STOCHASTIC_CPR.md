@@ -244,3 +244,9 @@ Thresholds are set against the solver's best response, not at it: a learner that
   4. **G3 pilot folder.** The pilot runs in its own folder (`m2_shaper_matched_g3`) and is not reused as a training seed.
   5. **Counting seeds.** "Most seeds" counts against the planned seeds: a missing or failed seed counts against every condition, "not unconditional" included. E3 against E4 compares agent 2, the frozen shaper, per round.
   6. **Survival.** An episode survives if its pool is not empty when the episode closes.
+- *14 Sep 2026, after the build review and before any run on this design.* **The solver's returns assume an uncapped end.** Sections 2–4 give expected returns under the uncapped geometric end (mean 36 rounds). The environment caps an episode at 108 rounds (mean 34.3). On the pod, a return therefore scales by a factor between 0.952 (= 1 − (35/36)^108) and 1.000: the full reduction for play that keeps the pool alive to the end, none for play that empties it early. Values under the cap (`cpr_dial.evaluate_capped`, pinned by `tests/test_cpr_dial.py`), with the uncapped values in brackets:
+  - **Both design points.** Mutual restraint earns 34.3 (36.0).
+  - **m = 2.** Against a best responder, tit-for-tat earns 40.8 (42.7) and committed harvest 19.5 (19.5). A restrained partner is worth 37.8 (40.1). The payoff degeneracy reads T = 54.8 > R = S = 34.3 > P = 16.0.
+  - **m = 3.** Committed harvest earns 58.3 (58.9), against 47.8 (50.1) for tit-for-tat. A restrained partner is worth 40.5 (43.5).
+
+  **What does not change.** Survival probabilities move by at most 0.006. Drift, I2, I3, every ordering, rates and classes are unchanged. The I4 gate was not recomputed under the cap, and no decision rule uses it. Any solver value compared with returns from the pod, such as the share of the joint optimum in Section 7, uses the capped evaluation.

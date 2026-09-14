@@ -140,18 +140,41 @@ class _Chain:
         return r1, r2, nxt, float(sum(p for Rn, p in dist if Rn > 0))
 
 
-def evaluate(dial: Dial, policy1: Policy, policy2: Policy) -> Tuple[float, float, float]:
-    """Expected returns of both players and the probability that the episode ends before the pool empties."""
-    ch, delta = _Chain(dial), dial.continuation
-    P, r = np.zeros((ch.n, ch.n)), np.zeros((ch.n, 3))
+def _play(dial: Dial, policy1: Policy, policy2: Policy):
+    """Transitions, both players' receipts, and the probability the pool is alive after the round, per state."""
+    ch = _Chain(dial)
+    P, r, alive = np.zeros((ch.n, ch.n)), np.zeros((ch.n, 2)), np.zeros(ch.n)
     for R, last1, last2 in ch.live_states():
         s = ch.state(R, last1, last2)
-        c1, c2, nxt, alive = ch.row(R, policy1(R, last1, last2), policy2(R, last2, last1))
-        r[s] = (c1, c2, (1 - delta) * alive)
+        c1, c2, nxt, alive[s] = ch.row(R, policy1(R, last1, last2), policy2(R, last2, last1))
+        r[s] = (c1, c2)
         for t, p in nxt:
             P[s, t] += p
-    v = np.linalg.solve(np.eye(ch.n) - delta * P, r)[ch.start]
+    return ch, P, r, alive
+
+
+def evaluate(dial: Dial, policy1: Policy, policy2: Policy) -> Tuple[float, float, float]:
+    """Expected returns of both players and the probability that the episode ends before the pool empties, under
+    the uncapped geometric end (mean 36 rounds at the design points)."""
+    ch, P, r, alive = _play(dial, policy1, policy2)
+    delta = dial.continuation
+    v = np.linalg.solve(np.eye(ch.n) - delta * P, np.column_stack([r, (1 - delta) * alive]))[ch.start]
     return float(v[0]), float(v[1]), float(v[2])
+
+
+def evaluate_capped(dial: Dial, policy1: Policy, policy2: Policy, cap: int = 108) -> Tuple[float, float, float]:
+    """As `evaluate`, under the environment's end: the episode closes at min(Geometric, cap) rounds (mean 34.3 at
+    the design points), so play that keeps the pool alive earns up to 1 - continuation**cap less."""
+    ch, P, r, alive = _play(dial, policy1, policy2)
+    delta, d = dial.continuation, np.zeros(ch.n)
+    d[ch.start] = 1.0
+    returns, survival = np.zeros(2), 0.0
+    for t in range(1, cap + 1):
+        reach = delta ** (t - 1)
+        returns += reach * (d @ r)
+        survival += (reach * (1 - delta) if t < cap else reach) * float(d @ alive)
+        d = d @ P
+    return float(returns[0]), float(returns[1]), survival
 
 
 def _optimise(dial: Dial, partner: Policy, survival: bool = False):

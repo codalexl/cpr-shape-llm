@@ -87,3 +87,19 @@ def test_gate_separates_the_mechanisms_by_the_learner_policy_at_m2(kind):
 def test_committed_greed_teaches_yielding_at_m3_the_negative_control():
     g = cd.gate(M3, cd.ToyLearner(kind="reciprocity", step=0.3), episodes=30, grid_points=5, rules=(cd.ALWAYS_HARVEST,))
     assert g.end_restraint["always harvest"][1] > 0.9  # restrains after the shaper harvests: yields to a committed hawk
+
+
+def test_the_environment_cap_lowers_surviving_returns_and_keeps_every_ordering():
+    """The environment closes an episode at min(Geometric(1/36), 108) rounds: mean 34.3, not the solver's 36."""
+    R, H = cd.RESTRAIN, cd.HARVEST
+    values = {}
+    for name, dial in cd.DESIGN.items():
+        assert cd.evaluate_capped(dial, cd.always(R), cd.always(R))[:2] == pytest.approx((36 * (1 - (35 / 36) ** 108),) * 2)
+        leader = lambda partner: cd.evaluate_capped(dial, cd.best_response(dial, partner)[1], partner)[1]
+        exploit = cd.evaluate_capped(dial, cd.best_response(dial, cd.always(R))[1], cd.always(R))
+        worth = exploit[0] - cd.evaluate_capped(dial, cd.best_response(dial, cd.always(H))[1], cd.always(H))[0]
+        values[name] = (leader(cd.always(H)), leader(cd.tit_for_tat), worth, exploit[0], exploit[1])
+    assert values["m=2"] == pytest.approx((19.51, 40.80, 37.79, 54.84, 34.28), abs=0.01)
+    assert values["m=3"][:3] == pytest.approx((58.26, 47.76, 40.45), abs=0.01)
+    assert values["m=2"][0] < values["m=2"][1] and values["m=3"][0] > values["m=3"][1]  # I3: commitment fails at m = 2 only
+    assert values["m=2"][3] > values["m=2"][4] > cd.evaluate_capped(cd.DESIGN["m=2"], cd.always(H), cd.always(H))[0]  # T > R = S > P
