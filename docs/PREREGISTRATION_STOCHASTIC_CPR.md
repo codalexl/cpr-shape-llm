@@ -237,3 +237,10 @@ Thresholds are set against the solver's best response, not at it: a learner that
   4. **Decision rules.** S now uses tbn controls and an E3 against E4 return comparison, and C uses 0.5.
 
   ShapeLLM facts in Section 0 were checked against the paper (Tables 7–9, Sections 3.2 and 5, Appendices A.3–A.4). The arm is renamed ShapeLLM-style, and its differences from the paper's hyperparameters are listed.
+- *14 Sep 2026, during the environment build and before any run on this design.* Implementation decisions that the text above left open:
+  1. **Adapters for the evaluation arms.** They load each training run's epoch-100 adapters. E1 and E2 learners are also checkpointed at epoch 100, so that they can be probed. E4's untrained partner is `adapter/cpr_learner_r2`, the adapter every naive learner starts from.
+  2. **E2 tapes.** A tape holds every recorded round of an episode up to its closing round, including rounds after the recorded pool emptied, because the rule replays by round index. Past the closing round, the bot holds the last take. The evaluator reports the masked share of each run's window, which bounds how much of a tape comes from an empty pool.
+  3. **The history switch** (Section 2) is the environment's previous-round line. The optional arm (`m2_shapellm_history_off`) therefore turns it off for both players.
+  4. **G3 pilot folder.** The pilot runs in its own folder (`m2_shaper_matched_g3`) and is not reused as a training seed.
+  5. **Counting seeds.** "Most seeds" counts against the planned seeds: a missing or failed seed counts against every condition, "not unconditional" included. E3 against E4 compares agent 2, the frozen shaper, per round.
+  6. **Survival.** An episode survives if its pool is not empty when the episode closes.

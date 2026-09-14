@@ -477,3 +477,60 @@ def latex_c1_table(c1: dict) -> str:
         rows.append(f"{s} & {fmt_ci(*d['A'])} & {d['B'][0]}/{d['B'][1]} & {d['B_share']:.3f} & {'holds' if d['holds'] else 'outside'} \\\\")
     rows += [r"\bottomrule", r"\end{tabular}"]
     return "\n".join(rows) + "\n"
+
+
+# ----------------------------------------------------------------------------- stochastic CPR: the partner's policy
+
+
+def restraint_rates(rec: dict, agent: int, epochs: Iterable[int], low_cut: int = 12,
+                    min_count: int = 30) -> Dict[str, Tuple[Optional[float], int]]:
+    """The four pre-registered restraint rates of `agent` (0 or 1) over `epochs` (docs/PREREGISTRATION_STOCHASTIC_CPR.md).
+
+    after_restrain / after_take: the agent restrains (takes 1) when the other player did / did not restrain in the
+    previous round of the same episode; round 1 counts the previous round as mutual restraint.
+    low / high: the agent restrains at stock below / at or above `low_cut`.
+    Live rounds only. Each value is (rate, rounds); the rate is None when rounds < min_count.
+    """
+    keep = {int(e) for e in epochs}
+    tally = {name: [0, 0] for name in ("after_restrain", "after_take", "low", "high")}
+    previous: Dict[Tuple[int, int, int], int] = {}
+    own_key, other_key = f"request_{agent + 1}", f"request_{2 - agent}"
+    for i in range(len(rec["epoch"])):
+        key = (int(rec["epoch"][i]), int(rec["episode"][i]), int(rec["game"][i]))
+        other_before = previous.get(key, 1) if int(rec["step"][i]) > 1 else 1
+        previous[key] = int(rec[other_key][i])
+        if key[0] not in keep or rec["masked"][i]:
+            continue
+        restrained, stock = int(rec[own_key][i]) == 1, int(rec["R_start"][i])
+        for name, applies in (("after_restrain", other_before == 1), ("after_take", other_before != 1),
+                              ("low", stock < low_cut), ("high", stock >= low_cut)):
+            if applies:
+                tally[name][0] += restrained
+                tally[name][1] += 1
+    return {name: ((k / n) if n >= min_count else None, n) for name, (k, n) in tally.items()}
+
+
+def policy_class(rates: Dict[str, Tuple[Optional[float], int]], hi: float = 0.7, lo: float = 0.3) -> str:
+    """none / conditional / unconditional / mixed / undetermined, as pre-registered (Section 7)."""
+    r = {name: value for name, (value, _) in rates.items()}
+    known = lambda *names: all(r[n] is not None for n in names)
+    if (known("after_restrain", "after_take") and r["after_restrain"] >= hi and r["after_take"] <= lo) or \
+            (known("low", "high") and r["low"] >= hi and r["high"] <= lo):
+        return "conditional"
+    if not known("after_restrain", "after_take", "low", "high"):
+        return "undetermined"
+    if all(v < lo for v in r.values()):
+        return "none"
+    if all(v >= hi for v in r.values()):
+        return "unconditional"
+    return "mixed"
+
+
+def take_share(rec: dict, agent: int, epochs: Iterable[int], take: int, min_stock: int = 0) -> Tuple[Optional[float], int]:
+    """Share of `agent`'s live rounds over `epochs`, at stock >= min_stock, on which it played `take` (gate readouts)."""
+    keep, key, k, n = {int(e) for e in epochs}, f"request_{agent + 1}", 0, 0
+    for i in range(len(rec["epoch"])):
+        if int(rec["epoch"][i]) in keep and not rec["masked"][i] and int(rec["R_start"][i]) >= min_stock:
+            n += 1
+            k += int(rec[key][i]) == take
+    return (k / n if n else None), n
