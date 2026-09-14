@@ -250,3 +250,9 @@ Thresholds are set against the solver's best response, not at it: a learner that
   - **m = 3.** Committed harvest earns 58.3 (58.9), against 47.8 (50.1) for tit-for-tat. A restrained partner is worth 40.5 (43.5).
 
   **What does not change.** Survival probabilities move by at most 0.006. Drift, I2, I3, every ordering, rates and classes are unchanged. The I4 gate was not recomputed under the cap, and no decision rule uses it. Any solver value compared with returns from the pod, such as the share of the joint optimum in Section 7, uses the capped evaluation.
+- *14 Sep 2026, 23:16 UTC, after G0, smoke and the 17 September gate on pod `zrsa8n4hdbdep2`, commit 7f59c42.* `python scripts/evaluate_dial.py --gate` printed **NO GO**. No training started. Numbers from `results/dial/gate.json` (window 81–100):
+  - **G1** (learner restraint vs committed harvest ≥ 0.5, most of 3 seeds): **fail**. Seeds 0 / 1 / 2: 0.004 / 0.099 / 0.027.
+  - **G2** (learner restraint after tit-for-tat restrained ≥ 0.5, most of 3 seeds): **fail**. Seeds 0 / 1 / 2: 0.026 / 0.689 / 0.003. Seed 1 is the only seed above 0.5.
+  - **G3** (shaper restraint in the matched pilot ≥ 0.3, 1 seed): **fail**. Seed 0: 0.007.
+  - **G0** (does not gate), `results/dial/g0_preflight.txt`: untrained first-round mix at reset (R=20) is 0.094 / 0.888 / 0.018 on takes 1 / 2 / 3; at R=1 after both requested 1 it is 0.519 / 0.458 / 0.023.
+  - Smoke (2 epochs of every arm, plus forced-108) completed with no OOM. Peak in `results/dial/smoke_memory.csv` was 27,751 MiB on a 46,068 MiB L40S.
