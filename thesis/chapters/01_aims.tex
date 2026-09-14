@@ -1,15 +1,20 @@
 \chapter{Aims}
 \label{ch:aims}
 
-This report asks whether opponent shaping, as instantiated for
-language-model agents by ShapeLLM \cite{garciasegura2025}, has anything
-to buy in a sequential common-pool resource, and whether it buys it.
-The setting is a two-player integer logistic CPR (Chapter~\ref{ch:env})
-played by Gemma-2-2b-it agents trained with PPO on rank-2 LoRA adapters
-(Chapter~\ref{ch:method}), first with deterministic regeneration
-(Stage~A) and then with a mean-one multiplicative shock on the growth
-increment (Stage~B).
-The game is small enough to be solved exactly by dynamic programming, so
+This report studies opponent shaping for language-model agents, as
+instantiated by ShapeLLM \cite{garciasegura2025}, in a sequential
+common-pool resource with stochastic regeneration.
+Frozen LLM groups have been studied on shared stocks without training
+\cite{piatti2024}; ShapeLLM trains a shaper on iterated matrix games.
+The environment here is a two-player integer logistic CPR
+(Chapter~\ref{ch:env}) played by Gemma-2-2b-it agents with rank-2 LoRA
+adapters and PPO (Chapter~\ref{ch:method}).
+Stage~B, a mean-one multiplicative shock on the growth increment, is
+the setting of the shaping tests.
+Stage~A is the same recipe on the deterministic game: the exact
+solution shows a committed hawk already earns \(72\) against both safe
+scripts, so that game is unpowered; it is a control, not the aim.
+The stock is small enough to be solved exactly by dynamic programming, so
 every quantity a learner is compared against is a number fixed before
 training, not a baseline estimated from another run.
 
@@ -17,69 +22,105 @@ training, not a baseline estimated from another run.
 
 \begin{enumerate}
 \item \textbf{Structure.}
-  What does the exact solution of the game imply about what a
-  prior-dominated learner can learn in it, and in particular whether a
-  shaping objective has anything to buy?
-  The answer bounds the effect any experiment can detect
-  (Section~\ref{sec:a-to-b}) and is the reason the thesis moves from
-  deterministic to stochastic regeneration.
+  What does the exact solution imply about what a learner whose
+  first-action prior is peaked on take-2 can acquire, and whether a
+  shaping objective has a return to collect?
+  In the deterministic game a committed hawk earns \(72\) against both
+  ``restrain once, then take~2'' and ``take~1 if \(R<12\), else~2''
+  (Table~\ref{tab:noise-dp}), so inducing one of those scripts rather
+  than the other does not raise the hawk's own return above \(72\);
+  hypothesis H-A tests that, on Stage~A, naive--shaper minus slow-LR
+  lies within one unit.
+  Under the Stage~B shock the same hawk earns \(35.7\) against
+  restrain-once and \(72\) against the feedback script, and \(105.5\) if
+  it best-responds to feedback: that \(36\)--\(70\) range is a bound on
+  \emph{scripts}, not on an executed policy
+  (Section~\ref{sec:a-to-b}).
 \item \textbf{Shaping.}
-  Does the trial-level opponent-shaping objective change what a naive
-  learner acquires, and what the shaper earns, relative to a partner that
-  is merely slow?
-  This is answered by an ablation ladder that changes one ingredient of
-  the partner per rung: its learning rate, its update schedule, the
-  cross-episode credit that is the shaping term, and the trial prompt
-  (Section~\ref{sec:ladder}).
+  Does cross-episode credit in the trial-level objective
+  \eqref{eq:shaper-objective} change hawk-role return and dove-role
+  low-stock restraint relative to a partner that shares the shaper's
+  learning rate, clip, update schedule and batch, but resets GAE at
+  episode boundaries?
+  An ablation ladder changes one ingredient of agent~2 per rung:
+  learning rate and clip; then that schedule without cross-episode
+  credit (trial-batched naive); then the shaping term (info-off); then
+  the trial prompt (Section~\ref{sec:ladder}).
+  The slow partner is a timescale control, not the control for the
+  shaping term.
+  Check C2 is Stage~B Test~A only and is operational
+  \eqref{eq:c2}: last-window leave-2 on live steps with \(0<R<12\) at
+  least \(0.5\), and survival given a leave-2 opening at least \(0.40\).
+  It held on all three seeds (\(0.89\), \(0.78\), \(1.00\) and
+  \(0.99\), \(0.93\), \(1.00\); Section~\ref{sec:grid-c1c2}).
+  That is not the claim that the learner matches the dynamic-programming
+  feedback rule (take~1 iff \(R<12\)): in the same window Stage~B seed~2
+  is take-1 on \(0.99\)--\(1.00\) of live steps with \(R<20\) and
+  \(0.85\) take-1 (\(0.14\) take-3) at \(R\ge 20\), with learner return
+  \(44.2\) against a frozen hawk at \(72.0\)
+  (Table~\ref{tab:grid-pi-bands}).
+  Because the gate held, later hawk-role returns are scored against
+  \(72\) not \(35.7\); a null on dove-role low-stock restraint against
+  that already-high ceiling is expected, and the informative contrasts
+  are hawk-role return, speed to majority restraint, and exploitation
+  (H-X).
 \item \textbf{Transfer.}
-  Does a trained shaper, frozen, steer a fresh learner differently from a
-  frozen hawk?
+  Does a trained shaper, frozen, steer a fresh learner differently from
+  a frozen hawk?
   This is ShapeLLM's claim stated for this game.
 \end{enumerate}
 
 \section{Approach}
 
-The environment is specified as a finite Markov game whose best-response
-and joint-optimum Bellman equations are solved exactly
-(Chapter~\ref{ch:env}); the regeneration law is derived as the mean field
-of the per-unit respawn of Commons Harvest, and the Stage~B shock as a
-bounded, mean-preserving discretisation of its spread
-(Appendix~\ref{app:binomial}).
-The learning algorithm is written down term by term, including the
-KL-to-reference penalty and the advantage operator, with every
-hyperparameter and its provenance (Chapter~\ref{ch:method}).
-The experiments are pre-registered: hypotheses are inequalities between
-estimators and exact cells or paired controls, each with a stated null,
-and the decision rules for the cases in which a check fails are fixed
-before the grid runs (Chapter~\ref{ch:design}).
-Replication uses independent seeds on one hardware platform and common
-random numbers across arms; the fifteen-epoch runs that fixed the design
-are reported as pilots, not as evidence.
+The environment is a finite Markov game whose best-response and
+joint-optimum Bellman equations are solved exactly
+(Chapter~\ref{ch:env}).
+The deterministic increment is the integer rounding of the logistic
+mean of a per-unit binomial; Stage~B is a bounded, mean-preserving
+three-point spread on that increment (Appendix~\ref{app:binomial}).
+That construction is a scalar harvest--regrowth analogue, not a
+mean-field of Commons Harvest's spatial exclusion.
+Agents are Gemma-2-2b-it with rank-2 LoRA and PPO, naive episode updates
+against a trial-level shaper, with hyperparameters and provenance in
+Chapter~\ref{ch:method}.
+Experiments are pre-registered as inequalities against exact cells or
+paired controls, with decision rules fixed before the grid
+(Chapter~\ref{ch:design}); independent seeds on one CUDA platform,
+common random numbers across Stage~B arms, fifteen-epoch runs as
+pilots.
+The training loop was audited before those claims: a library reseed
+that made nominal seeds share one sampling stream, a KL-to-reference
+term in the token reward, and the Adam invariance that voids reading
+advantage whitening as a step-size; reported grid runs use the seed
+fix.
 Results are reported against the pre-registration
-(Chapter~\ref{ch:results}), and what they do not license is stated
+(Chapter~\ref{ch:results}); what they do not license is stated
 (Chapter~\ref{ch:lim}).
 
 \section{Contributions}
 
 \begin{itemize}
-\item An exactly solvable two-player CPR that is the mean-field
-  reduction of Commons Harvest, with its Bellman equations, its
-  constant-strategy reduction (chicken, not a prisoner's dilemma), and a
-  derivation placing its deterministic and stochastic forms in the
-  renewable-resource models of Schaefer and Reed; and the argument, from
-  the exact solution, that the deterministic game bounds any shaping
-  effect at one unit while the stochastic game bounds it at 36 to 70.
-\item A pre-registered ablation ladder for opponent shaping between
-  language-model agents, isolating the partner's stationarity, the
-  trial-level objective and the trial prompt, with a transfer test and a
-  one-factor sensitivity check on every hyperparameter that differs from
-  ShapeLLM's release.
-\item An audit of the training loop with reproducible scripts: a library
-  reseed that made nominal seeds share one sampling stream, an unreported
-  KL-to-prior term in the reward, and the Adam invariance that voids the
-  step-size reading of advantage normalisation.
-\item The results of the grid against the hypotheses, whichever way they
-  fall (Chapter~\ref{ch:results}).
+\item An exactly solvable two-player integer logistic CPR, with Bellman
+  equations and a constant-strategy reduction that is chicken, not a
+  prisoner's dilemma.
+  The increment is the rounded Schaefer mean of a per-unit binomial
+  (Appendix~\ref{app:meanfield}), not a reduction of the gridworld's
+  exclusion mechanics.
+  From the exact solution: in Stage~A a committed hawk earns \(72\)
+  against both safe scripts above, so H-A's one-unit tolerance is the
+  available gap on the hawk's return; in Stage~B the gap between those
+  scripts is \(35.7\) versus \(72\), with exploitation ceiling \(105.5\).
+\item A pre-registered ablation that isolates, in agent~2, learning rate
+  and clip, update schedule and batch, cross-episode credit (the
+  shaping term), and the trial prompt, including a trial-batched naive
+  so that info-off minus slow-LR is not read as shaping; a transfer
+  test; and a one-factor sensitivity check on hyperparameters that
+  differ from ShapeLLM's release.
+\item The executed Test~A grid (whitened, 100 epochs, three seeds, both
+  stages): R1 passed; C1 holds in substance (Stage~B leave-2 shares
+  \(0.98\)--\(1.00\); seed~1 lies \(<0.001\) outside the Stage~A Wilson
+  upper bound); C2 held as \eqref{eq:c2} on every Stage~B seed.
+  The shaping ladder is not a result of this chapter.
 \end{itemize}
 
 \section{Scope}
@@ -87,8 +128,11 @@ Results are reported against the pre-registration
 The commons is scalar and two-player; the spatial and exclusion
 mechanisms of the gridworld commons are removed on purpose so that the
 harvest decision is the only decision.
-The base model is fixed; noise levels other than the executed one are
-covered by the dynamic programme, not by training runs.
+The base model is fixed; noise levels other than the executed
+\(\pm 30\%\) multiplier, and the binomial kernel itself, are covered by
+the dynamic programme, not by training runs.
+C2 is not reported for Stage~A; low-stock leave-2 there was \(0.33\),
+\(0.08\) and \(1.00\) in the same window.
 The training stack (Gemma-2-2b-it, rank-2 LoRA, trial PPO) is reused from
 ShapeLLM with permission \cite{garciasegura2025}; the scientific object
 is the environment, the design, and the contrasts.
