@@ -445,3 +445,34 @@ def main(argv=None) -> None:
 
 if __name__ == "__main__":
     main()
+
+
+# ----------------------------------------------------------------------------- run configs
+
+DIAL_TOKENS = [235274, 235284, 235304]  # gemma-2-2b-it tokens for "1", "2", "3"
+DESIGN_RATES = {5: "m2", 6: "m3"}
+
+
+def check_dial_config(config: dict, allow_fixed_horizon: bool = False) -> str:
+    """Refuse any config that is not one of the two pre-registered design points, and return "m2" or "m3".
+
+    The launcher applies this as strictly as the pond lock. `allow_fixed_horizon` admits the memory smoke run, in
+    which every episode runs the 108-round cap instead of closing at random.
+    """
+    from cpr_observation_managers import DIAL_RULES
+    gp = config["game_parameters"]
+    fixed = dict(t_max=108, e_max=5, n_games=3, R0=20, g=0, ceiling=20, n_actions=3, min_take=1)
+    for key, value in fixed.items():
+        assert gp.get(key) == value, f"game_parameters.{key} = {gp.get(key)!r}; the design point needs {value!r}"
+    assert gp.get("rate_tenths") in DESIGN_RATES, f"rate_tenths {gp.get('rate_tenths')!r} is not 5 (m=2) or 6 (m=3)"
+    assert list(gp.get("xi_tenths") or []) == list(XI_TENTHS), f"xi_tenths {gp.get('xi_tenths')!r} != {list(XI_TENTHS)}"
+    close = gp.get("close_continue")
+    assert close == 35 / 36 or (allow_fixed_horizon and close is None), f"close_continue {close!r} is not 35/36"
+    for i in (1, 2):
+        obs = config[f"obs_manager_parameters{i}"]
+        assert obs["action_toks"] == DIAL_TOKENS and obs["action_strings"] == ["1", "2", "3"], f"agent {i} actions"
+        assert obs["R0"] == 20 and obs.get("rules") == DIAL_RULES, f"agent {i} must render the pre-registered rules"
+        ppo = config.get(f"ppo_agent_parameters{i}")
+        if ppo is not None:
+            assert ppo["action_toks"] == DIAL_TOKENS, f"agent {i} PPO action tokens"
+    return DESIGN_RATES[gp["rate_tenths"]]

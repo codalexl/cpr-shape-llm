@@ -45,6 +45,18 @@ DEFAULT_INSTRUCTION = "\nReply with only one number: {actions}."
 # both the deterministic rules and rules+this sentence.
 XI_GROWTH_CLAUSE = " Regrowth varies by up to 30 percent each round."
 
+# Rules for the two-player stochastic CPR (docs/PREREGISTRATION_STOCHASTIC_CPR.md): three takes, regrowth that
+# varies, and a random end. No round counter is ever rendered.
+DIAL_RULES = (
+    "You are interacting with another agent. Each round you choose how many units to take "
+    "from a shared resource ({actions}). You receive exactly the number of units you "
+    "successfully take. If the two requests together exceed the resource, both of you are "
+    "cut back and the remainder is lost. After each round the resource regrows by an amount "
+    "that varies by up to 30 percent from round to round, but once it reaches zero it never "
+    "recovers. The interaction can end after any round. Your goal is to maximise the total "
+    "units you collect."
+)
+
 
 @dataclass
 class CPRObservationManagerConfig:
@@ -62,6 +74,7 @@ class CPRObservationManagerConfig:
     })
     model_name: str = "gemma-2b"
     transmit_info: bool = True
+    show_previous_round: bool = True  # history switch: False renders only the stock each round
 
     def __post_init__(self):
         assert len(self.action_toks) == len(self.action_strings) >= 2, (
@@ -81,6 +94,7 @@ class CPRObservationManager:
         self.n_bins = self.n_actions ** 2
         self.is_shaper = config.is_shaper
         self.transmit_info = config.transmit_info
+        self.show_previous_round = config.show_previous_round
         self.R0 = config.R0
 
         # Row-major over (own, opp), matching environment._build_action_pair_lookup and
@@ -223,7 +237,7 @@ class CPRObservationManager:
                 self._previous_round_line(
                     int(own_requests[g]), int(opp_requests[g]),
                     own_received[g], opp_received[g],
-                ),
+                ) if self.show_previous_round else None,
             )
             for g in range(self.n_games)
         ]

@@ -16,7 +16,10 @@ Two jobs, both cheap and both invalidating everything downstream if they fail:
 Deliberately depends only on torch + transformers, not trl, so it runs before the
 environment pin in run_cpr.sh is satisfied.
 
-    python scripts/cpr_preflight.py [--model_path google/gemma-2-2b-it] [--adapter_path ...]
+    python scripts/cpr_preflight.py [--model_path google/gemma-2-2b-it] [--adapter_path ...] [--dial]
+
+`--dial` is G0 of docs/PREREGISTRATION_STOCHASTIC_CPR.md: takes 1-3 and the stochastic-CPR rules. The prompt is
+identical at m = 2 and m = 3 (only the growth rate differs, and it is never rendered), so one run covers both.
 """
 
 import argparse
@@ -28,17 +31,18 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from cpr_observation_managers import CPRObservationManager, CPRObservationManagerConfig
+from cpr_observation_managers import DIAL_RULES, CPRObservationManager, CPRObservationManagerConfig
 
 EXPECTED_TOKENS = {"0": 235276, "1": 235274, "2": 235284, "3": 235304}
 PROBE_RESOURCES = [20, 14, 8, 4, 1]
 
 
-def check_tokens(tokenizer) -> list:
+def check_tokens(tokenizer, strings=tuple(EXPECTED_TOKENS)) -> list:
     """Every action string must be exactly one token, with the id the configs assume."""
     print("Action token check")
     action_toks = []
-    for string, expected in EXPECTED_TOKENS.items():
+    for string in strings:
+        expected = EXPECTED_TOKENS[string]
         ids = tokenizer.encode(string, add_special_tokens=False)
         assert len(ids) == 1, f"{string!r} is not a single token: {ids}"
         assert ids[0] == expected, f"{string!r} resolved to {ids[0]}, configs assume {expected}"
@@ -61,10 +65,13 @@ def main():
     parser.add_argument("--model_path", default="google/gemma-2-2b-it")
     parser.add_argument("--adapter_path", default=None,
                         help="Optional LoRA adapter; omit to probe the raw base model")
+    parser.add_argument("--dial", action="store_true",
+                        help="G0 for the two-player stochastic CPR: takes 1-3 and its rules")
     args = parser.parse_args()
 
+    strings = ("1", "2", "3") if args.dial else tuple(EXPECTED_TOKENS)
     tokenizer = AutoTokenizer.from_pretrained(args.model_path)
-    action_toks = check_tokens(tokenizer)
+    action_toks = check_tokens(tokenizer, strings)
 
     print(f"\nLoading {args.model_path} ...")
     model = AutoModelForCausalLM.from_pretrained(
@@ -78,20 +85,22 @@ def main():
 
     manager = CPRObservationManager(
         CPRObservationManagerConfig(
-            action_toks=action_toks, action_strings=list(EXPECTED_TOKENS), is_shaper=False, R0=20,
+            action_toks=action_toks, action_strings=list(strings), is_shaper=False, R0=20,
+            **({"rules": DIAL_RULES} if args.dial else {}),
         ),
         n_games=1,
     )
 
     print(f"\nUntrained action distribution (device: {device})")
-    print(f"  {'prompt':<34}" + "".join(f"{s:>9}" for s in EXPECTED_TOKENS))
+    print(f"  {'prompt':<34}" + "".join(f"{s:>9}" for s in strings))
 
     reset = manager.game_description + manager.instruction_prompt
     probs = action_distribution(model, tokenizer, reset, action_toks, device)
     print(f"  {'reset (R=20, no history)':<34}" + "".join(f"{p:>9.3f}" for p in probs))
 
+    one = strings.index("1")  # previous-round requests are token indices
     for R in PROBE_RESOURCES:
-        prompt = manager.build_observations([R], [1], [1], [1], [1], inner_t=5, outer_t=0)[0]
+        prompt = manager.build_observations([R], [one], [one], [1], [1], inner_t=5, outer_t=0)[0]
         probs = action_distribution(model, tokenizer, prompt, action_toks, device)
         print(f"  {f'R={R}, both requested 1':<34}" + "".join(f"{p:>9.3f}" for p in probs))
 

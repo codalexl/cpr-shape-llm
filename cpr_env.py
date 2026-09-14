@@ -109,6 +109,27 @@ def make_noise_table(seed: int, n_epochs: int, n_slots: int, t_max: int,
     return rng.choice(xi, size=(n_epochs, n_slots, t_max)).astype(np.int64)
 
 
+def make_close_table(seed: int, n_epochs: int, n_episodes: int, continue_prob: float, cap: int) -> np.ndarray:
+    """Closing round of every episode, shape (n_epochs, n_episodes), for the random end of the stochastic CPR.
+
+    Each round continues with probability `continue_prob`, so the closing round is geometric on 1, 2, ...,
+    capped at `cap`. Drawn from its own child of SeedSequence(seed): independent of the noise table (child 0)
+    and of the training RNG. Same seed and shape -> same table on every arm.
+    """
+    assert 0 < continue_prob < 1 and cap >= 1, f"need 0 < continue_prob < 1 and cap >= 1; got {continue_prob}, {cap}"
+    rng = np.random.default_rng(np.random.SeedSequence(int(seed)).spawn(2)[1])
+    return np.minimum(rng.geometric(1.0 - continue_prob, size=(n_epochs, n_episodes)), cap).astype(np.int64)
+
+
+def make_probe_table(seed: int, n_epochs: int, n_slots: int, t_max: int) -> np.ndarray:
+    """Coin flips for the scripted probe, shape (n_epochs, n_slots, t_max): True means grab, with probability 1/2.
+
+    Its own child of SeedSequence(seed), independent of the noise and closing-round tables.
+    """
+    rng = np.random.default_rng(np.random.SeedSequence(int(seed)).spawn(3)[2])
+    return rng.random((n_epochs, n_slots, t_max)) < 0.5
+
+
 def zero_growth_stocks(K: int, rate_tenths: int) -> tuple:
     """Interior stocks 1..K-1 at which rounding makes recovery impossible."""
     return tuple(R for R in range(1, K) if logistic_growth(R, K, rate_tenths) == 0)

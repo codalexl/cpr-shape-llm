@@ -41,6 +41,7 @@ RECORD_FIELDS = (
     "received_1", "received_2",
     "reward_1", "reward_2",
     "scarcity", "depleted", "masked",
+    "episode_length",
 )
 
 
@@ -58,10 +59,17 @@ class CPRGameParams:
     # Stage B: mean-one three-point multiplier on growth. JSON list [7,10,13].
     # None / omitted = deterministic (ξ=10).
     xi_tenths: Optional[list] = None
+    # Stochastic CPR: takes start at `min_take` (token index i plays take i + min_take), and with
+    # `close_continue` set each episode closes at a random round drawn from a per-seed table, capped at t_max.
+    min_take: int = 0
+    close_continue: Optional[float] = None
 
     def __post_init__(self):
         assert self.t_max > 0 and self.e_max > 0 and self.n_games > 0, \
             "t_max, e_max and n_games must all be positive"
+        assert self.min_take >= 0, f"min_take must be >= 0; got {self.min_take}"
+        if self.close_continue is not None:
+            assert 0 < float(self.close_continue) < 1, f"close_continue must be in (0, 1); got {self.close_continue}"
         if self.xi_tenths is not None:
             xs = tuple(int(x) for x in self.xi_tenths)
             assert xs and all(x > 0 for x in xs), f"xi_tenths must be positive; got {self.xi_tenths}"
@@ -69,7 +77,7 @@ class CPRGameParams:
 
     def to_dynamics_params(self) -> CPRParams:
         return CPRParams(R0=self.R0, g=self.g, ceiling=self.ceiling,
-                         horizon=self.t_max, n_actions=self.n_actions,
+                         horizon=self.t_max, n_actions=self.n_actions + self.min_take,
                          rate_tenths=self.rate_tenths)
 
 
@@ -81,7 +89,8 @@ class CPRGame:
             f"CPR is a two-player game; got {len(obs_manager_configs)} observation manager configs"
         )
         self.params = game_params
-        self.t_max, self.e_max = game_params.t_max, game_params.e_max
+        self._t_max, self.e_max = game_params.t_max, game_params.e_max
+        self.min_take = game_params.min_take
         self.n_games, self.n_actions = game_params.n_games, game_params.n_actions
 
         self.dynamics = CPRDynamics(game_params.to_dynamics_params(), game_params.n_games)
@@ -110,6 +119,18 @@ class CPRGame:
         self.records: Dict[str, list] = {field_name: [] for field_name in RECORD_FIELDS}
         self.epoch = 0
         self.noise_table = None  # (n_epochs, e_max * n_games, t_max) of xi tenths
+        self.close_table = None  # (n_epochs, e_max) closing rounds; None = every episode runs t_max rounds
+        # State that scripted partners read instead of the prompt. Round 0 counts as mutual restraint (take 1).
+        self.episode, self.round = 0, 1
+        self.last_takes = np.ones((2, self.n_games), dtype=np.int64)
+        self.last_episode_length = self._t_max
+
+    @property
+    def t_max(self) -> int:
+        """Rounds in the current episode: the closing round from the table when one is attached, else the cap."""
+        if self.close_table is None:
+            return self._t_max
+        return int(self.close_table[self.epoch, self.episode])
 
     NOISE_TABLE_CAPACITY = 200  # epochs; every arm draws the same prefix of the same table
 
@@ -126,9 +147,24 @@ class CPRGame:
         from cpr_env import make_noise_table
         cap = max(int(capacity or self.NOISE_TABLE_CAPACITY), int(n_epochs))
         table = make_noise_table(
-            seed, cap, self.e_max * self.n_games, self.t_max, self.params.xi_tenths
+            seed, cap, self.e_max * self.n_games, self._t_max, self.params.xi_tenths
         )[:n_epochs]
         self.noise_table = table
+        if save_path:
+            np.save(save_path, table)
+        return table
+
+    CLOSE_TABLE_CAPACITY = 200  # epochs, generated once and sliced like the noise table
+
+    def attach_close_table(self, seed: int, n_epochs: int, save_path: Optional[str] = None,
+                           capacity: Optional[int] = None):
+        """Closing round per episode for the random end. No-op when close_continue is unset (fixed horizon)."""
+        if self.params.close_continue is None:
+            return None
+        from cpr_env import make_close_table
+        epochs = max(int(capacity or self.CLOSE_TABLE_CAPACITY), int(n_epochs))
+        table = make_close_table(seed, epochs, self.e_max, float(self.params.close_continue), self._t_max)[:n_epochs]
+        self.close_table = table
         if save_path:
             np.save(save_path, table)
         return table
@@ -146,6 +182,7 @@ class CPRGame:
                 "reward_1": int(outcome.received_1[game]), "reward_2": int(outcome.received_2[game]),
                 "scarcity": bool(outcome.scarcity[game]), "depleted": bool(outcome.depleted[game]),
                 "masked": bool(outcome.masked[game]),
+                "episode_length": self.t_max,
             }
             for field_name, value in row.items():
                 self.records[field_name].append(value)
@@ -176,7 +213,10 @@ class CPRGame:
         assert (a1 < self.n_actions).all() and (a2 < self.n_actions).all(), (
             f"illegal action token decoded: a1={a1.tolist()}, a2={a2.tolist()}"
         )
-        requests_1, requests_2 = a1.numpy(), a2.numpy()
+        # The one place the take offset is applied: takes go to the dynamics and the records,
+        # token indices to the outcome codes and the prompts.
+        index_1, index_2 = a1.numpy(), a2.numpy()
+        requests_1, requests_2 = index_1 + self.min_take, index_2 + self.min_take
 
         episode, step_index = env_state.outer_t, env_state.inner_t + 1
         xi = 10
@@ -186,8 +226,9 @@ class CPRGame:
             xi = self.noise_table[self.epoch, slots, env_state.inner_t]
         outcome = self.dynamics.step(requests_1, requests_2, xi_tenths=xi)
 
-        self.outcomes.extend((requests_1 * self.n_actions + requests_2).tolist())
+        self.outcomes.extend((index_1 * self.n_actions + index_2).tolist())
         self._append_records(outcome, episode=episode, step_index=step_index)
+        self.last_takes[0], self.last_takes[1] = requests_1, requests_2
 
         t, e = env_state.inner_t + 1, env_state.outer_t
         if t == self.t_max:
@@ -204,14 +245,17 @@ class CPRGame:
             for manager in self.obs_managers.values():
                 manager.record_episode_end(collapse_steps, final_resources)
             self.dynamics.reset()
+            self.last_episode_length = step_index
+            self.last_takes[:] = 1  # round 0 of the next episode counts as mutual restraint
+        self.episode, self.round = new_env_state.outer_t, new_env_state.inner_t + 1
 
         resource = outcome.R_end.tolist()
         new_obs1 = self.obs_managers["agent_1"].build_observations(
-            resource, requests_1, requests_2, outcome.received_1, outcome.received_2,
+            resource, index_1, index_2, outcome.received_1, outcome.received_2,
             new_env_state.inner_t, new_env_state.outer_t,
         ) if agent1_learner else []
         new_obs2 = self.obs_managers["agent_2"].build_observations(
-            resource, requests_2, requests_1, outcome.received_2, outcome.received_1,
+            resource, index_2, index_1, outcome.received_2, outcome.received_1,
             new_env_state.inner_t, new_env_state.outer_t,
         ) if agent2_learner else []
 

@@ -78,6 +78,7 @@ def main():
         # Initialise game
         game = CPRGame(game_params, obs_manager_config1, obs_manager_config2)
         game.attach_noise_table(seed, no_epochs, experiment_path(ind) + "noise_table.npy")
+        game.attach_close_table(seed, no_epochs, experiment_path(ind) + "close_table.npy")
 
         for epoch in range(no_epochs):
 
@@ -139,7 +140,7 @@ def _print_epoch_summary(game: CPRGame, epoch: int) -> None:
     reward_1 = sum(records["reward_1"][i] for i in rows_this_epoch)
     reward_2 = sum(records["reward_2"][i] for i in rows_this_epoch)
     survived = sum(1 for i in rows_this_epoch
-                   if records["step"][i] == game.t_max and not records["depleted"][i])
+                   if records["step"][i] == records["episode_length"][i] and not records["depleted"][i])
     episodes = game.e_max * game.n_games
 
     live = [i for i in rows_this_epoch if not records["masked"][i]]

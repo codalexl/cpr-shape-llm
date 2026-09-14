@@ -204,7 +204,8 @@ class IteratedMatrixGame:
 
 def _format_episode_outcomes(game: "IteratedMatrixGame") -> str:
     """Pretty-print legal + illegal outcome counts for the latest episode."""
-    episode_outcomes = torch.tensor(game.outcomes[-game.t_max * game.n_games :])
+    length = getattr(game, "last_episode_length", game.t_max)  # CPR episodes can close early
+    episode_outcomes = torch.tensor(game.outcomes[-length * game.n_games :])
     n = game.n_actions
     # Games may supply their own labels (CPR uses 16); otherwise fall back to the
     # matrix-game defaults. Without this, n=4 silently prints the nine RPS labels for
