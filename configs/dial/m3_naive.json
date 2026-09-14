@@ -1,0 +1,107 @@
+{
+  "game_parameters": {
+    "t_max": 108,
+    "e_max": 5,
+    "n_games": 3,
+    "R0": 20,
+    "g": 0,
+    "ceiling": 20,
+    "n_actions": 3,
+    "rate_tenths": 6,
+    "xi_tenths": [
+      7,
+      10,
+      13
+    ],
+    "min_take": 1,
+    "close_continue": 0.9722222222222222
+  },
+  "obs_manager_parameters1": {
+    "action_toks": [
+      235274,
+      235284,
+      235304
+    ],
+    "action_strings": [
+      "1",
+      "2",
+      "3"
+    ],
+    "is_shaper": false,
+    "R0": 20,
+    "model_name": "gemma-2b",
+    "rules": "You are interacting with another agent. Each round you choose how many units to take from a shared resource ({actions}). You receive exactly the number of units you successfully take. If the two requests together exceed the resource, both of you are cut back and the remainder is lost. After each round the resource regrows by an amount that varies by up to 30 percent from round to round, but once it reaches zero it never recovers. The interaction can end after any round. Your goal is to maximise the total units you collect."
+  },
+  "obs_manager_parameters2": {
+    "action_toks": [
+      235274,
+      235284,
+      235304
+    ],
+    "action_strings": [
+      "1",
+      "2",
+      "3"
+    ],
+    "is_shaper": false,
+    "R0": 20,
+    "model_name": "gemma-2b",
+    "rules": "You are interacting with another agent. Each round you choose how many units to take from a shared resource ({actions}). You receive exactly the number of units you successfully take. If the two requests together exceed the resource, both of you are cut back and the remainder is lost. After each round the resource regrows by an amount that varies by up to 30 percent from round to round, but once it reaches zero it never recovers. The interaction can end after any round. Your goal is to maximise the total units you collect."
+  },
+  "ppo_agent_parameters1": {
+    "agent_id": 1,
+    "is_shaper": false,
+    "model_path": "google/gemma-2-2b-it",
+    "adapter_path": "adapter/cpr_learner_r2",
+    "action_toks": [
+      235274,
+      235284,
+      235304
+    ],
+    "advantage_norm": "whiten",
+    "ppo_params": {
+      "learning_rate": 1.41e-06,
+      "batch_size": 100,
+      "mini_batch_size": 5,
+      "gradient_accumulation_steps": 1,
+      "ppo_epochs": 1,
+      "gamma": 1.0,
+      "lam": 0.97,
+      "vf_coef": 0.01,
+      "use_score_scaling": false,
+      "use_score_norm": false
+    },
+    "init_entropy_coef": 0.05,
+    "final_entropy_coef": 0.01,
+    "entropy_coef_horizon": 150,
+    "track_gradients": true
+  },
+  "ppo_agent_parameters2": {
+    "agent_id": 2,
+    "is_shaper": false,
+    "model_path": "google/gemma-2-2b-it",
+    "adapter_path": "adapter/cpr_shaper_r2",
+    "action_toks": [
+      235274,
+      235284,
+      235304
+    ],
+    "advantage_norm": "whiten",
+    "ppo_params": {
+      "learning_rate": 1.41e-06,
+      "batch_size": 100,
+      "mini_batch_size": 5,
+      "gradient_accumulation_steps": 1,
+      "ppo_epochs": 1,
+      "gamma": 1.0,
+      "lam": 0.97,
+      "vf_coef": 0.01,
+      "use_score_scaling": false,
+      "use_score_norm": false
+    },
+    "init_entropy_coef": 0.05,
+    "final_entropy_coef": 0.01,
+    "entropy_coef_horizon": 150,
+    "track_gradients": true
+  }
+}

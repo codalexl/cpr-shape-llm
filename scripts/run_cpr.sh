@@ -209,8 +209,21 @@ case "$MODE" in
     SEEDS=1; SEED_START="$SEED"
     case "$NAME" in *testA*) ENTRY="finetuning_cpr_fixed.py" ;; esac
     ;;
+  dial)
+    # Two-player stochastic CPR (docs/PREREGISTRATION_STOCHASTIC_CPR.md). One seed per process.
+    #   NAME=m2_shapellm SEED=0 EPOCHS=100 CKPT_FREQ=100 ./scripts/run_cpr.sh dial     # scripts/launch_dial.sh fans out
+    # Gate and evaluation configs (scripted or frozen partners) run the one-learner entry and take
+    # PARTNER_ADAPTER / LEARNER_ADAPTER / REPLAY_RECORDS per seed.
+    : "${NAME:?set NAME=<file stem in configs/dial>}" "${SEED:?set SEED}" "${EPOCHS:?set EPOCHS}"
+    CKPT_FREQ="${CKPT_FREQ:-0}"
+    CONFIG="configs/dial/${NAME}.json"
+    OUT="checkpoints/dial/${NAME}${OUT_SUFFIX:-}"
+    SEEDS=1; SEED_START="$SEED"
+    if grep -q '"scripted_partner"\|"frozen_partner_adapter"' "$CONFIG"; then ENTRY="finetuning_cpr_fixed.py"; fi
+    case "$NAME" in smoke_forced108_*) ALLOW_FIXED_HORIZON=1 ;; esac
+    ;;
   *)
-    echo "Usage: $0 {grid|sens|smoke|testA_center|testA_center_s12|testA_whiten_s12|testB_center|naive_naive_center|naive_naive_center_s12|naive_naive_center_e50|naive_naive_slow2_s012|naive_shaper_center|naive_shaper_center_s012|naive_shaper_center_info_off_s012|naive_shaper_center_e50|testA_center_xi_s012|naive_naive_center_xi_s012|naive_shaper_center_xi_s012|naive_naive_slow2_center_xi_s012|testA_center_reseed_s012|testA_whiten_reseed_s012|naive_shaper_center_xi_reseed_s012|naive_naive_slow2_center_xi_reseed_s012|testA_whiten_reseed_e30|naive_shaper_center_xi_reseed_e50|naive_naive_slow2_center_xi_reseed_e50}"
+    echo "Usage: $0 {grid|sens|dial|smoke|testA_center|testA_center_s12|testA_whiten_s12|testB_center|naive_naive_center|naive_naive_center_s12|naive_naive_center_e50|naive_naive_slow2_s012|naive_shaper_center|naive_shaper_center_s012|naive_shaper_center_info_off_s012|naive_shaper_center_e50|testA_center_xi_s012|naive_naive_center_xi_s012|naive_shaper_center_xi_s012|naive_naive_slow2_center_xi_s012|testA_center_reseed_s012|testA_whiten_reseed_s012|naive_shaper_center_xi_reseed_s012|naive_naive_slow2_center_xi_reseed_s012|testA_whiten_reseed_e30|naive_shaper_center_xi_reseed_e50|naive_naive_slow2_center_xi_reseed_e50}"
     exit 1
     ;;
 esac
@@ -237,25 +250,7 @@ PY
 # verify_cpr.py is still the linear harvest fixture (deliberate). Live training
 # configs must be logistic; fail here rather than silently running +g.
 "$PY" verify_cpr.py > /dev/null && echo "verify_cpr.py linear fixture OK"
-"$PY" - "$CONFIG" <<'PY'
-import json, sys
-from cpr_game import CPRGameParams
-from cpr_env import LOGISTIC
-path = sys.argv[1]
-raw = json.load(open(path))["game_parameters"]
-assert "noise_tenths" not in raw, f"{path} still has noise_tenths — Stage B is xi_tenths"
-p = CPRGameParams(**raw)
-d = p.to_dynamics_params()
-assert d.logistic, f"{path} has no rate_tenths — refusing to train linear"
-assert (d.R0, d.ceiling, d.horizon, d.rate_tenths) == (
-    LOGISTIC.R0, LOGISTIC.ceiling, LOGISTIC.horizon, LOGISTIC.rate_tenths
-), f"{path} is logistic but not the locked (8, 40, 36, 0.9) point: {d}"
-if p.xi_tenths is not None:
-    assert tuple(p.xi_tenths) == (7, 10, 13), f"{path} xi_tenths {p.xi_tenths} != (7,10,13)"
-    print(f"logistic OK  R0={d.R0} K={d.ceiling} T={d.horizon} rate={d.rate_tenths}/10  xi={p.xi_tenths}")
-else:
-    print(f"logistic OK  R0={d.R0} K={d.ceiling} T={d.horizon} rate={d.rate_tenths}/10")
-PY
+"$PY" scripts/check_run_config.py "$CONFIG" ${ALLOW_FIXED_HORIZON:+--allow-fixed-horizon}
 "$PY" -m pytest tests/ -q || { echo "CPR tests failed — not launching."; exit 1; }
 
 ADAPTERS=(cpr_learner_r2)
@@ -296,5 +291,14 @@ CMD=(
 )
 if [[ -n "${PARTNER_ADAPTER:-}" ]]; then
   CMD+=(--partner_adapter "$PARTNER_ADAPTER")
+fi
+if [[ -n "${LEARNER_ADAPTER:-}" ]]; then
+  CMD+=(--learner_adapter "$LEARNER_ADAPTER")
+fi
+if [[ -n "${REPLAY_RECORDS:-}" ]]; then
+  CMD+=(--replay_records "$REPLAY_RECORDS")
+fi
+if [[ -n "${REPLAY_WINDOW:-}" ]]; then
+  CMD+=(--replay_window "$REPLAY_WINDOW")
 fi
 "${CMD[@]}"
