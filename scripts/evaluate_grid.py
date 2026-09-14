@@ -168,18 +168,26 @@ def main():
         (out / "tables" / f"{a.stage}_c2.tex").write_text(ev.latex_c2_table(summary["hypotheses"]["C2"], anchors))
     if "H-T" in summary["hypotheses"]:
         (out / "tables" / f"{a.stage}_transfer.tex").write_text(ev.latex_paired_table({"H-T": summary["hypotheses"]["H-T"]}))
-    # sensitivity block (plan section 4): live setting = Stage B testA seed 0 / ns seed 0, alternatives = sens_* folders
-    sens_rows = []
-    live = {"B_testA": arms.get("testA", []), "B_ns": arms.get("ns", [])}
-    for name, label in (("B_testA_ent0", "entropy 0"), ("B_testA_vf01", r"$c_v=0.1$"),
-                        ("B_testA_kl2", "KL 2.0, target 1"), ("B_ns_lr141", r"shaper LR $1.41\times 10^{-6}$")):
-        folder = ROOT / "checkpoints" / "grid" / f"sens_{name}"
-        runs = ev.discover_runs(folder, name) if folder.exists() else []
-        if runs:
-            sens_rows.append((label, runs[0]))
-    if sens_rows and a.stage == "B":
-        base_rows = [("live setting, Test A seed 0", r) for r in live["B_testA"][:1]] + [("live setting, naive--shaper seed 0", r) for r in live["B_ns"][:1]]
-        (out / "tables" / "sensitivity.tex").write_text(ev.latex_sensitivity_table(base_rows + sens_rows, W, anchors))
+    # sensitivity block (plan section 4): live setting = Stage B testA seed 0 / ns seed 0, alternatives = sens_* folders.
+    # A live row is read over the same epochs as its alternatives (the ladder runs 200 epochs, sensitivity 100).
+    if a.stage == "B":
+        groups = {"testA": ("live setting, Test A seed 0", []), "ns": ("live setting, naive--shaper seed 0", [])}
+        for name, base, label in (("B_testA_ent0", "testA", "entropy 0"), ("B_testA_vf01", "testA", r"$c_v=0.1$"),
+                                  ("B_testA_kl2", "testA", "KL 2.0, target 1"),
+                                  ("B_ns_lr141", "ns", r"shaper LR $1.41\times 10^{-6}$")):
+            folder = ROOT / "checkpoints" / "grid" / f"sens_{name}"
+            runs = ev.discover_runs(folder, name) if folder.exists() else []
+            if runs:
+                groups[base][1].append((label, runs[0]))
+        sens = []
+        for base, (live_label, alternatives) in groups.items():
+            live = next((r for r in arms.get(base, []) if r.seed == 0), None)
+            if alternatives and live is None:
+                print(f"sensitivity: no {base} seed 0 found; its alternatives are left out of the table")
+            elif alternatives:
+                sens.append((live_label, live, alternatives))
+        if sens:
+            (out / "tables" / "sensitivity.tex").write_text(ev.latex_sensitivity_table(sens, W, anchors))
     curves_figure(arms, out / "figures" / f"{a.stage}_curves.pdf", a.stage)
 
     if a.copy_to_thesis:

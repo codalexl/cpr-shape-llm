@@ -225,7 +225,12 @@ class Run:
         self.epochs = n_epochs(self.rec)
 
     def last(self, window: int) -> WindowStats:
-        return window_stats(self.rec, range(max(0, self.epochs - window), self.epochs))
+        return self.window_ending(self.epochs, window)
+
+    def window_ending(self, end: int, window: int) -> WindowStats:
+        """The `window` epochs before 0-indexed epoch `end`: end=100 is epochs 81-100 of a 200-epoch run."""
+        assert end <= self.epochs, f"{self.arm} seed {self.seed} has {self.epochs} epochs; window ends at {end}"
+        return window_stats(self.rec, range(max(0, end - window), end))
 
     def curve(self) -> List[WindowStats]:
         return per_epoch(self.rec)
@@ -401,14 +406,23 @@ def latex_c2_table(c2: dict, anchors: Dict[str, float]) -> str:
     return "\n".join(rows) + "\n"
 
 
-def latex_sensitivity_table(rows: List[Tuple[str, "Run"]], window: int, anchors: Dict[str, float]) -> str:
-    """One row per sensitivity run: the C2 triple at the live setting and at the alternative."""
-    out = [r"\begin{tabular}{lrrr}", r"\toprule",
-           r"Setting & $\hat L_1(R<12)$ & $\widehat{\Pr}(S=1\mid a_{1,1}\ne 2)$ & $\hat G_1$ \\", r"\midrule"]
-    for name, r in rows:
-        ws = r.last(window)
-        k, n = ws.leave2_low[0]; ks, ns = ws.surv_given_leave2[0]
-        out.append(f"{name} & {fmt_ci(k, n)} & {fmt_ci(ks, ns)} & {ws.ret[0][0]:.1f} ({ws.ret[0][1]:.1f}) \\\\")
+def latex_sensitivity_table(groups: List[Tuple[str, "Run", List[Tuple[str, "Run"]]]], window: int,
+                            anchors: Dict[str, float]) -> str:
+    """The C2 triple at the live setting and at each one-factor alternative (plan §4).
+
+    Each group is (live label, live run, [(alternative label, run), ...]). Every row in a group is read over
+    the same epochs, the last `window` of the group's shortest run: the Stage B ladder runs 200 epochs and the
+    sensitivity runs 100, so the live naive-shaper row is epochs 81-100 of its run, not 181-200.
+    """
+    out = [r"\begin{tabular}{llrrr}", r"\toprule",
+           r"Setting & Epochs & $\hat L_1(R<12)$ & $\widehat{\Pr}(S=1\mid a_{1,1}\ne 2)$ & $\hat G_1$ \\", r"\midrule"]
+    for live_label, live, alternatives in groups:
+        end = min([live.epochs] + [alt.epochs for _, alt in alternatives])
+        for name, r in [(live_label, live)] + list(alternatives):
+            ws = r.window_ending(end, window)
+            k, n = ws.leave2_low[0]; ks, ns = ws.surv_given_leave2[0]
+            out.append(f"{name} & {ws.epochs[0] + 1}--{ws.epochs[-1] + 1} & {fmt_ci(k, n)} & {fmt_ci(ks, ns)} & "
+                       f"{ws.ret[0][0]:.1f} ({ws.ret[0][1]:.1f}) \\\\")
     out += [r"\bottomrule", r"\end{tabular}"]
     return "\n".join(out) + "\n"
 

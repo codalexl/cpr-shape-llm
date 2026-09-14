@@ -150,3 +150,15 @@ def test_role_invariant_readouts_ignore_which_agent_doves():
     assert r["dove_role_low_restraint"].per_seed[0] == 0.0   # the dove restrains identically
     assert r["joint_return"].per_seed[0] == 0.0
     assert r["agent2_return"].per_seed[0] != 0.0             # the agent-indexed readout flips
+
+
+def test_sensitivity_table_reads_live_and_alternative_over_the_same_epochs():
+    live = ev.Run("ns", 0, simulate(feedback, const(2), n_epochs=6))       # the 200-epoch ladder analogue
+    alt = ev.Run("sens", 0, simulate(feedback, const(2), n_epochs=3))      # the 100-epoch sensitivity analogue
+    t = ev.latex_sensitivity_table([("live", live, [("alt", alt)])], window=2, anchors=ev.dp_anchors("A"))
+    lines = [l for l in t.splitlines() if l.startswith("live") or l.startswith("alt")]
+    assert lines[0].split("&")[1].strip() == "2--3" and lines[1].split("&")[1].strip() == "2--3"
+    assert live.window_ending(3, 2).epochs == [1, 2] and live.last(2).epochs == [4, 5]
+    import pytest
+    with pytest.raises(AssertionError):
+        alt.window_ending(4, 2)
