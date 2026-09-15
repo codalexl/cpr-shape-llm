@@ -139,3 +139,90 @@ python scripts/dial_learnability.py
 python scripts/dial_shaping_window.py
 python scripts/dial_prompt_screens.py      # needs the model
 ```
+
+## 9. The second NO GO (amended design, 15 September)
+
+**Verdict.** The amendment fixed learnability: G1 and G2 pass easily. G3 fails for a different reason than before.
+- The naive learner in the pilot learned a sensible policy.
+- The shaper learned almost nothing, because its advantage estimates carried no usable signal.
+
+Under item 9 of the 15 September amendment, this is the final gate result: no training, a null. Every number below is from `python scripts/dial_g3_diagnosis.py` (`results/dial/g3_diagnosis.txt`) or `results/dial/gate_v2.json`.
+
+**What the runs show.**
+- **G1 and G2.** G1 restraint is 0.96–0.99 and G2 restraint after the bot restrained is 0.91–0.98. Both were learned within about 40 epochs.
+- **The G3 pilot, 200 epochs.**
+  - The shaper's restraint fell from about 0.22 to about 0.10.
+  - The naive learner's restraint rose from about 0.36 to 0.75 over the run.
+  - Pool survival was 0.00 in every 10-epoch block. The median collapse round moved from 13 to 18.
+- **End policies, epochs 181–200.**
+  - The learner restrains 0.93–0.95 at stocks 8–15, whatever the shaper did.
+  - At stocks of 16 or more, it restrains 0.78 after the shaper harvested and 0.22 after the shaper restrained.
+  - Below 8 it restrains about 0.34.
+  - The shaper restrains 0.07–0.13 in every state.
+
+**What the shaper left on the table.** These values are exact, computed against the learner's actual end policy. The model reproduces the observed returns: 33.3 against 33.9 for the shaper, and 21.4 against 21.8 for the learner.
+
+| Shaper policy | Shaper return | Learner return | Pool alive at round 50 |
+|---|---|---|---|
+| Its actual policy | 33.3 | 21.4 | 0.00 |
+| Always harvest | 31.4 | 19.1 | 0.00 |
+| Always restrain | 50.0 | 67.1 | 1.00 |
+| Tit-for-tat | 59.6 | 59.7 | 0.99 |
+| Best fixed rule (restrain at stocks 8–11) | 69.8 | 53.9 | 0.99 |
+
+At its actual policy, one restraint by the shaper was worth +0.71 in expectation.
+
+**Why it did not learn this.**
+
+| | Naive learner | Shaper |
+|---|---|---|
+| Updates | after every episode (1,000) | once per trial (200) |
+| Credit | GAE within the 50-round episode | GAE across the whole trial (250 rounds per game) |
+| Value loss, start → middle → end | 70 → 4 → 4 | 629 → 423 → 687 |
+| Raw advantage SD per step | 2–7 | 14–32 |
+| Whitened restrain-minus-harvest gap, per 20-epoch block | significant in six of ten blocks (\|t\| up to 8.5), following its policy changes | never significant (\|t\| ≤ 1.9 in all ten blocks) |
+
+Detecting the restraint signal at two SD needs 4 × 25² / 0.71² ≈ 5,000 restraint samples, given a per-step SD near 25 and a signal of +0.71. The shaper drew 50–70 per update. That is about 70–100 updates for one detection in expectation, before whitening, clipping, the KL pull toward the harvest-heavy prior, and a partner that keeps changing.
+
+**The pond shows the same pattern.** The pond's shaper (B_ns_whiten) has:
+- a value loss of 740–1,420;
+- raw advantages of +40 to +58 for every action;
+- behaviour close to its prior.
+
+So the obstacle is this stack's estimator for the trial-level objective, not the dial.
+
+**Why the shaping window did not predict it.** The window analysis used exact expected gradients. It had the right sign, but no estimator variance. The realised noise is about 35 times the signal per step.
+
+**What this shows and does not show.**
+- **Not shown:** that trial-level shaping cannot work in this environment. The environment pays a stock-aware shaper twice what this one earned.
+- **Shown:** that this estimator for the trial-level objective could not find even the within-episode best response in 200 epochs. The estimator is whole-trial GAE, with a value coefficient of 0.01, whitened advantages and one update per trial.
+
+**An exploratory check (not a lever).**
+- **The difference between arms.** tbn-matched differs from shaper-matched only in resetting GAE at episode boundaries. Both update once per trial, with the same learning rate, clip and prompt.
+- **What one pilot would show.** One tbn-matched pilot at the G3 settings would show whether the whole-trial credit or the per-trial schedule removes the signal.
+- **How it would be reported.** As an exploratory analysis of the null, not as a third attempt at the gate.
+
+## 10. The repair (15 September, after the second NO GO)
+
+This is recorded as a deviation in `docs/PREREGISTRATION_STOCHASTIC_CPR.md`.
+
+**What changed.** Every shaper arm now uses decomposed cross-episode credit:
+- GAE runs within each episode, so the critic learns within-episode returns.
+- The policy advantage alone gains the shaper's return in the trial's later episodes, minus its mean over the other parallel games of the trial, weighted by λ^50 = 0.2181.
+
+**The replay that chose it.** Run `python scripts/dial_credit_replay.py` on the recorded second-G3 trials. Each cell is the policy-gradient t toward restraint.
+
+| Shaper estimator | Epochs 81–100 | Epochs 181–200 |
+|---|---|---|
+| Whole-trial GAE (as run) | +0.1 | +1.9 |
+| Whole-trial GAE, λ 0.90 / 0.80 | −1.8 / −7.4 | −1.0 / −9.2 |
+| 3-episode / 2-episode trials | +0.2 / +0.9 | +2.8 / +5.1 |
+| Episode GAE (the tbn control) | +5.1 | +8.1 |
+| Decomposed, weight 1 | +2.7 | +4.3 |
+| **Decomposed, weight 0.2181 (the repair)** | **+4.9** | **+7.8** |
+
+**Why weight λ^T rather than 1.**
+- At weight 1, the noise comes from the later-episode returns themselves. A baseline that also averages the previous three trials barely helps: t is +3.4 and +4.0.
+- At λ^T, the shaper's signal matches its tbn control's. Its cross-episode credit also has the strength the pre-registered estimator intended.
+
+**The third G3.** It runs the repaired shaper-matched arm, with a tbn-matched reference pilot beside it.

@@ -343,3 +343,33 @@ Thresholds are set against the solver's best response, not at it: a learner that
   - **G3** (shaper restraint ≥ 0.3 and pool survival ≥ 0.5): **fail** at both windows. Seed 0 epochs 81–100: restraint 0.139, survival 0.00. Epochs 181–200: restraint 0.104, survival 0.00. `training_length` is null.
   - **G0** (does not gate), `results/dial/g0_preflight_v2.txt`: after-history restraint on stocks 4–20 had mean 0.174 (n=16; local screen 0.16). Inside 0.10–0.25, so the gate ran.
   - Under item 9 of the 15 September amendment, this is the second gate failure. No further levers. The result is reported as a null, with the learnability, shaping-window and screening analyses as the explanation.
+- *15 Sep 2026, after the second NO GO and before any further run.* **Deviation: the shaper's credit estimator is repaired, and G3 runs a third time.** This departs from item 9 of the amendment above ("No further levers are tried after a second failure"). The author decided it after the diagnosis in `docs/GATE_DIAGNOSIS.md`, sections 9 and 10. Both NO GOs stay on record. Any result on this design is reported as following an estimator repair chosen after seeing the second failure.
+  1. **Why.** The second G3 failed because the shaper's training signal was noise, not because of the game.
+     - Under whole-trial GAE the shaper's per-step advantages had an SD of 14–32, and its critic a value loss of 420–690. The naive learner's were 2–7 and 4.
+     - The shaper's whitened restrain-minus-harvest gap was never significant: |t| ≤ 1.9 in all ten 20-epoch blocks.
+     - Against the learner's actual end policy the shaper earned 33.3 per episode. A fixed rule (restrain at stocks 8–11) earns 69.8 with the pool surviving, and one restraint was worth +0.71 in expectation.
+     - The pond's shaper shows the same signature (value loss 740–1,420).
+
+     A shaper that learns worse than the naive learner it plays cannot test shaping, in G3 or in training.
+  2. **Replay of candidate estimators** on the recorded trials (`scripts/dial_credit_replay.py`, `results/dial/credit_replay.txt`). Each figure is the t-statistic of the policy-gradient push toward restraint, over epochs 81–100 / 181–200. The critic is tabular and fitted to the same data, and advantages are whitened per update batch.
+     - **Whole-trial GAE, as run:** +0.1 / +1.9.
+     - **Whole-trial GAE with λ 0.90 or 0.80:** −1.8 / −1.0 and −7.4 / −9.2, pushing toward harvest.
+     - **3-episode or 2-episode trials:** +0.2 / +2.8 and +0.9 / +5.1.
+     - **Episode-bounded GAE (the tbn control):** +5.1 / +8.1.
+     - **Decomposed credit at weight 1:** +2.7 / +4.3. A baseline that also averages the previous three trials changes this only slightly (+3.4 / +4.0).
+     - **Decomposed credit at weight λ^50 = 0.2181:** +4.9 / +7.8.
+
+     The replay shows what the estimator can see at this run's states. It does not show that PPO on LoRA will move far enough.
+  3. **The repair.** It applies to every shaper arm: shaper-matched, shaper-slow and ShapeLLM-style at both design points, and the optional history-off arm.
+     - **Within-episode credit.** GAE runs within each episode, so the critic learns within-episode returns.
+     - **Cross-episode term.** The policy advantage, but not the critic's target, gains the shaper's return in the trial's later episodes, minus the mean of the same quantity over the other parallel games of the trial (`trial_batching.decomposed_credit`). The term is weighted by λ^T = 0.97^50 = 0.2181.
+     - **Why this weight.** It is the cross-episode strength the pre-registered estimator intended, so the attenuation limitation in Section 11 stands unchanged. Here it comes without chaining later episodes through λ step by step, and it gives the shaper a signal on par with its tbn control. Weight 1, the unattenuated trial objective, carries about half that signal early in training.
+     - **Controls.** The tbn and naive arms are unchanged, so shaper minus tbn remains the cross-episode credit contrast.
+     - **Lock.** `cpr_dial.check_dial_config` refuses a shaper config without the repair.
+     - **Relation to the paper.** ShapeLLM-style now also differs from the paper's estimator (whole-trial PPO), in addition to the hyperparameters listed in Section 0.
+  4. **G3, third attempt.**
+     - **Run:** shaper-matched with the repair against naive at m = 2, one seed, 200 epochs, in `checkpoints/dial/m2_shaper_matched_g3r`. The criteria and length rule are those of item 6 of the 15 September amendment.
+     - **G1 and G2** stand as passed on 15 September; they involve no shaper.
+     - **Reference pilot:** a tbn-matched pilot at the same settings runs beside it (`m2_tbn_matched_g3tbn`). It does not gate; it shows what the per-trial schedule learns at G3's settings without cross-episode credit.
+     - **What a pass shows:** the repaired shaper learns at least its within-episode best response. S still has to come from shaper minus tbn in training.
+  5. **Fallback.** If this G3 fails, no training starts. The null result reports all three gate attempts, both estimators and the replay.
