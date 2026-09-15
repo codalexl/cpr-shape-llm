@@ -26,7 +26,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from make_dial_configs import DECISIVE, EVAL_SHAPERS, EXTRA_SEEDS_LONG, GATE_EPOCHS, GATE_RUNS, OPTIONAL, SEEDS, SEEDS_LONG  # noqa: E402
+from make_dial_configs import DECISIVE, EVAL_SHAPERS, EXTRA_SEEDS_LONG, GATE_EPOCHS, GATE_RUNS, OPTIONAL, PILOT_RUNS, SEEDS, SEEDS_LONG  # noqa: E402
 
 DIAL = "checkpoints/dial"
 LAUNCH_VARS = ("NAME", "SEED", "SMOKE", "SUFFIX", "OUT_SUFFIX", "EPOCHS", "CKPT_FREQ", "WAIT", "REPLAY_WINDOW",
@@ -98,7 +98,7 @@ def phases(length: int = 100) -> dict:
     by_seed = lambda counts: [(name, seed) for seed in range(max(counts.values()))  # seed order, the decisive arms first
                               for name in sorted(counts, key=lambda n: (DECISIVE.index(n) if n in DECISIVE else len(DECISIVE), -counts[n])) if seed < counts[name]]
     gate = [job(name, seed, EPOCHS=GATE_EPOCHS[name], CKPT_FREQ=0, **(dict(SUFFIX=suffix) if suffix else {}))
-            for name, (suffix, n) in GATE_RUNS.items() for seed in range(n)]
+            for name, (suffix, n) in {**GATE_RUNS, **PILOT_RUNS}.items() for seed in range(n)]
     gate.sort(key=lambda j: "SUFFIX" not in j.vars)  # the two-learner G3 pilot is the longest run: start it first
     train = [job(name, seed, EPOCHS=length, CKPT_FREQ=length) for name, seed in by_seed(seeds)]
     optional = [job(name, seed, EPOCHS=length, CKPT_FREQ=length) for name, seed in by_seed(OPTIONAL)]

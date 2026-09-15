@@ -582,13 +582,17 @@ if __name__ == "__main__":
 
 DIAL_TOKENS = [235274, 235284]  # gemma-2-2b-it tokens for "1" and "2"; the 14 September design also had "3" (235304)
 DESIGN_RATES = {5: "m2", 6: "m3"}
+# Decomposed shaper credit at lambda**T (0.2181): the cross-episode strength the pre-registered estimator intended,
+# without its chaining noise (deviation of 15 September; scripts/dial_credit_replay.py).
+CROSS_EPISODE_WEIGHT = round(0.97 ** HORIZON, 4)
 
 
 def check_dial_config(config: dict) -> str:
     """Refuse any config that is not one of the two amended design points, and return "m2" or "m3".
 
     A design point is takes 1-2 over a fixed horizon of 50 rounds, five episodes of five parallel games, a full pool
-    of 20, the pre-registered shocks and the amended rules text. The launcher applies this as strictly as the pond lock.
+    of 20, the pre-registered shocks and the amended rules text; every shaper uses decomposed cross-episode credit at
+    weight lambda**T. The launcher applies this as strictly as the pond lock.
     """
     from cpr_observation_managers import DIAL_RULES_V2
     gp = config["game_parameters"]
@@ -605,4 +609,9 @@ def check_dial_config(config: dict) -> str:
         ppo = config.get(f"ppo_agent_parameters{i}")
         if ppo is not None:
             assert ppo["action_toks"] == DIAL_TOKENS, f"agent {i} PPO action tokens"
+            if ppo.get("is_shaper"):
+                assert (ppo.get("cross_episode_credit"), ppo.get("cross_episode_weight"), ppo.get("episodes_per_trial")) == (
+                    "decomposed", CROSS_EPISODE_WEIGHT, gp["e_max"]), f"agent {i} is a shaper without decomposed cross-episode credit"
+            else:
+                assert ppo.get("cross_episode_credit", "trial_gae") == "trial_gae", f"agent {i} is not a shaper"
     return DESIGN_RATES[gp["rate_tenths"]]

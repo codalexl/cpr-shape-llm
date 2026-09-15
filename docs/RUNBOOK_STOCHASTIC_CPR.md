@@ -44,21 +44,35 @@ python scripts/evaluate_dial.py checkpoints/dial/*_smoke --window 2 --out result
 
 Then delete the smoke folders: `rm -r checkpoints/dial/*_smoke`.
 
-## Gate: G1, G2 and the 200-epoch G3 pilot
+## Gate: the third G3 attempt, with repaired shaper credit
+
+**What runs.**
+- **G1 and G2** passed on 15 September and are not re-run. The scheduler skips them because their records exist.
+- **The second G3** (whole-trial credit) stays in `checkpoints/dial/m2_shaper_matched_g3`.
+- **The third G3** runs in `m2_shaper_matched_g3r`.
+- **The tbn-matched reference pilot** runs beside it in `m2_tbn_matched_g3tbn`.
 
 ```
-python scripts/schedule_dial.py gate            # G1 and G2: 3 seeds x 100 epochs each; G3: 1 seed x 200 epochs, started first (about 6.4 h)
-python scripts/check_seed_divergence.py checkpoints/dial/g1_m3_harvest checkpoints/dial/g2_m2_tft    # once epoch 1 is written
-python scripts/evaluate_dial.py --gate          # GO or NO GO, and the training length; writes results/dial/gate.json
+git pull && python -m pytest tests -q
+python scripts/make_dial_configs.py && git status --short configs/dial    # prints nothing: every shaper config uses decomposed credit
+SMOKE=1 WAIT=1 ./scripts/launch_dial.sh m2_shaper_matched 0 0             # 2 epochs: the repaired estimator runs end to end
+grep "agent2 live A_raw" checkpoints/dial/logs/m2_shaper_matched_smoke_s0.log && rm -r checkpoints/dial/m2_shaper_matched_smoke
+python scripts/schedule_dial.py gate            # G3 and the tbn reference, 200 epochs each, in parallel (about 6.4 h)
+python scripts/evaluate_dial.py --gate --out results/dial/gate_v3    # verdict, training length, and the tbn reference line
 ```
 
-**G3.** The pilot passes when the shaper's restraint share is at least 0.3 and pool survival is at least 0.5:
+**Smoke check.** The log ends with "Experiment 1 completed." and shows no traceback. The shaper's `live A_raw` line appears for both epochs.
+
+**G3.** The criteria and length rule are unchanged. The shaper's restraint share must be at least 0.3 and pool survival at least 0.5:
 - over epochs 81–100, which sets training to 100 epochs;
 - otherwise over epochs 181–200, which sets training to 200 epochs.
 
-If neither window passes, the verdict is NO GO.
+The tbn reference line does not gate.
 
-**After the verdict.** Log it, with the per-seed numbers and the training length, in the pre-registration's amendment log, and commit it with `results/dial/gate.json`. On NO GO, follow the amendment: the null result is reported, and no further levers are tried.
+**After the verdict.**
+- Log it in the pre-registration's amendment log with the per-seed numbers, the training length and the tbn reference.
+- Commit it with `results/dial/gate_v3/gate.json`.
+- On NO GO, follow item 5 of the deviation of 15 September: no training starts, and the null result reports all three attempts.
 
 ## Training
 

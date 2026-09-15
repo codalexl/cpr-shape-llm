@@ -25,7 +25,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from cpr_dial import DIAL_TOKENS, HORIZON, check_dial_config  # noqa: E402
+from cpr_dial import CROSS_EPISODE_WEIGHT, DIAL_TOKENS, HORIZON, check_dial_config  # noqa: E402
 from cpr_observation_managers import DIAL_RULES_V2  # noqa: E402
 
 OUT = ROOT / "configs" / "dial"
@@ -53,8 +53,10 @@ SEEDS = {  # Section 5: five seeds on the m = 2 arms that decide S. E1-E4 and pr
 DECISIVE = ("m2_shaper_matched", "m2_tbn_matched")
 SEEDS_LONG = {name: 5 if name in DECISIVE else 3 for name in SEEDS}
 EXTRA_SEEDS_LONG = {"m2_shapellm": (3, 4)}  # the first runs if time remains after 200-epoch training; counted only if both finish
-GATE_RUNS = {"g1_m3_harvest": ("", 3), "g2_m2_tft": ("", 3), "m2_shaper_matched": ("_g3", 1)}  # config: (suffix, seeds)
-GATE_EPOCHS = {"g1_m3_harvest": 100, "g2_m2_tft": 100, "m2_shaper_matched": 200}  # the G3 pilot runs 200 epochs
+# config: (suffix, seeds). G3 with decomposed shaper credit runs in _g3r; _g3 holds the second attempt (trial GAE).
+GATE_RUNS = {"g1_m3_harvest": ("", 3), "g2_m2_tft": ("", 3), "m2_shaper_matched": ("_g3r", 1)}
+PILOT_RUNS = {"m2_tbn_matched": ("_g3tbn", 1)}  # a reference pilot alongside G3 at its settings; it does not gate
+GATE_EPOCHS = {"g1_m3_harvest": 100, "g2_m2_tft": 100, "m2_shaper_matched": 200, "m2_tbn_matched": 200}
 OPTIONAL = {"m2_shapellm_history_off": 3}  # run only if training finishes by 20 September 18:00
 
 
@@ -83,6 +85,9 @@ def with_agent2(cfg: dict, shaper: bool, lr: float, slow: bool, trial_batched: b
         ppo["ppo_params"].pop("cliprange", None)  # TRL default 0.2
     if trial_batched:
         ppo["trial_batched"], ppo["episodes_per_trial"] = True, int(cfg["game_parameters"]["e_max"])
+    if shaper:  # every shaper arm uses decomposed cross-episode credit (deviation of 15 September)
+        ppo["cross_episode_credit"], ppo["cross_episode_weight"] = "decomposed", CROSS_EPISODE_WEIGHT
+        ppo["episodes_per_trial"] = int(cfg["game_parameters"]["e_max"])
     return cfg
 
 

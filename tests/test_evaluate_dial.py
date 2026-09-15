@@ -44,9 +44,10 @@ def test_episode_readouts_over_the_window():
 
 def test_planned_seeds():
     assert ed.planned("m2_shapellm") == 5 and ed.planned("m2_slow") == 3 and ed.planned("m3_shapellm") == 3
-    assert ed.planned("m2_probe_of_m2_e2_replay_shaper_matched") == 5 and ed.planned("m2_shaper_matched_g3") == 1
+    assert ed.planned("m2_probe_of_m2_e2_replay_shaper_matched") == 5 and ed.planned("m2_shaper_matched_g3r") == 1
     with pytest.raises(KeyError):
         ed.planned("m2_e1_transfer_naive")
+    assert ed.planned("m2_tbn_matched_g3tbn") == 1
     assert ed.planned("m2_naive", 200) == 3 and ed.planned("m2_shapellm", 200) == 3 and ed.planned("m2_tbn_matched", 200) == 5
     assert ed.planned("m2_probe_of_m2_shapellm", 200, extra=True) == 5 and ed.planned("m2_e1_transfer_shapellm", 200, extra=True) == 3
     assert ed.planned("m2_probe_of_m2_e1_transfer_shaper_matched", 200) == 5 and ed.planned("m3_e2_replay_shapellm", 200) == 3
@@ -59,7 +60,7 @@ def g3(restraint, survival):
 def test_gate_counts_seeds_against_the_plan():
     result = ed.gate({"g1_m3_harvest": {100: {0: {"restraint_1": 0.6}, 1: {"restraint_1": 0.4}, 2: {"restraint_1": 0.55}}},
                       "g2_m2_tft": {100: {0: {"after_restrain_1": 0.9}}},  # one seed of three
-                      "m2_shaper_matched_g3": {100: {0: g3(0.35, 0.6)}, 200: {0: None}}})
+                      "m2_shaper_matched_g3r": {100: {0: g3(0.35, 0.6)}, 200: {0: None}}})
     verdicts = [r["verdict"] for r in result["checks"].values()]
     assert verdicts == ["pass", "fail", "pass"] and result["go"] is False and result["training_length"] is None
     assert list(ed.gate({})["checks"].values())[0]["verdict"] == "not run"
@@ -68,9 +69,9 @@ def test_gate_counts_seeds_against_the_plan():
 def test_g3_sets_the_training_length_and_needs_a_live_pool():
     passing = {"g1_m3_harvest": {100: {k: {"restraint_1": 0.6} for k in range(3)}},
                "g2_m2_tft": {100: {k: {"after_restrain_1": 0.8} for k in range(3)}}}
-    early = ed.gate({**passing, "m2_shaper_matched_g3": {100: {0: g3(0.4, 0.7)}, 200: {0: g3(0.6, 0.9)}}})
-    late = ed.gate({**passing, "m2_shaper_matched_g3": {100: {0: g3(0.1, 0.2)}, 200: {0: g3(0.4, 0.6)}}})
-    dead = ed.gate({**passing, "m2_shaper_matched_g3": {100: {0: g3(0.9, 0.1)}, 200: {0: g3(0.9, 0.3)}}})
+    early = ed.gate({**passing, "m2_shaper_matched_g3r": {100: {0: g3(0.4, 0.7)}, 200: {0: g3(0.6, 0.9)}}})
+    late = ed.gate({**passing, "m2_shaper_matched_g3r": {100: {0: g3(0.1, 0.2)}, 200: {0: g3(0.4, 0.6)}}})
+    dead = ed.gate({**passing, "m2_shaper_matched_g3r": {100: {0: g3(0.9, 0.1)}, 200: {0: g3(0.9, 0.3)}}})
     assert (early["go"], early["training_length"]) == (True, 100)
     assert (late["go"], late["training_length"]) == (True, 200)
     assert dead["go"] is False and dead["checks"][ed.G3]["verdict"] == "fail"
@@ -113,7 +114,7 @@ def test_a_missing_seed_never_helps_and_teaching_is_found_without_shaping():
 
 def test_gate_from_run_folders(tmp_path, capsys):
     for folder, seeds, kw in (("g1_m3_harvest", 3, {}), ("g2_m2_tft", 3, dict(take_2=1)),
-                              ("m2_shaper_matched_g3", 1, dict(take_2=1))):
+                              ("m2_shaper_matched_g3r", 1, dict(take_2=1))):
         (tmp_path / folder).mkdir()
         for k in range(1, seeds + 1):
             (tmp_path / folder / f"exp{k}_cpr_records").write_text(

@@ -17,7 +17,7 @@ folders = lambda phase: {Path(j.folder).name for group in PHASES[phase] for j in
 
 def test_job_counts_match_the_budget():
     counts = {phase: [len(group) for group in groups] for phase, groups in PHASES.items()}
-    assert counts["gate"] == [7] and counts["train"] == [38]  # Section 10: 6 + 1 gate runs, 38 training runs
+    assert counts["gate"] == [8] and counts["train"] == [38]  # G1 3, G2 3, G3 1 and the tbn reference pilot  # Section 10: 6 + 1 gate runs, 38 training runs
     assert counts["evaluate"] == [52 + 38, 26]  # E1-E4, then 64 probes: training arms first, E1 and E2 learners after
     assert counts["optional"] == [3, 3] and counts["smoke"] == [13, 15]
     g3 = [j for j in PHASES["gate"][0] if j.name == "m2_shaper_matched"]
@@ -54,7 +54,7 @@ def test_every_job_has_a_config_and_its_launcher_inputs():
 
 
 def test_folders_written_are_the_folders_the_evaluator_reads():
-    assert folders("gate") == {folder for folder, _, _ in ed.GATE.values()}
+    assert folders("gate") == {folder for folder, _, _ in ed.GATE.values()} | {folder for folder, _ in ed.REFERENCE.values()}
     assert set(ed.decision_folders()) <= folders("evaluate")
     evaluated = {Path(t.split("/exp%d_")[0]).name for group in PHASES["evaluate"] for j in group
                  for k, t in j.env if k.endswith("_TEMPLATE")}
@@ -92,7 +92,7 @@ def test_queue_runs_every_job_once_per_free_gpu(tmp_path, monkeypatch, capsys):
     gate = PHASES["gate"]
     assert sd.run(gate, gpus=[0, 3, 4]) == []
     out = capsys.readouterr().out
-    assert out.count("started") == 7 and "GPU 3" not in out
+    assert out.count("started") == 8 and "GPU 3" not in out
     assert all(j.done() for j in gate[0])
     sd.run(gate, gpus=[0])  # a rerun skips finished jobs
-    assert "0 job(s) to run, 7 already done" in capsys.readouterr().out
+    assert "0 job(s) to run, 8 already done" in capsys.readouterr().out

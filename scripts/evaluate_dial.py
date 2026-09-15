@@ -25,14 +25,16 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import cpr_eval as ev  # noqa: E402
-from make_dial_configs import EVAL_SHAPERS, EXTRA_SEEDS_LONG, GATE_RUNS, OPTIONAL, SEEDS, SEEDS_LONG  # noqa: E402
+from make_dial_configs import EVAL_SHAPERS, EXTRA_SEEDS_LONG, GATE_RUNS, OPTIONAL, PILOT_RUNS, SEEDS, SEEDS_LONG  # noqa: E402
 
 RESTRAIN = 1
 GATE = {  # Section 9: folder, readout, threshold
     "G1 (m=3): learner restraint against committed harvest": ("g1_m3_harvest", "restraint_1", 0.5),
     "G2 (m=2): learner restraint after tit-for-tat restrained": ("g2_m2_tft", "after_restrain_1", 0.5),
-    "G3 (m=2): shaper restraint and pool survival in the pilot": ("m2_shaper_matched_g3", "restraint_2", 0.3),
+    "G3 (m=2): shaper restraint and pool survival in the pilot": ("m2_shaper_matched_g3r", "restraint_2", 0.3),
 }
+# Read at G3's windows beside the verdict; it does not gate (deviation of 15 September).
+REFERENCE = {"tbn-matched pilot (reference, does not gate)": ("m2_tbn_matched_g3tbn", "restraint_2")}
 G3 = "G3 (m=2): shaper restraint and pool survival in the pilot"
 G3_SURVIVAL = 0.5  # amendment of 15 September: restraint into a dead pool does not pass
 LENGTHS = (100, 200)  # G3 over epochs 81-100 sets 100-epoch training; failing that, G3 over 181-200 sets 200
@@ -47,7 +49,7 @@ def planned(folder: str, length: int = 100, extra: bool = False) -> int:
     seeds = SEEDS if length == 100 else SEEDS_LONG
     if extra and length == 200 and folder in EXTRA_SEEDS_LONG:
         return seeds[folder] + len(EXTRA_SEEDS_LONG[folder])
-    table = {**seeds, **OPTIONAL, **{name + suffix: n for name, (suffix, n) in GATE_RUNS.items()}}
+    table = {**seeds, **OPTIONAL, **{name + suffix: n for name, (suffix, n) in {**GATE_RUNS, **PILOT_RUNS}.items()}}
     if folder in table:
         return table[folder]
     stage, rest = folder.split("_", 1)
@@ -221,6 +223,15 @@ def main(argv=None) -> None:
             else:
                 seeds = ", ".join(f"seed {k} {fmt(v)}" for k, v in sorted(r["values"].items()))
                 print(f"{name} (>= {r['threshold']}): {r['verdict']}  [{seeds or 'no runs'}]")
+        result["reference"] = {}
+        for name, (folder, readout) in REFERENCE.items():
+            ends = {end: {seed: (s[readout], s["survival"]) for seed, s in load(root / folder, end).items() if s is not None}
+                    for end in LENGTHS}
+            result["reference"][name] = {"folder": folder, "values": ends}
+            cells = "; ".join(f"epochs {end - 19}-{end}: " + (", ".join(
+                f"seed {k} restraint {fmt(v[0])} survival {fmt(v[1])}" for k, v in sorted(runs.items())) or "not reached")
+                for end, runs in sorted(ends.items()))
+            print(f"{name}: [{cells}]")
         print(f"GO: training runs {result['training_length']} epochs" if result["go"]
               else "NO GO: no training starts; log the outcome in the amendment log")
         (out / "gate.json").write_text(json.dumps(result, indent=2) + "\n")
