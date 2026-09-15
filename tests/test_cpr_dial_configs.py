@@ -12,7 +12,7 @@ sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(ROOT, "scripts"))
 
 import make_dial_configs as mdc
-from cpr_dial import CROSS_EPISODE_WEIGHT, check_dial_config
+from cpr_dial import SPLIT_BASELINE_TRIALS, SPLIT_CREDIT_WEIGHT, check_dial_config
 
 
 def flat(d, prefix=""):
@@ -43,12 +43,13 @@ def configs(tmp_path_factory):
 
 TRIAL = {"ppo_agent_parameters2.trial_batched", "ppo_agent_parameters2.episodes_per_trial"}
 TIMESCALE = {"ppo_agent_parameters2.ppo_params.learning_rate", "ppo_agent_parameters2.ppo_params.cliprange"}
-CREDIT = {"ppo_agent_parameters2.trial_batched", "obs_manager_parameters2.is_shaper", "ppo_agent_parameters2.is_shaper",
-          "obs_manager_parameters2.transmit_info", "ppo_agent_parameters2.cross_episode_credit", "ppo_agent_parameters2.cross_episode_weight"}
+CREDIT = TRIAL | {"obs_manager_parameters2.is_shaper", "ppo_agent_parameters2.is_shaper", "obs_manager_parameters2.transmit_info"}
+SPLIT = {"ppo_agent_parameters2.cross_episode_credit", "ppo_agent_parameters2.cross_episode_weight",
+         "ppo_agent_parameters2.cross_episode_baseline_trials", "ppo_agent_parameters2.episodes_per_trial"}
 
 
 def test_every_config_is_a_design_point(configs):
-    assert len(configs) == 7 + 3 + 2 * (1 + 2 * 4) - 4 + 2 + 1  # arms, probes and E1-E4 per shaper, gates, optional
+    assert len(configs) == 8 + 3 + 2 + 4 * 4 + 2 + 1  # arms (the split-credit arm included), probes, E1-E4 per evaluated shaper, gates, optional
     for name, cfg in configs.items():
         assert check_dial_config(cfg) in ("m2", "m3")
         gp = cfg["game_parameters"]
@@ -64,6 +65,7 @@ def test_arms_differ_in_exactly_the_preregistered_keys(configs):
     assert keys_that_differ(c["tbn_matched"], c["shaper_matched"]) == CREDIT
     assert keys_that_differ(c["tbn_slow"], c["shaper_slow"]) == CREDIT
     assert keys_that_differ(c["shaper_slow"], c["shapellm"]) == {"obs_manager_parameters2.transmit_info"}
+    assert keys_that_differ(c["shaper_matched"], c["shaper_matched_split"]) == SPLIT
     agent1 = lambda cfg: {k: v for k, v in flat(cfg).items() if k.startswith(("ppo_agent_parameters1", "obs_manager_parameters1"))}
     assert all(agent1(cfg) == agent1(c["naive"]) for cfg in c.values())
 
@@ -106,26 +108,25 @@ def test_the_lock_refuses_anything_else(configs):
 def test_the_optional_arm_and_the_planned_seeds(configs):
     assert keys_that_differ(configs["m2_shapellm"], configs["m2_shapellm_history_off"]) == {
         "obs_manager_parameters1.show_previous_round", "obs_manager_parameters2.show_previous_round"}
-    assert sum(n for name, n in mdc.SEEDS.items() if name.startswith("m2_")) == 29  # Section 10: 29 runs at m = 2
+    assert sum(n for name, n in mdc.SEEDS.items() if name.startswith("m2_")) == 29 + 5  # Section 10's 29 runs at m = 2, and the split arm
     assert sum(n for name, n in mdc.SEEDS.items() if name.startswith("m3_")) == 9
     assert set(mdc.SEEDS) == {f"{stage}_{arm}" for stage, arms in mdc.STAGE_ARMS.items() for arm in arms}
     assert sum(n for _, n in mdc.GATE_RUNS.values()) == 7 and all(name in configs for name in mdc.GATE_RUNS)
-    assert sum(mdc.SEEDS_LONG.values()) == 2 * 5 + 8 * 3 and mdc.GATE_EPOCHS == {"g1_m3_harvest": 100, "g2_m2_tft": 100, "m2_shaper_matched": 200, "m2_tbn_matched": 200}
-    assert {name for name, n in mdc.SEEDS_LONG.items() if n == 5} == set(mdc.DECISIVE) == {"m2_shaper_matched", "m2_tbn_matched"}
+    assert sum(mdc.SEEDS_LONG.values()) == 3 * 5 + 8 * 3 and mdc.GATE_EPOCHS == {"g1_m3_harvest": 100, "g2_m2_tft": 100, "m2_shaper_matched_split": 200, "m2_tbn_matched": 200}
+    assert {name for name, n in mdc.SEEDS_LONG.items() if n == 5} == set(mdc.DECISIVE + mdc.ADDITIONAL)
+    assert mdc.DECISIVE == ("m2_shaper_matched", "m2_tbn_matched") and mdc.ADDITIONAL == ("m2_shaper_matched_split",)
     assert mdc.SEEDS_LONG["m2_shapellm"] == 3 and mdc.EXTRA_SEEDS_LONG == {"m2_shapellm": (3, 4)}
 
 
-def test_every_shaper_uses_decomposed_credit_and_the_lock_insists(configs):
+def test_the_split_credit_arm_is_additional_and_the_lock_checks_it(configs):
     for name, cfg in configs.items():
-        for i in (1, 2):
-            ppo = cfg.get(f"ppo_agent_parameters{i}")
-            if ppo and ppo["is_shaper"]:
-                assert (ppo["cross_episode_credit"], ppo["cross_episode_weight"], ppo["episodes_per_trial"]) == ("decomposed", CROSS_EPISODE_WEIGHT, 5), name
-            elif ppo:
-                assert "cross_episode_credit" not in ppo, name
-    assert CROSS_EPISODE_WEIGHT == round(0.97 ** 50, 4) == 0.2181
-    bad = copy.deepcopy(configs["m2_shapellm"])
-    bad["ppo_agent_parameters2"]["cross_episode_credit"] = "trial_gae"
+        ppo2 = cfg.get("ppo_agent_parameters2") or {}
+        assert ("cross_episode_credit" in ppo2) == (name == "m2_shaper_matched_split"), name
+    for kind in ("e1_transfer", "e2_replay", "e3_frozen_partner", "e4_untrained_partner"):  # a frozen shaper takes no update
+        assert keys_that_differ(configs[f"m2_{kind}_shaper_matched"], configs[f"m2_{kind}_shaper_matched_split"]) == set()
+    assert (SPLIT_CREDIT_WEIGHT, SPLIT_BASELINE_TRIALS) == (1.0, 5)
+    bad = copy.deepcopy(configs["m2_shaper_matched_split"])
+    bad["ppo_agent_parameters2"]["cross_episode_weight"] = 0.2181
     with pytest.raises(AssertionError):
         check_dial_config(bad)
-    assert mdc.GATE_RUNS["m2_shaper_matched"] == ("_g3r", 1) and mdc.PILOT_RUNS == {"m2_tbn_matched": ("_g3tbn", 1)}
+    assert mdc.GATE_RUNS["m2_shaper_matched_split"] == ("_g3", 1) and mdc.PILOT_RUNS == {"m2_tbn_matched": ("_g3tbn", 1)}

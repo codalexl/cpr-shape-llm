@@ -2,7 +2,7 @@
 """Read two-player stochastic CPR runs against docs/PREREGISTRATION_STOCHASTIC_CPR.md, Sections 7-9.
 
     python scripts/evaluate_dial.py checkpoints/dial/m2_shapellm [more folders] [--window 20] [--out results/dial]
-    python scripts/evaluate_dial.py --gate [--root checkpoints/dial]      # G1-G3, and the training length G3 sets
+    python scripts/evaluate_dial.py --gate [--root checkpoints/dial]      # G1, G2, G3a (and training length), tbn pilot, G3b
     python scripts/evaluate_dial.py --decide [--length 100|200]           # S, T and C
 
 For each run in a folder (exp<k>_cpr_records is seed k-1), over its last `window` epochs (all of a 20-epoch run):
@@ -20,22 +20,27 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Optional
 
+import numpy as np
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import cpr_eval as ev  # noqa: E402
-from make_dial_configs import EVAL_SHAPERS, EXTRA_SEEDS_LONG, GATE_RUNS, OPTIONAL, PILOT_RUNS, SEEDS, SEEDS_LONG  # noqa: E402
+from make_dial_configs import ADDITIONAL, EVAL_SHAPERS, EXTRA_SEEDS_LONG, GATE_RUNS, OPTIONAL, PILOT_RUNS, SEEDS, SEEDS_LONG  # noqa: E402
 
 RESTRAIN = 1
 GATE = {  # Section 9: folder, readout, threshold
     "G1 (m=3): learner restraint against committed harvest": ("g1_m3_harvest", "restraint_1", 0.5),
     "G2 (m=2): learner restraint after tit-for-tat restrained": ("g2_m2_tft", "after_restrain_1", 0.5),
-    "G3 (m=2): shaper restraint and pool survival in the pilot": ("m2_shaper_matched_g3r", "restraint_2", 0.3),
+    "G3a (m=2): the split-credit shaper learns restraint in the pilot": ("m2_shaper_matched_split_g3", "restraint_2", 0.3),
 }
-# Read at G3's windows beside the verdict; it does not gate (deviation of 15 September).
-REFERENCE = {"tbn-matched pilot (reference, does not gate)": ("m2_tbn_matched_g3tbn", "restraint_2")}
-G3 = "G3 (m=2): shaper restraint and pool survival in the pilot"
+# Judged by G3a's criterion beside the verdict; it does not gate.
+REFERENCE = {"G3a for the tbn-matched pilot (does not gate)": ("m2_tbn_matched_g3tbn", "restraint_2")}
+# G3b, reported: agent 1's within-trial response to agent 2's restraint, in both pilots and the second G3 (chained GAE).
+CHANNEL = {"split-credit shaper pilot": "m2_shaper_matched_split_g3", "tbn-matched pilot": "m2_tbn_matched_g3tbn",
+           "second G3 (chained GAE)": "m2_shaper_matched_g3"}
+G3 = "G3a (m=2): the split-credit shaper learns restraint in the pilot"
 G3_SURVIVAL = 0.5  # amendment of 15 September: restraint into a dead pool does not pass
 LENGTHS = (100, 200)  # G3 over epochs 81-100 sets 100-epoch training; failing that, G3 over 181-200 sets 200
 EVAL_KINDS = ("e1_transfer", "e2_replay", "e3_frozen_partner", "e4_untrained_partner")
@@ -103,6 +108,66 @@ def summarise(rec: dict, window: int = 20, end: Optional[int] = None) -> Optiona
     }
 
 
+def channel(rec: dict) -> Optional[dict]:
+    """G3b, pre-registered on 15 September: does agent 1 respond within a trial to agent 2's restraint? Over every trial
+    and pair of consecutive episodes, the Pearson r between agent 2's restraint share in episode e and agent 1's change
+    in restraint share from e to e + 1 (shares over live rounds, averaged over the parallel games), with a 95% Fisher-z
+    interval. Reported beside it: the partial r given agent 1's share in episode e, since a learner that already
+    restrains has less room to rise. The reading is "channel" if r's interval lies above zero, "reversed" if it lies
+    below, and "none" otherwise."""
+    cells = defaultdict(lambda: [0, 0, 0])  # live rounds, agent 2's restraints, agent 1's restraints
+    for i in range(len(rec["epoch"])):
+        if not rec["masked"][i]:
+            c = cells[(int(rec["epoch"][i]), int(rec["episode"][i]), int(rec["game"][i]))]
+            c[0] += 1
+            c[1] += int(rec["request_2"][i]) == RESTRAIN
+            c[2] += int(rec["request_1"][i]) == RESTRAIN
+    shares = defaultdict(lambda: ([], []))
+    for (t, e, _), (n, r2, r1) in cells.items():
+        shares[(t, e)][0].append(r2 / n)
+        shares[(t, e)][1].append(r1 / n)
+    rows = [(np.mean(s2), np.mean(s1), np.mean(shares[(t, e + 1)][1]) - np.mean(s1))
+            for (t, e), (s2, s1) in sorted(shares.items()) if (t, e + 1) in shares]
+    if len(rows) < 5:
+        return None
+    x, own, y = (np.array(v, dtype=float) for v in zip(*rows))
+
+    def correlate(a, b, controls):
+        if a.std() < 1e-12 or b.std() < 1e-12:
+            return None, None, None
+        r = float(np.corrcoef(a, b)[0, 1])
+        z, se = math.atanh(max(min(r, 0.999999), -0.999999)), 1 / math.sqrt(len(a) - 3 - controls)
+        return r, math.tanh(z - 1.96 * se), math.tanh(z + 1.96 * se)
+
+    residual = lambda v: v - np.polyval(np.polyfit(own, v, 1), own) if own.std() > 1e-12 else v - v.mean()
+    r, low, high = correlate(x, y, 0)
+    partial, partial_low, partial_high = correlate(residual(x), residual(y), 1)
+    return {"r": r, "low": low, "high": high, "partial": partial, "partial_low": partial_low, "partial_high": partial_high,
+            "pairs": len(rows), "reading": None if r is None else "channel" if low > 0 else "reversed" if high < 0 else "none"}
+
+
+def describe(c: Optional[dict]) -> str:
+    if c is None:
+        return "too few episode pairs"
+    if c["r"] is None:
+        return f"undefined over {c['pairs']} episode pairs (a share never varies)"
+    return (f"r {c['r']:+.3f} [{c['low']:+.3f}, {c['high']:+.3f}], partial r {fmt(c['partial'], 3)} "
+            f"[{fmt(c['partial_low'], 3)}, {fmt(c['partial_high'], 3)}], {c['pairs']} episode pairs: {c['reading']}")
+
+
+def reading(g3a: str, tbn: str) -> str:
+    """The pre-registered reading of the third G3 (15 September), from G3a's verdicts for the two pilots."""
+    if g3a == "not run":
+        return "not run"
+    if g3a == "pass":
+        return "G3a passes; G3b says whether the trial-level objective has a channel to act on"
+    if tbn == "fail":
+        return "structural null: agent 2 learns restraint in neither pilot"
+    if tbn.startswith("pass"):
+        return "the split-credit shaper fails where its trial-batched control learns restraint"
+    return "the split-credit shaper fails; the tbn pilot has not run"
+
+
 def most(flags, planned_seeds: int) -> bool:
     """At least 3 of 5, 2 of 3, or 1 of 1."""
     return sum(bool(f) for f in flags) >= planned_seeds // 2 + 1
@@ -158,7 +223,8 @@ def decide(summaries: dict, length: int = 100) -> dict:
                 holds(f"m2_e2_replay_{arm}", not_unconditional) and most(lower, planned(f"m2_e3_frozen_partner_{arm}", length))),
         }
         out["S"][arm] = {**c, "holds": all(c.values())}
-    for shaper, control in (("shaper_matched", "tbn_matched"), ("shaper_slow", "tbn_slow"), ("shapellm", "tbn_slow")):
+    for shaper, control in (("shaper_matched", "tbn_matched"), ("shaper_slow", "tbn_slow"), ("shapellm", "tbn_slow"),
+                            ("shaper_matched_split", "tbn_matched")):
         c = {"partner conditional": holds(f"m2_{shaper}", is_class("conditional")),
              f"{control} partner none": holds(f"m2_{control}", is_class("none"))}
         out["T"][shaper] = {**c, "holds": all(c.values())}
@@ -168,8 +234,13 @@ def decide(summaries: dict, length: int = 100) -> dict:
                             "r_after_take": {k: s["agent1_rates"]["after_take"]["rate"]
                                              for k, s in summaries.get(f"{folder[:2]}_probe_of_{folder}", {}).items()}}
                    for folder in SEEDS}
-    s_holds, t_holds = any(v["holds"] for v in out["S"].values()), any(v["holds"] for v in out["T"].values())
+    # The verdict reads the pre-registered arms only; the additional split-credit arm gets its own line (15 September).
+    additional = lambda arm: f"m2_{arm}" in ADDITIONAL
+    s_holds = any(v["holds"] for arm, v in out["S"].items() if not additional(arm))
+    t_holds = any(v["holds"] for arm, v in out["T"].items() if not additional(arm))
     out["verdict"] = "S" if s_holds else ("T" if t_holds else "Null")
+    out["verdict_additional"] = {arm: "S" if out["S"][arm]["holds"] else ("T" if out["T"][arm]["holds"] else "Null")
+                                 for arm in out["S"] if additional(arm)}
     return out
 
 
@@ -225,13 +296,23 @@ def main(argv=None) -> None:
                 print(f"{name} (>= {r['threshold']}): {r['verdict']}  [{seeds or 'no runs'}]")
         result["reference"] = {}
         for name, (folder, readout) in REFERENCE.items():
-            ends = {end: {seed: (s[readout], s["survival"]) for seed, s in load(root / folder, end).items() if s is not None}
-                    for end in LENGTHS}
-            result["reference"][name] = {"folder": folder, "values": ends}
+            windows = {end: load(root / folder, end) for end in LENGTHS}
+            ends = {end: {seed: (s[readout], s["survival"]) for seed, s in rows.items() if s is not None} for end, rows in windows.items()}
+            passed = next((end for end in LENGTHS if most([g3_passes(s) for s in windows[end].values()], 1)), None)
+            verdict = "not run" if not any(ends.values()) else (f"pass over epochs {passed - 19}-{passed}" if passed else "fail")
+            result["reference"][name] = {"folder": folder, "values": ends, "verdict": verdict}
             cells = "; ".join(f"epochs {end - 19}-{end}: " + (", ".join(
-                f"seed {k} restraint {fmt(v[0])} survival {fmt(v[1])}" for k, v in sorted(runs.items())) or "not reached")
-                for end, runs in sorted(ends.items()))
-            print(f"{name}: [{cells}]")
+                f"seed {k} restraint {fmt(v[0])} survival {fmt(v[1])}" for k, v in sorted(rows.items())) or "not reached")
+                for end, rows in sorted(ends.items()))
+            print(f"{name}: {verdict} [{cells}]")
+        result["G3b"] = {}
+        for name, folder in CHANNEL.items():
+            found = {seed: channel(rec) for seed, rec in runs(root / folder)}
+            result["G3b"][name] = {"folder": folder, "values": found}
+            cells = "; ".join(f"seed {k} {describe(v)}" for k, v in sorted(found.items())) or "not run"
+            print(f"G3b channel, {name} (reported, does not gate): {cells}")
+        result["reading"] = reading(result["checks"][G3]["verdict"], next(iter(result["reference"].values()))["verdict"])
+        print(f"reading: {result['reading']}")
         print(f"GO: training runs {result['training_length']} epochs" if result["go"]
               else "NO GO: no training starts; log the outcome in the amendment log")
         (out / "gate.json").write_text(json.dumps(result, indent=2) + "\n")
@@ -244,7 +325,9 @@ def main(argv=None) -> None:
         for folder, arm in result["arms"].items():
             print(f"  {folder}: classes {arm['classes']}; r_after_take " +
                   ", ".join(f"seed {k} {fmt(v)}" for k, v in sorted(arm["r_after_take"].items())))
-        print(f"verdict: {result['verdict']}")
+        print(f"verdict (pre-registered arms): {result['verdict']}")
+        for arm, verdict in result["verdict_additional"].items():
+            print(f"additional arm m2_{arm} (split credit, not pre-registered): {verdict}")
         (out / "decision.json").write_text(json.dumps(result, indent=2) + "\n")
     for folder in map(Path, a.folders):
         summary = load(folder)

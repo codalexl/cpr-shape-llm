@@ -2,7 +2,7 @@
 # Fan one stochastic-CPR config out over seeds, ONE PROCESS PER GPU (docs/PREREGISTRATION_STOCHASTIC_CPR.md, 10).
 #
 #   EPOCHS=100 CKPT_FREQ=100 ./scripts/launch_dial.sh m2_shapellm "0 1 2 3 4" "0 1 2 3 4"   # training arm
-#   EPOCHS=100 ./scripts/launch_dial.sh g1_m3_harvest "0 1 2" "0 1 2"                        # gate check (G3 = m2_shaper_matched)
+#   EPOCHS=100 ./scripts/launch_dial.sh g1_m3_harvest "0 1 2" "0 1 2"                        # gate check (G3a pilot: m2_shaper_matched_split, SUFFIX=_g3)
 #   EPOCHS=100 PARTNER_ADAPTER_TEMPLATE='checkpoints/dial/m2_shapellm/exp%d_model2_model_checkpoint_100' \
 #     ./scripts/launch_dial.sh m2_e1_transfer_shapellm "0 1 2 3 4" "0 1 2 3 4"               # %d is seed+1
 #   EPOCHS=100 REPLAY_RECORDS_TEMPLATE='checkpoints/dial/m2_shapellm/exp%d_cpr_records' \

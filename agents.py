@@ -1,5 +1,6 @@
 import os 
 import itertools 
+from collections import deque
 import numpy as np
 import torch
 
@@ -57,11 +58,13 @@ class AgentConfig():
     # concatenated batch with env ids unique per (episode, game), so GAE never crosses an episode.
     trial_batched: Optional[bool] = False
     episodes_per_trial: Optional[int] = 5
-    # Shaper credit (docs/PREREGISTRATION_STOCHASTIC_CPR.md, deviation of 15 September). "trial_gae" runs GAE across the
-    # whole trial. "decomposed" runs GAE within each episode and adds, to the policy advantage only, the shaper's return
-    # in the trial's later episodes minus its mean over the other parallel games (trial_batching.decomposed_credit).
+    # Shaper credit (docs/PREREGISTRATION_STOCHASTIC_CPR.md, 15 September). "trial_gae", ShapeLLM's estimator, runs GAE
+    # across the whole trial. "split" runs GAE within each episode and adds, to the policy advantage only, the shaper's
+    # return in the trial's later episodes minus its mean over the previous `cross_episode_baseline_trials` trials
+    # (trial_batching.split_credit), times cross_episode_weight.
     cross_episode_credit: Optional[str] = "trial_gae"
     cross_episode_weight: Optional[float] = 1.0
+    cross_episode_baseline_trials: Optional[int] = 5
 
 @dataclass
 class EvalAgentConfig():
@@ -141,8 +144,9 @@ class PPOAgent():
         self.cross_episode_credit = getattr(config, "cross_episode_credit", None) or "trial_gae"
         weight = getattr(config, "cross_episode_weight", None)
         self.cross_episode_weight = 1.0 if weight is None else float(weight)
-        assert self.cross_episode_credit in ("trial_gae", "decomposed"), f"unknown cross_episode_credit {self.cross_episode_credit!r}"
-        assert self.cross_episode_credit == "trial_gae" or self.is_shaper, "decomposed cross-episode credit is defined for shapers"
+        assert self.cross_episode_credit in ("trial_gae", "split"), f"unknown cross_episode_credit {self.cross_episode_credit!r}"
+        assert self.cross_episode_credit == "trial_gae" or self.is_shaper, "split cross-episode credit is defined for shapers"
+        self._future_history = deque(maxlen=int(getattr(config, "cross_episode_baseline_trials", None) or 5))
 
     def tokenize_observation(self, obs: List[str]) -> List[torch.Tensor]:
         """Tokenize observations. returns a List of torch.Tensors as it is the format required by the PPO Trainer"""
@@ -210,11 +214,19 @@ class PPOAgent():
                 return
             query_tensors, response_tensors, rewards, env_ids = concat_trial(self._trial_buffer)
             self._trial_buffer = []
-        elif self.is_shaper and self.cross_episode_credit == "decomposed":
-            # GAE within each episode plus the baselined later-episode return (trial_batching.decomposed_credit).
-            from trial_batching import decomposed_credit
-            env_ids, bonus = decomposed_credit(traj_data.rewards, traj_data.env_ids, self.episodes_per_trial,
-                                               self.cross_episode_weight)
+        elif self.is_shaper and self.cross_episode_credit == "split":
+            # GAE within each episode plus the later-episode return against its mean over previous trials
+            # (trial_batching.split_credit); the first trial has no baseline and no term.
+            from trial_batching import split_credit
+            history = list(self._future_history)
+            baseline = [sum(h[e] for h in history) / len(history) for e in range(self.episodes_per_trial)] if history else None
+            env_ids, bonus, means = split_credit(traj_data.rewards, traj_data.env_ids, self.episodes_per_trial,
+                                                 self.cross_episode_weight, baseline)
+            self._future_history.append(means)
+            mean = sum(bonus) / max(len(bonus), 1)
+            spread = (sum((b - mean) ** 2 for b in bonus) / max(len(bonus), 1)) ** 0.5
+            print(f"\nagent{self.agent_id} split credit: baseline from {len(history)} previous trial(s), "
+                  f"cross-episode term mean {mean:+.2f} SD {spread:.2f}")
         else:
             from trial_batching import remap_env_ids
             env_ids = remap_env_ids(env_ids)  # no-op for the naive/shaper layouts (ids already 0..n-1)

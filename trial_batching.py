@@ -10,7 +10,7 @@ episode boundary. Pure functions here; the agent hook is PPOAgent.update_paramet
 """
 from __future__ import annotations
 
-from typing import Dict, List, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 
 def remap_env_ids(ids: Sequence[int]) -> List[int]:
@@ -34,19 +34,20 @@ def concat_trial(buffer: Sequence[Tuple[list, list, list, list]]) -> Tuple[list,
     return q, r, w, remap_env_ids(ids)
 
 
-def decomposed_credit(rewards_by_round: Sequence[Sequence[float]], ids_by_round: Sequence[Sequence[int]],
-                      episodes: int, weight: float = 1.0) -> Tuple[List[int], List[float]]:
-    """Decomposed cross-episode credit for one shaper trial (PREREGISTRATION_STOCHASTIC_CPR.md, deviation of 15 Sep).
+def split_credit(rewards_by_round: Sequence[Sequence[float]], ids_by_round: Sequence[Sequence[int]], episodes: int,
+                 weight: float = 1.0, baseline: Optional[Sequence[float]] = None) -> Tuple[List[int], List[float], List[float]]:
+    """Split cross-episode credit for one shaper trial (PREREGISTRATION_STOCHASTIC_CPR.md, 15 September).
 
-    Inputs are laid out as TrajectoryData stores a shaper's trial: one list per round, holding the reward and the game
-    id of each live step; the rounds divide evenly into `episodes`. Returns, in the same flattened order:
+    Inputs are laid out as TrajectoryData stores a shaper's trial: one list per round, holding the reward and the game id
+    of each live step; the rounds divide evenly into `episodes`. Returns, in the same flattened order:
 
-    * env ids unique per (episode, game), so CustomPPOTrainer.compute_advantages runs GAE within each episode, as for
-      the trial-batched control;
-    * the cross-episode term of each step, weight * (F[g][e] - mean of F[h][e] over the other games h), where F[g][e]
-      is the shaper's return in the episodes of game g after episode e. The baseline does not depend on the step's
-      action, so at weight 1 the sum of the two terms estimates the gradient of the whole-trial return without the
-      noise of chaining later episodes through lambda step by step. With a single game the term is zero.
+    * env ids unique per (episode, game), so CustomPPOTrainer.compute_advantages runs GAE within each episode;
+    * each step's cross-episode term, weight * (F[g][e] - baseline[e]), where F[g][e] is the shaper's return in game g's
+      episodes after e and baseline[e] is the mean of F at position e over previous trials (None: the term is zero);
+    * this trial's mean of F at each position over its games, for the caller's baseline history.
+
+    The baseline has to come from earlier trials. The parallel games share one learner, so whatever this trial's actions do
+    to the learner appears in every game's later returns; a baseline from this trial's other games would cancel it.
     """
     rounds = len(rewards_by_round)
     assert rounds % episodes == 0 and len(ids_by_round) == rounds, f"{rounds} rounds do not split into {episodes} episodes"
@@ -58,19 +59,15 @@ def decomposed_credit(rewards_by_round: Sequence[Sequence[float]], ids_by_round:
         for w, g in zip(rw, ids):
             returns[int(g)][r // per] += float(w)
     future = {g: [sum(returns[g][e + 1:]) for e in range(episodes)] for g in games}
-
-    def baseline(g: int, e: int) -> float:
-        others = [future[h][e] for h in games if h != g]
-        return sum(others) / len(others) if others else future[g][e]
-
+    means = [sum(future[g][e] for g in games) / len(games) if games else 0.0 for e in range(episodes)]
     width = (max(games) + 1) if games else 1
     ids_out, term = [], []
     for r, ids in enumerate(ids_by_round):
         e = r // per
         for g in ids:
             ids_out.append(e * width + int(g))
-            term.append(weight * (future[int(g)][e] - baseline(int(g), e)))
-    return remap_env_ids(ids_out), term
+            term.append(0.0 if baseline is None else weight * (future[int(g)][e] - baseline[e]))
+    return remap_env_ids(ids_out), term, means
 
 
 def first_index_by_id(ids: Sequence[int]) -> Dict[int, int]:

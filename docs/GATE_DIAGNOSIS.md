@@ -204,6 +204,8 @@ So the obstacle is this stack's estimator for the trial-level objective, not the
 
 ## 10. The repair (15 September, after the second NO GO)
 
+*Corrected by section 11: the baseline removed the learner's shared response, and the weight's rationale was wrong. The repair described here never ran.*
+
 This is recorded as a deviation in `docs/PREREGISTRATION_STOCHASTIC_CPR.md`.
 
 **What changed.** Every shaper arm now uses decomposed cross-episode credit:
@@ -226,3 +228,41 @@ This is recorded as a deviation in `docs/PREREGISTRATION_STOCHASTIC_CPR.md`.
 - At λ^T, the shaper's signal matches its tbn control's. Its cross-episode credit also has the strength the pre-registered estimator intended.
 
 **The third G3.** It runs the repaired shaper-matched arm, with a tbn-matched reference pilot beside it.
+
+## 11. The audit, and the third G3 as restructured (15 September, evening)
+
+Section 10 contained two errors. Both are corrected in the pre-registration's amendment log before any run, and the repair it describes never ran.
+
+**The baseline cancelled what the term was meant to credit.**
+- Section 10's term subtracted the later-episode return's mean over the trial's other games.
+- The five games share one learner. Whatever the shaper's play teaches it appears in every game's later episodes, so that baseline removes it in expectation. The term kept only the game-specific part of the later returns, which is noise with respect to the shaper's actions.
+- Within a 20-epoch window, 0.21–0.45 of the later-return variance is common to a trial's games (`results/dial/credit_replay.txt`). That is the variance the baseline removed, which is why its replay t looked usable.
+- The baseline is now the mean over the previous five trials, which leaves this trial's learner response in the term.
+
+**The weight's rationale was wrong.** λ^50 = 0.2181 is not the strength the pre-registered estimator intended. Chained GAE attenuates per live step: between 0.22 and about 1 for the next episode, depending on the round, and more for episodes further on. The weight is now 1, the trial return itself.
+
+**Is there anything to credit?** The channel on the second G3, which `python scripts/evaluate_dial.py --gate` prints as G3b:
+
+| Over 200 trials (800 pairs of consecutive episodes) | r | 95% interval |
+|---|---|---|
+| The shaper's restraint in episode e, against the learner's change in restraint from e to e + 1 | −0.016 | −0.085 to +0.053 |
+| The same, given the learner's restraint in episode e (partial) | −0.143 | −0.210 to −0.074 |
+
+- After episodes in which the shaper restrained more, the learner restrained no more, and less than its own level predicts.
+- At these policies, the cross-episode part of the trial objective had nothing to push toward restraint. The estimator is therefore unlikely to be the bottleneck, and a third G3 may fail for a structural reason.
+
+**What changed.**
+- **The pre-registered shaper arms keep chained whole-trial GAE,** ShapeLLM's estimator: ShapeLLM-style, shaper-matched, shaper-slow and history-off.
+- **Split credit is an additional arm,** `m2_shaper_matched_split`, reported under its own name. It runs GAE within episodes and adds the later-episode return against the previous-trials baseline, at weight 1.
+  - On the second G3's trials, its replay t is +3.5 over epochs 81–100 and +4.1 over 181–200, against +5.1 and +8.1 for episode GAE.
+  - Advantages are whitened per update, as in every arm, which also subtracts the trial's mean term. With equal episode lengths and a persistent learner response, about 40 percent of that response's expected push survives.
+- **G3 is split.** G3a gates on the split-credit pilot: agent 2's restraint ≥ 0.3 with survival ≥ 0.5. The tbn pilot is judged alike. G3b reports the channel for both pilots and for the second G3.
+- **Hard stop.** The pilots launch on 15 September (UTC) or not at all. Training follows only if G3a passes by 12:00 UTC on 16 September. Otherwise the pond is the thesis and the dial is an exploratory chapter.
+
+**How the third G3 is read.**
+
+| G3a, split-credit pilot | G3a, tbn pilot | Reading |
+|---|---|---|
+| fail | fail | Structural null: agent 2 learns restraint under neither update |
+| fail | pass | The shaper learns less than its trial-batched control |
+| pass | either | Training follows; G3b says whether the trial-level objective has a channel to act on |

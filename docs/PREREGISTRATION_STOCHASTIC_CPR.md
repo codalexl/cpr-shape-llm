@@ -343,7 +343,7 @@ Thresholds are set against the solver's best response, not at it: a learner that
   - **G3** (shaper restraint ≥ 0.3 and pool survival ≥ 0.5): **fail** at both windows. Seed 0 epochs 81–100: restraint 0.139, survival 0.00. Epochs 181–200: restraint 0.104, survival 0.00. `training_length` is null.
   - **G0** (does not gate), `results/dial/g0_preflight_v2.txt`: after-history restraint on stocks 4–20 had mean 0.174 (n=16; local screen 0.16). Inside 0.10–0.25, so the gate ran.
   - Under item 9 of the 15 September amendment, this is the second gate failure. No further levers. The result is reported as a null, with the learnability, shaping-window and screening analyses as the explanation.
-- *15 Sep 2026, after the second NO GO and before any further run.* **Deviation: the shaper's credit estimator is repaired, and G3 runs a third time.** This departs from item 9 of the amendment above ("No further levers are tried after a second failure"). The author decided it after the diagnosis in `docs/GATE_DIAGNOSIS.md`, sections 9 and 10. Both NO GOs stay on record. Any result on this design is reported as following an estimator repair chosen after seeing the second failure.
+- *15 Sep 2026, after the second NO GO and before any further run.* **Deviation: the shaper's credit estimator is repaired, and G3 runs a third time.** *Corrected, and its repair of every shaper arm withdrawn, by the next entry.* This departs from item 9 of the amendment above ("No further levers are tried after a second failure"). The author decided it after the diagnosis in `docs/GATE_DIAGNOSIS.md`, sections 9 and 10. Both NO GOs stay on record. Any result on this design is reported as following an estimator repair chosen after seeing the second failure.
   1. **Why.** The second G3 failed because the shaper's training signal was noise, not because of the game.
      - Under whole-trial GAE the shaper's per-step advantages had an SD of 14–32, and its critic a value loss of 420–690. The naive learner's were 2–7 and 4.
      - The shaper's whitened restrain-minus-harvest gap was never significant: |t| ≤ 1.9 in all ten 20-epoch blocks.
@@ -373,3 +373,57 @@ Thresholds are set against the solver's best response, not at it: a learner that
      - **Reference pilot:** a tbn-matched pilot at the same settings runs beside it (`m2_tbn_matched_g3tbn`). It does not gate; it shows what the per-trial schedule learns at G3's settings without cross-episode credit.
      - **What a pass shows:** the repaired shaper learns at least its within-episode best response. S still has to come from shaper minus tbn in training.
   5. **Fallback.** If this G3 fails, no training starts. The null result reports all three gate attempts, both estimators and the replay.
+- *15 Sep 2026, 20:00 UTC, before the third G3 is launched.* **Corrections to the deviation above; split credit becomes an additional arm; G3 is split into G3a and G3b; a hard stop.** An audit of the deviation found two errors, and the reviewer set conditions for any further run. The deviation's run in `m2_shaper_matched_g3r` never started.
+  1. **Correction: the baseline cancelled what the term was meant to credit.** The deviation's cross-episode term subtracted the same quantity's mean over the trial's other parallel games.
+     - The five games share one learner, so the learner's response to the shaper's play in any game shows up in the later returns of every game.
+     - Subtracting the other games' mean removes that response in expectation. The term kept no expected covariance with the shaper's actions through the learner.
+     - The deviation's claim that the term credits cross-episode effects is withdrawn. In the replay, its rows measured within-episode signal and noise.
+     - **Replacement.** The baseline now comes from previous trials: for each episode position, the mean over the previous five trials of the trial's later-episode return, averaged over its games (`trial_batching.split_credit`). It does not depend on the current trial's actions. The first trial has no baseline and no term.
+  2. **Correction: the weight's rationale was inaccurate.** The deviation called λ^T = 0.2181 "the cross-episode strength the pre-registered estimator intended". Chained GAE attenuates per live step, not per episode.
+     - The next episode's return reaches a step discounted by 0.97 per live step between them: 0.22 from the first round of a full 50-round episode, close to 1 from its last live round.
+     - Episodes further on arrive more discounted still. In the second G3, where pools emptied around rounds 13–18, an episode held about 15 live steps (0.97^15 ≈ 0.63).
+     - No single weight reproduces this. The weight is now 1: the unattenuated trial return, which is the objective ShapeLLM's shaper maximises.
+  3. **Withdrawn from the deviation.**
+     - The repair of every shaper arm (item 3), and the lock that refused a shaper without it.
+     - The sentence that ShapeLLM-style differs from the paper's estimator.
+     - The third G3 in `m2_shaper_matched_g3r` (item 4).
+
+     ShapeLLM-style, shaper-matched, shaper-slow and the history-off arm keep chained whole-trial GAE, ShapeLLM's estimator, as pre-registered. `cpr_dial.check_dial_config` accepts split credit only on a shaper at weight 1 with a five-trial baseline, and `tests/test_cpr_dial_configs.py` checks that no config but the arm below carries it.
+  4. **Deviation: an additional arm, shaper-matched with split credit** (`m2_shaper_matched_split`).
+     - **Estimator.** GAE runs within each episode. The policy advantage, but not the critic's target, gains the shaper's later-episode return minus the previous-trials baseline, at weight 1. Every other key equals shaper-matched's.
+     - **Name.** It is a different estimator of a related objective, not ShapeLLM's, and is reported under its own name.
+     - **If training starts.** It runs five seeds at either length, paired with tbn-matched as shaper-matched is.
+       - Its E1–E4 arms and probes run as shaper-matched's do. Its evaluation configs equal shaper-matched's, since a frozen shaper takes no update.
+       - Within each seed, the scheduler lists it after every pre-registered arm.
+       - It adds about 16 GPU-hours of training at 100 epochs (32 at 200), and about 18 for its evaluation arms and probes.
+     - **Ladder rung, per estimator.** The objective rung is read twice: shaper-matched minus tbn-matched under chained GAE (pre-registered), and shaper-matched-split minus tbn-matched under split credit (additional). S and T are evaluated for the split arm with the conditions of Section 8 and printed on their own line. The verdict (S, T or Null) reads only the pre-registered arms.
+     - **Whitening, disclosed.** Advantages are whitened per update in every arm, so for the split arm the trial's mean term is subtracted too. With equal episode lengths and a learner response that persists through the trial, about 40 percent of that response's expected push survives: the part that differs between episode positions.
+     - **Replay** (`results/dial/credit_replay.txt`, rerun on the second G3's trials; t toward restraint over epochs 81–100 / 181–200):
+       - split credit with the five-trial baseline, weight 1: +3.5 / +4.1;
+       - episode GAE, the tbn control: +5.1 / +8.1;
+       - chained GAE as run: +0.1 / +1.9.
+
+       The replay shows what the estimator can see at the second G3's states. The recorded play had no channel for the term to credit (item 5).
+  5. **G3 is split.**
+     - **G3a, the gate: does agent 2 learn restraint at all?**
+       - The criterion is that of item 6 of the 15 September amendment: agent 2's restraint share ≥ 0.3 and pool survival ≥ 0.5, over epochs 81–100 (training runs 100 epochs) or, failing that, 181–200 (200 epochs).
+       - It gates on the split-credit pilot: `m2_shaper_matched_split_g3`, against naive at m = 2, one seed, 200 epochs.
+       - The tbn-matched pilot (`m2_tbn_matched_g3tbn`, same settings) is judged by the same criterion and does not gate.
+       - G1 and G2 stand as passed.
+     - **G3b, reported: is there a channel?**
+       - **Measure.** For both pilots and for the second G3: the Pearson r between agent 2's restraint share in episode e and agent 1's change in restraint share from e to e + 1. Shares are taken over live rounds and averaged over the five games. The correlation runs over every trial and every consecutive pair of episodes (800 pairs in 200 trials), with a 95% Fisher-z interval.
+       - **Also reported:** the partial r given agent 1's share in episode e, since a learner that already restrains has less room to rise.
+       - **Reading, on r:** a channel if the interval lies above zero, reversed if it lies below, and none otherwise.
+       - `scripts/evaluate_dial.py --gate` prints both correlations and the reading.
+     - **G3b on the second G3 (chained GAE), already measured.** r = −0.016 [−0.085, +0.053], which reads none; partial r = −0.143 [−0.210, −0.074]. After episodes in which the shaper restrained more, the learner restrained no more, and less than its own level predicts.
+     - **Interpretation, fixed now.**
+       - **G3a fails for both pilots:** agent 2 learns restraint under neither update, and the null is structural at this design and budget.
+       - **G3a fails for the split-credit pilot but passes for the tbn pilot:** the shaper learns less than its trial-batched control. This is reported with the replay.
+       - **G3a passes and G3b reads none or reversed:** the trial-level objective had no within-trial channel to act on in the pilot. This is stated beside any training result.
+       - **G3a passes and G3b reads a channel:** training can test whether the shaper uses it.
+  6. **Hard stop.**
+     - The third G3 launches on 15 September 2026 (UTC) or not at all.
+     - Training follows only if G3a has passed by **12:00 UTC on 16 September 2026**. A pass over epochs 81–100 may be read as soon as the pilot reaches epoch 100. The 181–200 window counts only if the pilot has completed it by then.
+     - **Otherwise,** no training starts on this design. The pond is the thesis, and the dial is one exploratory chapter, whose evidence is the three logged gate attempts, the learnability bound and the channel measurement.
+     - No further lever is tried, and there is no fourth attempt.
+  7. **Status of the dial.** It follows two gate failures and an estimator chosen after the second, so every dial result is exploratory, training included. The pond chapters remain the confirmatory study and must be submission-ready by 22 September regardless.

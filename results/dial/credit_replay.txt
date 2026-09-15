@@ -1,34 +1,40 @@
 checkpoints/dial/m2_shaper_matched_g3: raw SD of advantages | policy-gradient projection t
 
 shaper, epochs 81-100
-  whole-trial GAE, lambda 0.97 (as run)      raw SD  11.9 | t  +0.1
-  whole-trial GAE, lambda 0.90               raw SD   5.7 | t  -1.8
-  whole-trial GAE, lambda 0.80               raw SD   2.4 | t  -7.4
-  3-episode trials                           raw SD   9.3 | t  +0.2
-  2-episode trials                           raw SD   8.0 | t  +0.9
-  episode GAE (the tbn control)              raw SD   2.4 | t  +5.1
-  decomposed credit, weight 1                raw SD   5.9 | t  +2.7
-  decomposed credit, weight 0.2181 (the repair) raw SD   2.7 | t  +4.9
+  whole-trial GAE, lambda 0.97 (as run)                  raw SD  11.9 | t  +0.1
+  whole-trial GAE, lambda 0.90                           raw SD   5.7 | t  -1.8
+  whole-trial GAE, lambda 0.80                           raw SD   2.4 | t  -7.4
+  3-episode trials                                       raw SD   9.3 | t  +0.2
+  2-episode trials                                       raw SD   8.0 | t  +0.9
+  episode GAE (the tbn control)                          raw SD   2.4 | t  +5.1
+  leave-one-game-out baseline, weight 1 (withdrawn)      raw SD   5.9 | t  +2.7
+  leave-one-game-out baseline, weight 0.2181 (withdrawn) raw SD   2.7 | t  +4.9
+  split credit, previous 5 trials, weight 1 (the arm)    raw SD   6.3 | t  +3.5
 
 shaper, epochs 181-200
-  whole-trial GAE, lambda 0.97 (as run)      raw SD  15.8 | t  +1.9
-  whole-trial GAE, lambda 0.90               raw SD   5.6 | t  -1.0
-  whole-trial GAE, lambda 0.80               raw SD   2.2 | t  -9.2
-  3-episode trials                           raw SD  12.6 | t  +2.8
-  2-episode trials                           raw SD  11.1 | t  +5.1
-  episode GAE (the tbn control)              raw SD   4.6 | t  +8.1
-  decomposed credit, weight 1                raw SD  13.0 | t  +4.3
-  decomposed credit, weight 0.2181 (the repair) raw SD   5.4 | t  +7.8
+  whole-trial GAE, lambda 0.97 (as run)                  raw SD  15.8 | t  +1.9
+  whole-trial GAE, lambda 0.90                           raw SD   5.6 | t  -1.0
+  whole-trial GAE, lambda 0.80                           raw SD   2.2 | t  -9.2
+  3-episode trials                                       raw SD  12.6 | t  +2.8
+  2-episode trials                                       raw SD  11.1 | t  +5.1
+  episode GAE (the tbn control)                          raw SD   4.6 | t  +8.1
+  leave-one-game-out baseline, weight 1 (withdrawn)      raw SD  13.0 | t  +4.3
+  leave-one-game-out baseline, weight 0.2181 (withdrawn) raw SD   5.4 | t  +7.8
+  split credit, previous 5 trials, weight 1 (the arm)    raw SD  14.3 | t  +4.1
 
 naive learner (calibration), epochs 81-100
-  whole-trial GAE, lambda 0.97 (as run)      raw SD   9.8 | t  +0.5
-  episode GAE (the tbn control)              raw SD   1.9 | t  +0.7
+  whole-trial GAE, lambda 0.97 (as run)                  raw SD   9.8 | t  +0.5
+  episode GAE (the tbn control)                          raw SD   1.9 | t  +0.7
 
 naive learner (calibration), epochs 181-200
-  whole-trial GAE, lambda 0.97 (as run)      raw SD  10.0 | t  -0.2
-  episode GAE (the tbn control)              raw SD   2.6 | t  +2.5
+  whole-trial GAE, lambda 0.97 (as run)                  raw SD  10.0 | t  -0.2
+  episode GAE (the tbn control)                          raw SD   2.6 | t  +2.5
 
-shaper: the cross-episode baseline. Other games of this trial (as built), or also every game of the previous 3 trials
+shaper: share of the later-episode return's variance common to a trial's games (what a baseline from the trial's other games removes)
+  epochs 81-100: after episode 1: 0.45, after episode 2: 0.35, after episode 3: 0.35, after episode 4: 0.35
+  epochs 181-200: after episode 1: 0.28, after episode 2: 0.27, after episode 3: 0.24, after episode 4: 0.21
+
+shaper: the leave-one-game-out baseline as logged (as built), or pooled with every game of the previous 3 trials
   epochs 81-100, weight 1.0: as built: t  +2.6 (SD  5.9) | plus 3 trials: t  +3.4 (SD  5.8)
   epochs 81-100, weight 0.2181: as built: t  +4.8 (SD  2.7) | plus 3 trials: t  +5.2 (SD  2.7)
   epochs 181-200, weight 1.0: as built: t  +4.2 (SD 13.0) | plus 3 trials: t  +4.0 (SD 12.9)
