@@ -2,8 +2,8 @@
 """Read two-player stochastic CPR runs against docs/PREREGISTRATION_STOCHASTIC_CPR.md, Sections 7-9.
 
     python scripts/evaluate_dial.py checkpoints/dial/m2_shapellm [more folders] [--window 20] [--out results/dial]
-    python scripts/evaluate_dial.py --gate [--root checkpoints/dial]      # 17 September: G1-G3
-    python scripts/evaluate_dial.py --decide [--root checkpoints/dial]    # 22 September: S, T and C
+    python scripts/evaluate_dial.py --gate [--root checkpoints/dial]      # G1-G3, and the training length G3 sets
+    python scripts/evaluate_dial.py --decide [--length 100|200]           # S, T and C
 
 For each run in a folder (exp<k>_cpr_records is seed k-1), over its last `window` epochs (all of a 20-epoch run):
 survival, returns per episode and per round for both players, each player's restraint share, and agent 1's four
@@ -18,33 +18,39 @@ import math
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
+from typing import Optional
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import cpr_eval as ev  # noqa: E402
-from make_dial_configs import EVAL_SHAPERS, GATE_RUNS, OPTIONAL, SEEDS  # noqa: E402
+from make_dial_configs import EVAL_SHAPERS, GATE_RUNS, OPTIONAL, SEEDS, SEEDS_LONG  # noqa: E402
 
 RESTRAIN = 1
 GATE = {  # Section 9: folder, readout, threshold
     "G1 (m=3): learner restraint against committed harvest": ("g1_m3_harvest", "restraint_1", 0.5),
     "G2 (m=2): learner restraint after tit-for-tat restrained": ("g2_m2_tft", "after_restrain_1", 0.5),
-    "G3 (m=2): shaper restraint in the pilot": ("m2_shaper_matched_g3", "restraint_2", 0.3),
+    "G3 (m=2): shaper restraint and pool survival in the pilot": ("m2_shaper_matched_g3", "restraint_2", 0.3),
 }
+G3 = "G3 (m=2): shaper restraint and pool survival in the pilot"
+G3_SURVIVAL = 0.5  # amendment of 15 September: restraint into a dead pool does not pass
+LENGTHS = (100, 200)  # G3 over epochs 81-100 sets 100-epoch training; failing that, G3 over 181-200 sets 200
 EVAL_KINDS = ("e1_transfer", "e2_replay", "e3_frozen_partner", "e4_untrained_partner")
 
 
-def planned(folder: str) -> int:
-    """Pre-registered seeds of a run folder; probes and evaluation arms inherit them from what they read."""
+def planned(folder: str, length: int = 100) -> int:
+    """Pre-registered seeds of a run folder under 100- or 200-epoch training; probes and evaluation arms inherit them
+    from what they read."""
     folder = folder.split("_probe_of_", 1)[-1]
-    gates = {name + suffix: n for name, (suffix, n) in GATE_RUNS.items()}
-    if folder in {**SEEDS, **OPTIONAL, **gates}:
-        return {**SEEDS, **OPTIONAL, **gates}[folder]
+    seeds = SEEDS if length == 100 else SEEDS_LONG
+    table = {**seeds, **OPTIONAL, **{name + suffix: n for name, (suffix, n) in GATE_RUNS.items()}}
+    if folder in table:
+        return table[folder]
     stage, rest = folder.split("_", 1)
     for arm in EVAL_SHAPERS.get(stage, ()):
         if any(rest == f"{kind}_{arm}" for kind in EVAL_KINDS):
-            return SEEDS[f"{stage}_{arm}"]
+            return seeds[f"{stage}_{arm}"]
     raise KeyError(f"{folder} is not a pre-registered run")
 
 
@@ -61,9 +67,13 @@ def wilson(rate, n, z=1.96):
     return [(centre - half) / (1 + z * z / n), (centre + half) / (1 + z * z / n)]
 
 
-def summarise(rec: dict, window: int = 20) -> dict:
+def summarise(rec: dict, window: int = 20, end: Optional[int] = None) -> Optional[dict]:
+    """Readouts over the `window` epochs ending at epoch `end` (default: the run's last). None if the run is shorter."""
     n_epochs = max(int(e) for e in rec["epoch"]) + 1
-    epochs = range(max(0, n_epochs - window), n_epochs)
+    stop = n_epochs if end is None else end
+    if stop > n_epochs:
+        return None
+    epochs = range(max(0, stop - window), stop)
     totals = defaultdict(lambda: [0, 0, 0, True])  # receipts of each player, rounds, pool never emptied
     masked = 0
     for i in range(len(rec["epoch"])):
@@ -93,21 +103,36 @@ def most(flags, planned_seeds: int) -> bool:
     return sum(bool(f) for f in flags) >= planned_seeds // 2 + 1
 
 
-def gate(summaries: dict) -> dict:
-    result = {}
+def g3_passes(s: Optional[dict]) -> bool:
+    return s is not None and (s["restraint_2"] or 0.0) >= GATE[G3][2] and s["survival"] >= G3_SURVIVAL
+
+
+def gate(windows: dict) -> dict:
+    """Section 9 as amended, on {folder: {end epoch: {seed: summary of the 20 epochs ending there}}}. G1 and G2 read
+    epochs 81-100. G3 passes over 81-100 (training runs 100 epochs) or, failing that, over 181-200 (200 epochs)."""
+    result, length = {}, None
     for name, (folder, readout, threshold) in GATE.items():
-        values = {seed: s[readout] for seed, s in summaries.get(folder, {}).items()}
-        passes = [v is not None and v >= threshold for v in values.values()]
-        verdict = "not run" if not values else ("pass" if most(passes, planned(folder)) else "fail")
+        ends = windows.get(folder, {})
+        if name == G3:
+            values = {end: {seed: (s["restraint_2"], s["survival"]) for seed, s in runs.items() if s is not None}
+                      for end, runs in ends.items()}
+            length = next((end for end in LENGTHS
+                           if most([g3_passes(s) for s in ends.get(end, {}).values()], planned(folder))), None)
+            verdict = "not run" if not any(values.values()) else ("pass" if length else "fail")
+        else:
+            values = {seed: s[readout] for seed, s in ends.get(100, {}).items() if s is not None}
+            passes = [v is not None and v >= threshold for v in values.values()]
+            verdict = "not run" if not values else ("pass" if most(passes, planned(folder)) else "fail")
         result[name] = {"folder": folder, "threshold": threshold, "values": values, "verdict": verdict}
-    return {"checks": result, "go": all(r["verdict"] == "pass" for r in result.values())}
+    go = all(r["verdict"] == "pass" for r in result.values())
+    return {"checks": result, "go": go, "training_length": length if go else None}
 
 
-def decide(summaries: dict) -> dict:
+def decide(summaries: dict, length: int = 100) -> dict:
     """Section 8 on {folder: {seed: summary}}: every condition of S, T and C, and the verdict."""
     def holds(folder, test):  # the partner trained in `folder`, read from its probe run
         probed = summaries.get(f"{folder[:2]}_probe_of_{folder}", {})
-        return most([test(s) for s in probed.values()], planned(folder))
+        return most([test(s) for s in probed.values()], planned(folder, length))
     is_class = lambda name: (lambda s: s["agent1_class"] == name)
     not_unconditional = lambda s: s["agent1_class"] != "unconditional"
     out = {"S": {}, "T": {}}
@@ -121,7 +146,7 @@ def decide(summaries: dict) -> dict:
             "2. controls not unconditional (" + ", ".join(controls) + ")": all(holds(x, not_unconditional) for x in controls),
             "3. E1 learner unconditional": holds(f"m2_e1_transfer_{arm}", is_class("unconditional")),
             "4. E2 learner not unconditional, and E4 per-round return below E3": (
-                holds(f"m2_e2_replay_{arm}", not_unconditional) and most(lower, SEEDS[f"m2_{arm}"])),
+                holds(f"m2_e2_replay_{arm}", not_unconditional) and most(lower, planned(f"m2_{arm}", length))),
         }
         out["S"][arm] = {**c, "holds": all(c.values())}
     for shaper, control in (("shaper_matched", "tbn_matched"), ("shaper_slow", "tbn_slow"), ("shapellm", "tbn_slow")):
@@ -170,21 +195,30 @@ def main(argv=None) -> None:
     ap.add_argument("--window", type=int, default=20)
     ap.add_argument("--gate", action="store_true")
     ap.add_argument("--decide", action="store_true")
+    ap.add_argument("--length", type=int, choices=LENGTHS, default=100, help="the training length the gate set")
     ap.add_argument("--root", default="checkpoints/dial")
     ap.add_argument("--out", default="results/dial")
     a = ap.parse_args(argv)
     out, root = ROOT / a.out, ROOT / a.root
     out.mkdir(parents=True, exist_ok=True)
-    load = lambda folder: {seed: summarise(rec, a.window) for seed, rec in runs(folder)}
+    load = lambda folder, end=None: {seed: summarise(rec, a.window, end) for seed, rec in runs(folder)}
     if a.gate:
-        result = gate({folder: load(root / folder) for folder, _, _ in GATE.values()})
+        result = gate({folder: {end: load(root / folder, end) for end in (LENGTHS if name == G3 else (100,))}
+                       for name, (folder, _, _) in GATE.items()})
         for name, r in result["checks"].items():
-            seeds = ", ".join(f"seed {k} {fmt(v)}" for k, v in sorted(r["values"].items()))
-            print(f"{name} (>= {r['threshold']}): {r['verdict']}  [{seeds or 'no runs'}]")
-        print("GO" if result["go"] else "NO GO: no training starts; log the outcome in the amendment log")
+            if name == G3:
+                cells = "; ".join(f"epochs {end - 19}-{end}: " + (", ".join(
+                    f"seed {k} restraint {fmt(v[0])} survival {fmt(v[1])}" for k, v in sorted(runs.items())) or "not reached")
+                    for end, runs in sorted(r["values"].items()))
+                print(f"{name} (restraint >= {r['threshold']}, survival >= {G3_SURVIVAL}): {r['verdict']}  [{cells or 'no runs'}]")
+            else:
+                seeds = ", ".join(f"seed {k} {fmt(v)}" for k, v in sorted(r["values"].items()))
+                print(f"{name} (>= {r['threshold']}): {r['verdict']}  [{seeds or 'no runs'}]")
+        print(f"GO: training runs {result['training_length']} epochs" if result["go"]
+              else "NO GO: no training starts; log the outcome in the amendment log")
         (out / "gate.json").write_text(json.dumps(result, indent=2) + "\n")
     if a.decide:
-        result = decide({folder: load(root / folder) for folder in decision_folders()})
+        result = decide({folder: load(root / folder) for folder in decision_folders()}, a.length)
         for rule in ("S", "T"):
             for arm, conditions in result[rule].items():
                 print(f"{rule} ({arm}): " + "; ".join(f"{k}: {v}" for k, v in conditions.items()))

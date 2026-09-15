@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Run one phase of the two-player stochastic CPR over the pod's GPUs, one process per GPU (docs/RUNBOOK_STOCHASTIC_CPR.md).
 
-    python scripts/schedule_dial.py {smoke,gate,train,optional,evaluate} [--gpus 0,1,2,3,4] [--dry-run] [--only GLOB] [--redo]
+    python scripts/schedule_dial.py {smoke,gate,train,optional,evaluate} [--length 100|200] [--gpus 0,1,2,3,4] [--dry-run] [--only GLOB] [--redo]
+
+`--length` is the training length the G3 pilot set (scripts/evaluate_dial.py --gate); it picks the epochs, the seed
+plan and the adapters the evaluation arms read.
 
 A job is one seed of one config, started through scripts/launch_dial.sh with WAIT=1 as soon as a GPU is free. A phase
 is a list of groups run in order (the second group reads the first group's adapters); within a group, jobs wait only
@@ -23,7 +26,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from make_dial_configs import EVAL_SHAPERS, GATE_RUNS, OPTIONAL, SEEDS  # noqa: E402
+from make_dial_configs import EVAL_SHAPERS, GATE_EPOCHS, GATE_RUNS, OPTIONAL, SEEDS, SEEDS_LONG  # noqa: E402
 
 DIAL = "checkpoints/dial"
 LAUNCH_VARS = ("NAME", "SEED", "SMOKE", "SUFFIX", "OUT_SUFFIX", "EPOCHS", "CKPT_FREQ", "WAIT", "REPLAY_WINDOW",
@@ -65,9 +68,10 @@ def job(name: str, seed: int, **env) -> Job:
     return Job(name, seed, tuple(sorted((k, str(v)) for k, v in env.items())))
 
 
-def evaluation(stage: str, arm: str, seed: int, smoke: bool = False) -> list:
-    """E1-E4 for one seed of one evaluated shaper, reading that seed's epoch-100 (smoke: epoch-2) adapters."""
-    source, ckpt = f"{DIAL}/{stage}_{arm}{'_smoke' if smoke else ''}/exp%d_", 2 if smoke else 100
+def evaluation(stage: str, arm: str, seed: int, smoke: bool = False, length: int = 100) -> list:
+    """E1-E4 for one seed of one evaluated shaper, reading that seed's final adapters (smoke: epoch 2). E1 and E2 run
+    100 epochs whatever the training length, E3 and E4 run 20."""
+    source, ckpt = f"{DIAL}/{stage}_{arm}{'_smoke' if smoke else ''}/exp%d_", 2 if smoke else length
     long, short = (dict(SMOKE=1), dict(SMOKE=1)) if smoke else (dict(EPOCHS=100, CKPT_FREQ=100), dict(EPOCHS=20, CKPT_FREQ=0))
     partner = dict(PARTNER_ADAPTER_TEMPLATE=f"{source}model2_model_checkpoint_{ckpt}")
     return [
@@ -80,41 +84,42 @@ def evaluation(stage: str, arm: str, seed: int, smoke: bool = False) -> list:
     ]
 
 
-def probe(folder: str, seed: int, smoke: bool = False) -> Job:
-    """The scripted probe against agent 1 of `folder`, frozen at epoch 100 (smoke: epoch 2)."""
-    tag, ckpt = ("_smoke", 2) if smoke else ("", 100)
+def probe(folder: str, seed: int, smoke: bool = False, ckpt: int = 100) -> Job:
+    """The scripted probe against agent 1 of `folder`, frozen at epoch `ckpt` (smoke: epoch 2)."""
+    tag, ckpt = ("_smoke", 2) if smoke else ("", ckpt)
     return job(f"{folder[:2]}_probe", seed, SUFFIX=f"_of_{folder}", **(dict(SMOKE=1) if smoke else dict(EPOCHS=20, CKPT_FREQ=0)),
                LEARNER_ADAPTER_TEMPLATE=f"{DIAL}/{folder}{tag}/exp%d_model1_model_checkpoint_{ckpt}")
 
 
-def phases() -> dict:
+def phases(length: int = 100) -> dict:
+    """Jobs per phase for a training length of 100 or 200 epochs."""
+    seeds = SEEDS if length == 100 else SEEDS_LONG
     shapers = [(stage, arm) for stage, arms in EVAL_SHAPERS.items() for arm in arms]
     by_seed = lambda counts: [(name, seed) for seed in range(max(counts.values()))
                               for name in sorted(counts, key=lambda n: -counts[n]) if seed < counts[name]]
-    gate = [job(name, seed, EPOCHS=100, CKPT_FREQ=0, **(dict(SUFFIX=suffix) if suffix else {}))
+    gate = [job(name, seed, EPOCHS=GATE_EPOCHS[name], CKPT_FREQ=0, **(dict(SUFFIX=suffix) if suffix else {}))
             for name, (suffix, n) in GATE_RUNS.items() for seed in range(n)]
     gate.sort(key=lambda j: "SUFFIX" not in j.vars)  # the two-learner G3 pilot is the longest run: start it first
-    train = [job(name, seed, EPOCHS=100, CKPT_FREQ=100) for name, seed in by_seed(SEEDS)]
-    optional = [job(name, seed, EPOCHS=100, CKPT_FREQ=100) for name, seed in by_seed(OPTIONAL)]
-    evals = [j for stage, arm in shapers for seed in range(SEEDS[f"{stage}_{arm}"]) for j in evaluation(stage, arm, seed)]
+    train = [job(name, seed, EPOCHS=length, CKPT_FREQ=length) for name, seed in by_seed(seeds)]
+    optional = [job(name, seed, EPOCHS=length, CKPT_FREQ=length) for name, seed in by_seed(OPTIONAL)]
+    evals = [j for stage, arm in shapers for seed in range(seeds[f"{stage}_{arm}"]) for j in evaluation(stage, arm, seed, length=length)]
     transferred = [f"{stage}_{kind}_{arm}" for stage, arm in shapers for kind in ("e1_transfer", "e2_replay")]
-    smoke_first = [job(name, 0, SMOKE=1) for name in
-                   [*SEEDS, *OPTIONAL, *(n for n in GATE_RUNS if n not in SEEDS), "smoke_forced108_m2_shapellm"]]
+    smoke_first = [job(name, 0, SMOKE=1) for name in [*SEEDS, *OPTIONAL, *(n for n in GATE_RUNS if n not in SEEDS)]]
     smoke_second = [j for stage, arm in shapers for j in evaluation(stage, arm, 0, smoke=True) + [probe(f"{stage}_{arm}", 0, smoke=True)]]
     return {
         "smoke": [smoke_first, smoke_second],
         "gate": [gate],
         "train": [train],
-        "optional": [optional, [probe(name, seed) for name, seed in by_seed(OPTIONAL)]],
-        "evaluate": [sorted(evals, key=lambda j: -int(j.vars["EPOCHS"])) + [probe(name, seed) for name, seed in by_seed(SEEDS)],
-                     [probe(folder, seed) for folder in transferred for seed in range(planned_seeds(folder))]],
+        "optional": [optional, [probe(name, seed, ckpt=length) for name, seed in by_seed(OPTIONAL)]],
+        "evaluate": [sorted(evals, key=lambda j: -int(j.vars["EPOCHS"])) + [probe(name, seed, ckpt=length) for name, seed in by_seed(seeds)],
+                     [probe(folder, seed) for folder in transferred for seed in range(planned_seeds(folder, seeds))]],
     }
 
 
-def planned_seeds(folder: str) -> int:
+def planned_seeds(folder: str, seeds: dict = SEEDS) -> int:
     """Seeds of an E1 or E2 folder: those of the shaper it evaluates."""
     stage = folder[:2]
-    return next(SEEDS[f"{stage}_{arm}"] for arm in EVAL_SHAPERS[stage] if folder.endswith(f"_{arm}"))
+    return next(seeds[f"{stage}_{arm}"] for arm in EVAL_SHAPERS[stage] if folder.endswith(f"_{arm}"))
 
 
 def busy_gpus() -> set:
@@ -168,6 +173,7 @@ def run(groups: list, gpus: list, dry_run: bool = False, redo: bool = False, onl
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("phase", choices=sorted(phases()))
+    ap.add_argument("--length", type=int, choices=(100, 200), default=100)
     ap.add_argument("--gpus", default="0,1,2,3,4")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--redo", action="store_true")
@@ -179,7 +185,7 @@ def main(argv=None) -> int:
             print("create the initial adapters first:\n" + "\n".join(
                 f"  python init_lora_adapters.py --model_path google/gemma-2-2b-it --output_dir adapter/{m}" for m in missing))
             return 1
-    failed = run(phases()[a.phase], [int(x) for x in a.gpus.split(",")], a.dry_run, a.redo, a.only)
+    failed = run(phases(a.length)[a.phase], [int(x) for x in a.gpus.split(",")], a.dry_run, a.redo, a.only)
     for j in failed:
         print(f"FAILED {j.label}: {DIAL}/logs/{Path(j.folder).name}_s{j.seed}.log")
     return 1 if failed else 0
