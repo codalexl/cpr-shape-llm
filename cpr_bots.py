@@ -133,8 +133,9 @@ class TitForTatPartner(ScriptedPartner):
 
 
 class ProbePartner(ScriptedPartner):
-    """Restrains or grabs with equal probability, from a per-seed table (cpr_env.make_probe_table) indexed by
-    (epoch, episode * n_games + game, round - 1)."""
+    """Restrains, or plays the game's largest take, with equal probability, from a per-seed table
+    (cpr_env.make_probe_table) indexed by (epoch, episode * n_games + game, round - 1). The largest take is harvest (2)
+    in the amended two-action design and was grab (3) in the design pre-registered on 14 September."""
 
     def __init__(self, table: np.ndarray, **kw):
         super().__init__(**kw)
@@ -142,7 +143,7 @@ class ProbePartner(ScriptedPartner):
 
     def takes(self, game) -> np.ndarray:
         slots = game.episode * game.n_games + np.arange(game.n_games)
-        return np.where(self.table[game.epoch, slots, game.round - 1], GRAB, RESTRAIN)
+        return np.where(self.table[game.epoch, slots, game.round - 1], game.min_take + game.n_actions - 1, RESTRAIN)
 
 
 class ReplayPartner(ScriptedPartner):

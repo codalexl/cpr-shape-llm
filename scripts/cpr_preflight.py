@@ -18,8 +18,9 @@ environment pin in run_cpr.sh is satisfied.
 
     python scripts/cpr_preflight.py [--model_path google/gemma-2-2b-it] [--adapter_path ...] [--dial]
 
-`--dial` is G0 of docs/PREREGISTRATION_STOCHASTIC_CPR.md: takes 1-3 and the stochastic-CPR rules. The prompt is
-identical at m = 2 and m = 3 (only the growth rate differs, and it is never rendered), so one run covers both.
+`--dial` is G0 of docs/PREREGISTRATION_STOCHASTIC_CPR.md as amended on 15 September: takes 1-2, the amended rules, and
+every previous-round history. The prompt is identical at m = 2 and m = 3 (only the growth rate differs, and it is never
+rendered), so one run covers both.
 """
 
 import argparse
@@ -31,7 +32,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from cpr_observation_managers import DIAL_RULES, CPRObservationManager, CPRObservationManagerConfig
+from cpr_observation_managers import DIAL_RULES_V2, CPRObservationManager, CPRObservationManagerConfig
 
 EXPECTED_TOKENS = {"0": 235276, "1": 235274, "2": 235284, "3": 235304}
 PROBE_RESOURCES = [20, 14, 8, 4, 1]
@@ -66,10 +67,10 @@ def main():
     parser.add_argument("--adapter_path", default=None,
                         help="Optional LoRA adapter; omit to probe the raw base model")
     parser.add_argument("--dial", action="store_true",
-                        help="G0 for the two-player stochastic CPR: takes 1-3 and its rules")
+                        help="G0 for the two-player stochastic CPR: takes 1-2 and the amended rules")
     args = parser.parse_args()
 
-    strings = ("1", "2", "3") if args.dial else tuple(EXPECTED_TOKENS)
+    strings = ("1", "2") if args.dial else tuple(EXPECTED_TOKENS)
     tokenizer = AutoTokenizer.from_pretrained(args.model_path)
     action_toks = check_tokens(tokenizer, strings)
 
@@ -86,7 +87,7 @@ def main():
     manager = CPRObservationManager(
         CPRObservationManagerConfig(
             action_toks=action_toks, action_strings=list(strings), is_shaper=False, R0=20,
-            **({"rules": DIAL_RULES} if args.dial else {}),
+            **({"rules": DIAL_RULES_V2} if args.dial else {}),
         ),
         n_games=1,
     )
@@ -98,11 +99,16 @@ def main():
     probs = action_distribution(model, tokenizer, reset, action_toks, device)
     print(f"  {'reset (R=20, no history)':<34}" + "".join(f"{p:>9.3f}" for p in probs))
 
-    one = strings.index("1")  # previous-round requests are token indices
-    for R in PROBE_RESOURCES:
-        prompt = manager.build_observations([R], [one], [one], [1], [1], inner_t=5, outer_t=0)[0]
-        probs = action_distribution(model, tokenizer, prompt, action_toks, device)
-        print(f"  {f'R={R}, both requested 1':<34}" + "".join(f"{p:>9.3f}" for p in probs))
+    histories = [("1", "1")] + ([("2", "2"), ("1", "2"), ("2", "1")] if args.dial else [])
+    for own, opp in histories:
+        for R in PROBE_RESOURCES:  # previous-round requests are token indices; receipts follow the scarcity rule
+            a, b = int(own), int(opp)
+            got = (a, b) if a + b <= R else (min(a, R // 2), min(b, R // 2))
+            prompt = manager.build_observations([R], [strings.index(own)], [strings.index(opp)], [got[0]], [got[1]],
+                                                inner_t=5, outer_t=0)[0]
+            probs = action_distribution(model, tokenizer, prompt, action_toks, device)
+            label = f"R={R}, both requested {own}" if own == opp else f"R={R}, you {own}, other {opp}"
+            print(f"  {label:<34}" + "".join(f"{p:>9.3f}" for p in probs))
 
     print("\nRecord these numbers before training. Any post-training shift must be read "
           "against this baseline, not against a uniform prior.")

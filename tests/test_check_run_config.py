@@ -1,4 +1,5 @@
-"""The launcher's config lock accepts the pond's locked point and the two stochastic-CPR design points, and nothing else."""
+"""The launcher's config lock accepts the pond's locked point and the two amended stochastic-CPR design points, and nothing else."""
+import copy
 import json
 import os
 import subprocess
@@ -24,15 +25,17 @@ def test_the_pond_and_the_design_points_pass():
     assert "design point m3" in crc.check(load("configs/dial/m3_naive.json"))
 
 
-def test_the_smoke_config_needs_the_flag_and_other_points_fail():
-    smoke = load("configs/dial/smoke_forced108_m2_shapellm.json")
-    with pytest.raises(AssertionError):
-        crc.check(smoke)
-    assert "design point m2" in crc.check(smoke, allow_fixed_horizon=True)
+def test_other_points_fail():
     pond = load("configs/grid/B_ns_whiten.json")
     pond["game_parameters"]["R0"] = 9
     with pytest.raises(AssertionError):
         crc.check(pond)
+    dial = load("configs/dial/m2_naive.json")
+    for key, value in (("t_max", 108), ("n_games", 3), ("n_actions", 3), ("close_continue", 35 / 36)):
+        bad = copy.deepcopy(dial)
+        bad["game_parameters"][key] = value
+        with pytest.raises(AssertionError):
+            crc.check(bad)
 
 
 def test_the_script_runs_as_the_launcher_calls_it():

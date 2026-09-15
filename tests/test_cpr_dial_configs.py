@@ -47,9 +47,11 @@ CREDIT = TRIAL | {"obs_manager_parameters2.is_shaper", "ppo_agent_parameters2.is
 
 
 def test_every_config_is_a_design_point(configs):
-    assert len(configs) == 7 + 3 + 2 * (1 + 2 * 4) - 4 + 2 + 1 + 1  # arms, probes and E1-E4 per shaper, gates, smoke, optional
+    assert len(configs) == 7 + 3 + 2 * (1 + 2 * 4) - 4 + 2 + 1  # arms, probes and E1-E4 per shaper, gates, optional
     for name, cfg in configs.items():
-        assert check_dial_config(cfg, allow_fixed_horizon=name.startswith("smoke_forced108")) in ("m2", "m3")
+        assert check_dial_config(cfg) in ("m2", "m3")
+        gp = cfg["game_parameters"]
+        assert (gp["t_max"], gp["n_games"], gp["n_actions"], gp.get("close_continue")) == (50, 5, 2, None)
 
 
 def test_arms_differ_in_exactly_the_preregistered_keys(configs):
@@ -82,7 +84,6 @@ def test_gate_and_evaluation_configs(configs):
         assert "frozen_partner_adapter" in cfg and cfg["obs_manager_parameters1"]["is_shaper"] is False
     assert configs["m2_e4_untrained_partner_shapellm"]["frozen_learner_adapter"] == "adapter/cpr_learner_r2"
     assert configs["m2_probe"]["scripted_partner"] == {"kind": "probe"} and "ppo_agent_parameters2" not in configs["m2_probe"]
-    assert configs["smoke_forced108_m2_shapellm"]["game_parameters"]["close_continue"] is None
 
 
 def test_the_lock_refuses_anything_else(configs):
@@ -90,15 +91,13 @@ def test_the_lock_refuses_anything_else(configs):
         pond = json.load(f)
     with pytest.raises(AssertionError):
         check_dial_config(pond)
-    for key, value in (("rate_tenths", 7), ("close_continue", 0.95), ("t_max", 36), ("min_take", 0)):
+    for key, value in (("rate_tenths", 7), ("close_continue", 35 / 36), ("t_max", 36), ("min_take", 0), ("n_games", 3), ("n_actions", 3)):
         bad = copy.deepcopy(configs["m2_naive"])
         bad["game_parameters"][key] = value
         with pytest.raises(AssertionError):
             check_dial_config(bad)
-    with pytest.raises(AssertionError):
-        check_dial_config(configs["smoke_forced108_m2_shapellm"])  # a fixed horizon only with the explicit flag
     bad = copy.deepcopy(configs["m2_naive"])
-    bad["obs_manager_parameters2"]["rules"] = bad["obs_manager_parameters2"]["rules"].replace("any round", "round 36")
+    bad["obs_manager_parameters2"]["rules"] = bad["obs_manager_parameters2"]["rules"].replace("never recovers", "recovers slowly")
     with pytest.raises(AssertionError):
         check_dial_config(bad)
 
@@ -110,3 +109,4 @@ def test_the_optional_arm_and_the_planned_seeds(configs):
     assert sum(n for name, n in mdc.SEEDS.items() if name.startswith("m3_")) == 9
     assert set(mdc.SEEDS) == {f"{stage}_{arm}" for stage, arms in mdc.STAGE_ARMS.items() for arm in arms}
     assert sum(n for _, n in mdc.GATE_RUNS.values()) == 7 and all(name in configs for name in mdc.GATE_RUNS)
+    assert sum(mdc.SEEDS_LONG.values()) == 2 * 5 + 8 * 3 and mdc.GATE_EPOCHS == {"g1_m3_harvest": 100, "g2_m2_tft": 100, "m2_shaper_matched": 200}

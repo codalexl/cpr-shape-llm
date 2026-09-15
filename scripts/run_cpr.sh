@@ -220,7 +220,6 @@ case "$MODE" in
     OUT="checkpoints/dial/${NAME}${OUT_SUFFIX:-}"
     SEEDS=1; SEED_START="$SEED"
     if grep -q '"scripted_partner"\|"frozen_partner_adapter"' "$CONFIG"; then ENTRY="finetuning_cpr_fixed.py"; fi
-    case "$NAME" in smoke_forced108_*) ALLOW_FIXED_HORIZON=1 ;; esac
     ;;
   *)
     echo "Usage: $0 {grid|sens|dial|smoke|testA_center|testA_center_s12|testA_whiten_s12|testB_center|naive_naive_center|naive_naive_center_s12|naive_naive_center_e50|naive_naive_slow2_s012|naive_shaper_center|naive_shaper_center_s012|naive_shaper_center_info_off_s012|naive_shaper_center_e50|testA_center_xi_s012|naive_naive_center_xi_s012|naive_shaper_center_xi_s012|naive_naive_slow2_center_xi_s012|testA_center_reseed_s012|testA_whiten_reseed_s012|naive_shaper_center_xi_reseed_s012|naive_naive_slow2_center_xi_reseed_s012|testA_whiten_reseed_e30|naive_shaper_center_xi_reseed_e50|naive_naive_slow2_center_xi_reseed_e50}"
@@ -250,7 +249,7 @@ PY
 # verify_cpr.py is still the linear harvest fixture (deliberate). Live training
 # configs must be logistic; fail here rather than silently running +g.
 "$PY" verify_cpr.py > /dev/null && echo "verify_cpr.py linear fixture OK"
-"$PY" scripts/check_run_config.py "$CONFIG" ${ALLOW_FIXED_HORIZON:+--allow-fixed-horizon}
+"$PY" scripts/check_run_config.py "$CONFIG"
 "$PY" -m pytest tests/ -q || { echo "CPR tests failed — not launching."; exit 1; }
 
 ADAPTERS=(cpr_learner_r2)

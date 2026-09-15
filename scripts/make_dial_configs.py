@@ -12,7 +12,6 @@ cpr_dial.check_dial_config before it is written.
   <stage>_e3_frozen_partner_<arm>.json  frozen shaper against its frozen trained partner (both adapters per seed)
   <stage>_e4_untrained_partner_<arm>.json  frozen shaper against the frozen untrained learner adapter
   <stage>_probe.json                    a frozen partner against the scripted probe (--learner_adapter per seed)
-  smoke_forced108_m2_shapellm.json      every episode runs the 108-round cap, for the memory smoke run
   m2_shapellm_history_off.json          the optional arm: ShapeLLM-style with the previous-round line off for both
                                         players (the history switch is the environment's prompt line, not the shaper's)
 """
@@ -26,8 +25,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from cpr_dial import DIAL_TOKENS, check_dial_config  # noqa: E402
-from cpr_observation_managers import DIAL_RULES  # noqa: E402
+from cpr_dial import DIAL_TOKENS, HORIZON, check_dial_config  # noqa: E402
+from cpr_observation_managers import DIAL_RULES_V2  # noqa: E402
 
 OUT = ROOT / "configs" / "dial"
 BASE = ROOT / "configs" / "grid" / "B_ns_whiten.json"
@@ -49,17 +48,19 @@ SEEDS = {  # Section 5: five seeds on the m = 2 arms that decide S. E1-E4 and pr
     "m2_naive": 5, "m2_slow": 3, "m2_tbn_matched": 5, "m2_shaper_matched": 5, "m2_tbn_slow": 3, "m2_shaper_slow": 3,
     "m2_shapellm": 5, "m3_naive": 3, "m3_slow": 3, "m3_shapellm": 3,
 }
+SEEDS_LONG = {name: 5 if name in ("m2_shapellm", "m2_shaper_matched") else 3 for name in SEEDS}  # if training runs 200 epochs
 GATE_RUNS = {"g1_m3_harvest": ("", 3), "g2_m2_tft": ("", 3), "m2_shaper_matched": ("_g3", 1)}  # config: (suffix, seeds)
+GATE_EPOCHS = {"g1_m3_harvest": 100, "g2_m2_tft": 100, "m2_shaper_matched": 200}  # the G3 pilot runs 200 epochs
 OPTIONAL = {"m2_shapellm_history_off": 3}  # run only if training finishes by 20 September 18:00
 
 
 def design_point(cfg: dict, stage: str) -> dict:
     cfg = copy.deepcopy(cfg)
-    cfg["game_parameters"] = dict(t_max=108, e_max=5, n_games=3, R0=20, g=0, ceiling=20, n_actions=3,
-                                  rate_tenths=RATES[stage], xi_tenths=[7, 10, 13], min_take=1, close_continue=35 / 36)
+    cfg["game_parameters"] = dict(t_max=HORIZON, e_max=5, n_games=5, R0=20, g=0, ceiling=20, n_actions=2,
+                                  rate_tenths=RATES[stage], xi_tenths=[7, 10, 13], min_take=1)
     for i in (1, 2):
-        cfg[f"obs_manager_parameters{i}"].update(action_toks=list(DIAL_TOKENS), action_strings=["1", "2", "3"],
-                                                 R0=20, rules=DIAL_RULES)
+        cfg[f"obs_manager_parameters{i}"].update(action_toks=list(DIAL_TOKENS), action_strings=["1", "2"],
+                                                 R0=20, rules=DIAL_RULES_V2)
         cfg[f"ppo_agent_parameters{i}"]["action_toks"] = list(DIAL_TOKENS)
     return cfg
 
@@ -116,15 +117,15 @@ def build() -> list:
                 naive, shaper, frozen_partner_adapter=None, frozen_learner_adapter="adapter/cpr_learner_r2")
     configs["g1_m3_harvest"] = one_learner(configs["m3_naive"], scripted_partner={"kind": "take", "take": 2})
     configs["g2_m2_tft"] = one_learner(configs["m2_naive"], scripted_partner={"kind": "tit_for_tat"})
-    smoke = copy.deepcopy(configs["m2_shapellm"])
-    smoke["game_parameters"]["close_continue"] = None
-    configs["smoke_forced108_m2_shapellm"] = smoke
     history_off = copy.deepcopy(configs["m2_shapellm"])
     for i in (1, 2):
         history_off[f"obs_manager_parameters{i}"]["show_previous_round"] = False
     configs["m2_shapellm_history_off"] = history_off
+    for stale in OUT.glob("*.json"):
+        if stale.stem not in configs:
+            stale.unlink()
     for name, cfg in configs.items():
-        check_dial_config(cfg, allow_fixed_horizon=name.startswith("smoke_forced108"))
+        check_dial_config(cfg)
         (OUT / f"{name}.json").write_text(json.dumps(cfg, indent=2) + "\n")
     return sorted(configs)
 

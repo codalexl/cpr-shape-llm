@@ -17,7 +17,7 @@ except Exception:
 import cpr_dial
 from cpr_bots import make_scripted_partner
 from cpr_game import CPRGame, CPRGameParams
-from cpr_observation_managers import DIAL_RULES, CPRObservationManagerConfig
+from cpr_observation_managers import DIAL_RULES, DIAL_RULES_V2, CPRObservationManagerConfig
 from environment import outer_rollout
 
 TAKE_TOKS = [235274, 235284, 235304]  # "1", "2", "3"
@@ -113,3 +113,20 @@ def test_replay_partner_replays_by_round_and_holds_the_last_take():
             assert rec["request_2"][i] == tape[min(rec["step"][i], len(tape)) - 1]
             held += rec["step"][i] > len(tape)
     assert held > 0, "some replayed episode ran past its tape, so the hold rule was exercised"
+
+
+def test_probe_partner_harvests_in_the_two_action_design():
+    params = CPRGameParams(t_max=50, e_max=1, n_games=2, R0=20, g=0, ceiling=20, n_actions=2, rate_tenths=5,
+                           xi_tenths=[7, 10, 13], min_take=1)
+    obs = [CPRObservationManagerConfig(action_toks=TAKE_TOKS[:2], action_strings=["1", "2"], is_shaper=False, R0=20,
+                                       rules=DIAL_RULES_V2) for _ in range(2)]
+    game = CPRGame(params, *obs)
+    game.attach_noise_table(seed=0, n_epochs=1)
+    learner = make_scripted_partner({"kind": "take", "take": 1}, game, TAKE_TOKS[:2], seed=0, n_epochs=1, player=1)
+    bot = make_scripted_partner({"kind": "probe"}, game, TAKE_TOKS[:2], seed=4, n_epochs=1)
+    outer_rollout(game, learner, bot)
+    rec = game.records
+    for i in range(len(rec["epoch"])):
+        harvest = bot.table[rec["epoch"][i], rec["episode"][i] * game.n_games + rec["game"][i], rec["step"][i] - 1]
+        assert rec["request_2"][i] == (2 if harvest else 1)
+    assert set(rec["request_2"]) == {1, 2} and len(rec["epoch"]) == 50 * 2
