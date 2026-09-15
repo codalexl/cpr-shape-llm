@@ -57,6 +57,10 @@ DIAL_RULES = (
     "units you collect."
 )
 
+# Amended 15 September (docs/GATE_DIAGNOSIS.md): takes 1-2 over a fixed horizon of 50 rounds. As in the pond, the prompt
+# states neither the length nor the round, so the random-end sentence is removed and nothing else changes.
+DIAL_RULES_V2 = DIAL_RULES.replace(" The interaction can end after any round.", "")
+
 
 @dataclass
 class CPRObservationManagerConfig:

@@ -47,6 +47,7 @@ class Dial:
     actions: Tuple[int, ...] = (RESTRAIN, HARVEST, GRAB)
     xi_tenths: Tuple[int, ...] = XI_TENTHS
     continuation: float = 35 / 36
+    horizon: Optional[int] = None  # a fixed number of rounds; None keeps the geometric end with `continuation`
 
     @property
     def start(self) -> int:
@@ -153,9 +154,25 @@ def _play(dial: Dial, policy1: Policy, policy2: Policy):
     return ch, P, r, alive
 
 
+def _evaluate_rounds(dial: Dial, policy1: Policy, policy2: Policy, conts: Sequence[float]) -> Tuple[float, float, float]:
+    """Returns of both players, and the probability the pool is alive when the episode closes, when round t is
+    followed by another with probability conts[t]."""
+    ch, P, r, alive = _play(dial, policy1, policy2)
+    d = np.zeros(ch.n)
+    d[ch.start] = 1.0
+    returns, survival, reach = np.zeros(2), 0.0, 1.0
+    for c in conts:
+        returns += reach * (d @ r)
+        survival += reach * (1 - c) * float(d @ alive)
+        d, reach = d @ P, reach * c
+    return float(returns[0]), float(returns[1]), survival
+
+
 def evaluate(dial: Dial, policy1: Policy, policy2: Policy) -> Tuple[float, float, float]:
-    """Expected returns of both players and the probability that the episode ends before the pool empties, under
-    the uncapped geometric end (mean 36 rounds at the design points)."""
+    """Expected returns of both players and the probability that the episode ends before the pool empties: over
+    `dial.horizon` rounds when it is set, otherwise under the uncapped geometric end (mean 36 at the design points)."""
+    if dial.horizon:
+        return _evaluate_rounds(dial, policy1, policy2, [1.0] * (dial.horizon - 1) + [0.0])
     ch, P, r, alive = _play(dial, policy1, policy2)
     delta = dial.continuation
     v = np.linalg.solve(np.eye(ch.n) - delta * P, np.column_stack([r, (1 - delta) * alive]))[ch.start]
@@ -165,29 +182,27 @@ def evaluate(dial: Dial, policy1: Policy, policy2: Policy) -> Tuple[float, float
 def evaluate_capped(dial: Dial, policy1: Policy, policy2: Policy, cap: int = 108) -> Tuple[float, float, float]:
     """As `evaluate`, under the environment's end: the episode closes at min(Geometric, cap) rounds (mean 34.3 at
     the design points), so play that keeps the pool alive earns up to 1 - continuation**cap less."""
-    ch, P, r, alive = _play(dial, policy1, policy2)
-    delta, d = dial.continuation, np.zeros(ch.n)
-    d[ch.start] = 1.0
-    returns, survival = np.zeros(2), 0.0
-    for t in range(1, cap + 1):
-        reach = delta ** (t - 1)
-        returns += reach * (d @ r)
-        survival += (reach * (1 - delta) if t < cap else reach) * float(d @ alive)
-        d = d @ P
-    return float(returns[0]), float(returns[1]), survival
+    return _evaluate_rounds(dial, policy1, policy2, [dial.continuation] * (cap - 1) + [0.0])
 
 
-def _optimise(dial: Dial, partner: Policy, survival: bool = False):
-    """Policy iteration for player 1 against a fixed partner; ties go to the smaller take."""
-    ch, delta, rows = _Chain(dial), dial.continuation, None
-    P, r = np.zeros((ch.k, ch.n, ch.n)), np.zeros((ch.k, ch.n))
+def _tables(dial: Dial, partner: Policy):
+    """Player 1's transitions, receipts and next-round survival for every action, against a fixed partner."""
+    ch = _Chain(dial)
+    P, receipts, alive = np.zeros((ch.k, ch.n, ch.n)), np.zeros((ch.k, ch.n)), np.zeros((ch.k, ch.n))
     for R, last1, last2 in ch.live_states():
         s, b = ch.state(R, last1, last2), partner(R, last2, last1)
         for i, a in enumerate(ch.A):
-            c1, _, nxt, alive = ch.row(R, a, b)
-            r[i, s] = (1 - delta) * alive if survival else c1
+            receipts[i, s], _, nxt, alive[i, s] = ch.row(R, a, b)
             for t, p in nxt:
                 P[i, s, t] += p
+    return ch, P, receipts, alive
+
+
+def _optimise(dial: Dial, partner: Policy, survival: bool = False):
+    """Policy iteration for player 1 against a fixed partner under the geometric end; ties go to the smaller take."""
+    ch, P, receipts, alive = _tables(dial, partner)
+    delta = dial.continuation
+    r = (1 - delta) * alive if survival else receipts
     rows, choice = np.arange(ch.n), np.zeros(ch.n, dtype=int)
     while True:
         V = np.linalg.solve(np.eye(ch.n) - delta * P[choice, rows], r[choice, rows])
@@ -199,16 +214,68 @@ def _optimise(dial: Dial, partner: Policy, survival: bool = False):
         choice = np.where(better, np.argmax(Q >= top - 1e-9, axis=0), choice)
 
 
+def _horizon_value(ch: _Chain, P, receipts, alive, choice, horizon: int, survival: bool = False) -> float:
+    rows = np.arange(ch.n)
+    Pc, rc = P[choice, rows], (alive if survival else receipts)[choice, rows]
+    d, total = np.zeros(ch.n), 0.0
+    d[ch.start] = 1.0
+    for t in range(horizon):
+        if not survival:
+            total += float(d @ rc)
+        elif t == horizon - 1:
+            total = float(d @ rc)
+        d = d @ Pc
+    return total
+
+
+def _climb(dial: Dial, partner: Policy, survival: bool = False):
+    """Best deterministic stationary response over a fixed horizon. The agents see no round counter, so they can
+    play only stationary policies. Coordinate ascent evaluates every one-state change exactly over the horizon,
+    from five starts: policy iteration on the geometric end with the same mean length, tit-for-tat, and each constant
+    take. The best local optimum is returned, so its value is a lower bound on the best stationary response."""
+    proxy = replace(dial, horizon=None, continuation=1 - 1 / dial.horizon)
+    ch, P, receipts, alive = _tables(dial, partner)
+    value = lambda c: _horizon_value(ch, P, receipts, alive, c, dial.horizon, survival)
+    live = [(ch.state(R, l1, l2), l2) for R, l1, l2 in ch.live_states()]
+    reciprocal = np.zeros(ch.n, dtype=int)
+    for s, other in live:
+        reciprocal[s] = ch.pos[RESTRAIN if other == RESTRAIN else HARVEST] if RESTRAIN in ch.pos else 0
+    starts = [_optimise(proxy, partner, survival)[1], reciprocal] + [np.full(ch.n, i) for i in range(ch.k)]
+    best_value, best_choice = -np.inf, None
+    for choice in starts:  # coordinate ascent from each start; keep the best local optimum
+        current, improved = value(choice), True
+        while improved:
+            improved = False
+            for s, _ in live:
+                for i in range(ch.k):
+                    if i != choice[s]:
+                        trial = choice.copy()
+                        trial[s] = i
+                        v = value(trial)
+                        if v > current + 1e-9:
+                            choice, current, improved = trial, v, True
+        if current > best_value + 1e-9:
+            best_value, best_choice = current, choice
+    return best_value, best_choice, ch
+
+
 def best_response(dial: Dial, partner: Policy) -> Tuple[float, Policy]:
-    """Exact best-response value of player 1 against a fixed partner, and the policy that attains it."""
-    V, choice, ch = _optimise(dial, partner)
+    """Best-response value of player 1 against a fixed partner, and the policy that attains it: exact under the
+    geometric end, the stationary local optimum of `_climb` under a fixed horizon."""
+    if dial.horizon:
+        value, choice, ch = _climb(dial, partner)
+    else:
+        V, choice, ch = _optimise(dial, partner)
+        value = float(V[ch.start])
     policy = lambda stock, own, other: ch.A[choice[ch.state(stock, own, other)]]
-    return float(V[ch.start]), policy
+    return value, policy
 
 
 def best_survival(dial: Dial, partner_action: int) -> float:
-    """Highest probability, over all policies, that the episode ends before the pool empties against a partner
-    that always takes `partner_action`."""
+    """Highest probability, over all policies (stationary ones under a fixed horizon), that the episode ends before
+    the pool empties against a partner that always takes `partner_action`."""
+    if dial.horizon:
+        return _climb(dial, always(partner_action), survival=True)[0]
     V, _, ch = _optimise(dial, always(partner_action), survival=True)
     return float(V[ch.start])
 
@@ -272,12 +339,12 @@ ALWAYS_RESTRAIN: Rule = (0, RESTRAIN, RESTRAIN, RESTRAIN, RESTRAIN)
 TIT_FOR_TAT: Rule = (0, RESTRAIN, HARVEST, RESTRAIN, HARVEST)
 
 
-def rule_menu(cuts: Sequence[int] = (8, 12)) -> Tuple[Rule, ...]:
-    """Every deterministic rule on (stock below the cut?, partner restrained last round?) -> restrain/harvest/grab.
+def rule_menu(cuts: Sequence[int] = (8, 12), actions: Sequence[int] = (RESTRAIN, HARVEST, GRAB)) -> Tuple[Rule, ...]:
+    """Every deterministic rule on (stock below the cut?, partner restrained last round?) -> one of `actions`.
     Rules that ignore the stock are listed once, with cut 0."""
     menu = set()
     for cut in cuts:
-        for acts in itertools.product((RESTRAIN, HARVEST, GRAB), repeat=4):
+        for acts in itertools.product(tuple(actions), repeat=4):
             stockless = acts[0] == acts[2] and acts[1] == acts[3]
             menu.add((0,) + acts if stockless else (cut,) + acts)
     return tuple(sorted(menu))
@@ -302,18 +369,20 @@ class ToyLearner:
 
 
 class _GateKernel:
-    """Dense transitions over (stock, shaper's last, learner's last) for shaper actions 1-3 and learner actions
-    restrain/harvest, so one episode's values and the learner's gradient cost one matrix inverse."""
+    """Dense transitions over (stock, shaper's last, learner's last) for the dial's shaper actions (takes 1-3, or 1-2
+    in the amended design) and learner actions restrain/harvest, so one episode's values and the learner's gradient
+    cost one matrix inverse, or one pass over the rounds of a fixed horizon."""
 
     def __init__(self, dial: Dial):
-        assert dial.actions == (RESTRAIN, HARVEST, GRAB), "the gate is defined for restrain/harvest/grab"
+        assert dial.actions in ((RESTRAIN, HARVEST, GRAB), (RESTRAIN, HARVEST)), "the gate needs takes 1-3 or 1-2"
+        k = len(dial.actions)
         self.dial, self.n = dial, (dial.K + 1) * 9
-        self.T = np.zeros((self.n, 3, 2, self.n))
-        self.c_shaper, self.c_learner = np.zeros((self.n, 3, 2)), np.zeros((self.n, 3, 2))
+        self.T = np.zeros((self.n, k, 2, self.n))
+        self.c_shaper, self.c_learner = np.zeros((self.n, k, 2)), np.zeros((self.n, k, 2))
         for R in range(1, dial.K + 1):
             for last_s, last_l in itertools.product(range(3), repeat=2):
                 s = (R * 3 + last_s) * 3 + last_l
-                for a_s, a_l in itertools.product(range(3), range(2)):
+                for a_s, a_l in itertools.product(range(k), range(2)):
                     r_s, r_l, dist = outcome(dial, R, a_s + 1, a_l + 1)
                     self.c_shaper[s, a_s, a_l], self.c_learner[s, a_s, a_l] = r_s, r_l
                     for Rn, p in dist:
@@ -332,6 +401,8 @@ class _GateKernel:
         p = np.where(feature, q[0], q[1])
         rows, delta = np.arange(self.n), self.dial.continuation
         T0, T1 = self.T[rows, a_s, 0], self.T[rows, a_s, 1]
+        if self.dial.horizon:
+            return self._episode_over_horizon(a_s, feature, q, p, T0, T1)
         M = np.linalg.inv(np.eye(self.n) - delta * (p[:, None] * T0 + (1 - p)[:, None] * T1))
         cs0, cs1 = self.c_shaper[rows, a_s, 0], self.c_shaper[rows, a_s, 1]
         cl0, cl1 = self.c_learner[rows, a_s, 0], self.c_learner[rows, a_s, 1]
@@ -341,6 +412,27 @@ class _GateKernel:
         grad = np.array([start @ (np.where(feature, q[0] * (1 - q[0]), 0.0) * slope),
                          start @ (np.where(~feature, q[1] * (1 - q[1]), 0.0) * slope)])
         return float(start @ (p * cs0 + (1 - p) * cs1)), float(v_learner[self.start]), grad
+
+
+    def _episode_over_horizon(self, a_s, feature, q, p, T0, T1) -> Tuple[float, float, np.ndarray]:
+        """As `episode`, over a fixed horizon: values backwards over rounds, state distributions forwards, and the
+        gradient as the sum over rounds of each state's probability times the change in its action value."""
+        rows = np.arange(self.n)
+        cs0, cs1 = self.c_shaper[rows, a_s, 0], self.c_shaper[rows, a_s, 1]
+        cl0, cl1 = self.c_learner[rows, a_s, 0], self.c_learner[rows, a_s, 1]
+        Pp, cl, cs = p[:, None] * T0 + (1 - p)[:, None] * T1, p * cl0 + (1 - p) * cl1, p * cs0 + (1 - p) * cs1
+        v, slopes = np.zeros(self.n), []
+        for _ in range(self.dial.horizon):
+            slopes.insert(0, (cl0 - cl1) + (T0 - T1) @ v)
+            v = cl + Pp @ v
+        dq0, dq1 = np.where(feature, q[0] * (1 - q[0]), 0.0), np.where(~feature, q[1] * (1 - q[1]), 0.0)
+        d, shaper, grad = np.zeros(self.n), 0.0, np.zeros(2)
+        d[self.start] = 1.0
+        for slope in slopes:
+            shaper += float(d @ cs)
+            grad += (float(d @ (dq0 * slope)), float(d @ (dq1 * slope)))
+            d = d @ Pp
+        return shaper, float(v[self.start]), grad
 
 
 def _bilinear(V: np.ndarray, points: np.ndarray, grid: np.ndarray) -> np.ndarray:
@@ -377,7 +469,8 @@ def gate(dial: Dial, learner: ToyLearner, episodes: int = 100, grid_points: int 
     learning aware  a rule per episode chosen by backward induction on the learner's parameters, solved on a
                     grid with bilinear interpolation; its realised value is a lower bound on the optimum
     """
-    rules = tuple(dict.fromkeys(tuple(rules or rule_menu()) + (ALWAYS_HARVEST, ALWAYS_RESTRAIN, TIT_FOR_TAT)))
+    rules = tuple(dict.fromkeys(tuple(rules or rule_menu(actions=dial.actions)) + (ALWAYS_HARVEST, ALWAYS_RESTRAIN, TIT_FOR_TAT)))
+    assert all(set(r[1:]) <= set(dial.actions) for r in rules), "every rule must use the dial's takes"
     kernel = _GateKernel(dial)
     theta0 = np.full(2, np.log(learner.initial_restraint / (1 - learner.initial_restraint)))
     grid = np.linspace(-limit, limit, grid_points)
@@ -423,48 +516,63 @@ def gate(dial: Dial, learner: ToyLearner, episodes: int = 100, grid_points: int 
 
 # ----------------------------------------------------------------------------- report
 
-DESIGN = {"m=2": Dial(K=20, rate_tenths=5), "m=3": Dial(K=20, rate_tenths=6)}
-CHECKS = {"m=2, K=30": Dial(K=30, rate_tenths=3), "m=3, K=30": Dial(K=30, rate_tenths=4)}
+# As pre-registered on 14 September: takes 1-3 and a geometric end with mean 36. Its gate said NO GO.
+RANDOM_END = {"m=2": Dial(K=20, rate_tenths=5), "m=3": Dial(K=20, rate_tenths=6)}
+RANDOM_END_CHECKS = {"m=2, K=30": Dial(K=30, rate_tenths=3), "m=3, K=30": Dial(K=30, rate_tenths=4)}
+# Amended 15 September (docs/GATE_DIAGNOSIS.md): takes 1-2 over a fixed horizon of 50 rounds.
+HORIZON = 50
+TWO = (RESTRAIN, HARVEST)
+DESIGN = {"m=2": Dial(K=20, rate_tenths=5, actions=TWO, horizon=HORIZON),
+          "m=3": Dial(K=20, rate_tenths=6, actions=TWO, horizon=HORIZON)}
+CHECKS = {"m=2, K=30": Dial(K=30, rate_tenths=3, actions=TWO, horizon=HORIZON),
+          "m=3, K=30": Dial(K=30, rate_tenths=4, actions=TWO, horizon=HORIZON)}
 POND = Dial(K=40, rate_tenths=9, S0=8, actions=(0, 1, 2, 3), xi_tenths=(10,))
 
 
 def main(argv=None) -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--gate", action="store_true", help="also run the I4 oracle gate (a few minutes)")
+    ap.add_argument("--gate", action="store_true", help="also run the I4 oracle gate (several minutes)")
     ap.add_argument("--episodes", type=int, default=100)
+    ap.add_argument("--priors", type=float, nargs="+", default=[0.06, 0.16],
+                    help="the toy learner's starting restraint: the untrained model's measured range after round 1")
+    ap.add_argument("--random-end", action="store_true", help="the design as pre-registered on 14 September")
     a = ap.parse_args(argv)
+    design, checks = (RANDOM_END, RANDOM_END_CHECKS) if a.random_end else (DESIGN, CHECKS)
 
     worth = lambda d: best_response(d, always(RESTRAIN))[0] - best_response(d, always(HARVEST))[0]
     print(f"live pond (K=40, rate 0.9, takes 0-3, no noise): a restrained partner is worth {worth(POND):.1f} to a "
           f"best responder from R0=8 and {worth(replace(POND, S0=20)):.1f} from R0=20")
-    abstain = committed_leader(replace(DESIGN['m=2'], actions=(0, 1, 2, 3)), always(HARVEST))
+    abstain = committed_leader(replace(design["m=2"], actions=(0, 1, 2, 3)), always(HARVEST))
     print(f"m=2 with an abstain action: committed harvest earns {abstain[0]:.1f} (survival {abstain[2]:.2f})\n")
-    for name, d in {**DESIGN, **CHECKS}.items():
+    for name, d in {**design, **checks}.items():
         inv = invariants(d)
-        print(f"{name} (K={d.K}, rate {d.rate_tenths / 10}): m={inv.m}; peak integer growth at xi "
-              f"{'/'.join(str(x / 10) for x in d.xi_tenths)} = {'/'.join(map(str, inv.peak_growth_by_xi))}")
+        end = f"fixed {d.horizon} rounds" if d.horizon else f"geometric end, continuation {d.continuation:.4f}"
+        print(f"{name} (K={d.K}, rate {d.rate_tenths / 10}, takes {'/'.join(map(str, d.actions))}, {end}): m={inv.m}; "
+              f"peak integer growth at xi {'/'.join(str(x / 10) for x in d.xi_tenths)} = {'/'.join(map(str, inv.peak_growth_by_xi))}")
         print(f"  I2 restrain vs harvest: best expected drift {float(inv.drift_restrain_vs_harvest):+.2f}/round, "
-              f"never rises: {inv.stock_never_rises}; alive after 36/100 rounds with no random end "
-              f"{inv.alive_after_36:.2f}/{inv.alive_after_100:.2f}; ends before emptying {inv.survival_restrain_vs_harvest:.2f} "
-              f"(best policy {inv.best_survival_vs_harvest:.2f}) -> no unilateral salvation: {inv.no_unilateral_salvation}")
+              f"never rises: {inv.stock_never_rises}; alive after 36/100 rounds {inv.alive_after_36:.2f}/{inv.alive_after_100:.2f}; "
+              f"pool alive at the close {inv.survival_restrain_vs_harvest:.2f} (best policy {inv.best_survival_vs_harvest:.2f}) "
+              f"-> no unilateral salvation: {inv.no_unilateral_salvation}")
         print(f"  I3 against a best responder: committed harvest earns {inv.committed_harvest[0]:.1f} (partner "
               f"{inv.committed_harvest[1]:.1f}, survival {inv.committed_harvest[2]:.2f}); tit-for-tat earns "
               f"{inv.tit_for_tat[0]:.1f} (partner {inv.tit_for_tat[1]:.1f}); mutual restraint {inv.mutual_restraint:.1f} "
               f"-> commitment fails: {inv.commitment_fails}")
-        print(f"  a restrained partner is worth {inv.restraint_worth:.1f} to a best responder")
+        exploit, restrainer, _ = evaluate(d, best_response(d, always(RESTRAIN))[1], always(RESTRAIN))
+        print(f"  a restrained partner is worth {inv.restraint_worth:.1f} to a best responder; payoffs T/R/S/P "
+              f"{exploit:.1f}/{inv.mutual_restraint:.1f}/{restrainer:.1f}/{evaluate(d, always(HARVEST), always(HARVEST))[0]:.1f}")
     if not a.gate:
         return
-    print(f"\nI4 gate: {a.episodes} episodes from a learner restraining 10% of the time; per-episode shaper return")
-    for name, d in DESIGN.items():
-        for kind in ("reciprocity", "stock_band"):
-            for step in (0.1, 0.3):
-                g = gate(d, ToyLearner(kind=kind, step=step), episodes=a.episodes)
-                ends = "  ".join(f"{k} {v[0]:.2f}/{v[1]:.2f}" for k, v in g.end_restraint.items())
-                print(f"{name} {kind:11s} step {step}: best response {g.best_response:5.1f} | best fixed {g.best_fixed:5.1f} "
-                      f"[{describe(g.best_fixed_rule)}] | learning aware {g.learning_aware:5.1f} "
-                      f"(gain {g.learning_aware_gain:+.1f}) | always harvest {g.always_harvest:5.1f} | "
-                      f"tit-for-tat {g.tit_for_tat:5.1f}\n    learner restraint at the end: {ends}")
-
+    for prior in a.priors:
+        print(f"\nI4 gate: {a.episodes} episodes from a learner restraining {prior:.2f} of the time; per-episode shaper return")
+        for name, d in design.items():
+            for kind in ("reciprocity", "stock_band"):
+                for step in (0.1, 0.3):
+                    g = gate(d, ToyLearner(kind=kind, step=step, initial_restraint=prior), episodes=a.episodes)
+                    ends = "  ".join(f"{k} {v[0]:.2f}/{v[1]:.2f}" for k, v in g.end_restraint.items())
+                    print(f"{name} {kind:11s} step {step}: best response {g.best_response:5.1f} | best fixed {g.best_fixed:5.1f} "
+                          f"[{describe(g.best_fixed_rule)}] | learning aware {g.learning_aware:5.1f} "
+                          f"(gain {g.learning_aware_gain:+.1f}) | always harvest {g.always_harvest:5.1f} | "
+                          f"tit-for-tat {g.tit_for_tat:5.1f}\n    learner restraint at the end: {ends}", flush=True)
 
 if __name__ == "__main__":
     main()
@@ -472,29 +580,28 @@ if __name__ == "__main__":
 
 # ----------------------------------------------------------------------------- run configs
 
-DIAL_TOKENS = [235274, 235284, 235304]  # gemma-2-2b-it tokens for "1", "2", "3"
+DIAL_TOKENS = [235274, 235284]  # gemma-2-2b-it tokens for "1" and "2"; the 14 September design also had "3" (235304)
 DESIGN_RATES = {5: "m2", 6: "m3"}
 
 
-def check_dial_config(config: dict, allow_fixed_horizon: bool = False) -> str:
-    """Refuse any config that is not one of the two pre-registered design points, and return "m2" or "m3".
+def check_dial_config(config: dict) -> str:
+    """Refuse any config that is not one of the two amended design points, and return "m2" or "m3".
 
-    The launcher applies this as strictly as the pond lock. `allow_fixed_horizon` admits the memory smoke run, in
-    which every episode runs the 108-round cap instead of closing at random.
+    A design point is takes 1-2 over a fixed horizon of 50 rounds, five episodes of five parallel games, a full pool
+    of 20, the pre-registered shocks and the amended rules text. The launcher applies this as strictly as the pond lock.
     """
-    from cpr_observation_managers import DIAL_RULES
+    from cpr_observation_managers import DIAL_RULES_V2
     gp = config["game_parameters"]
-    fixed = dict(t_max=108, e_max=5, n_games=3, R0=20, g=0, ceiling=20, n_actions=3, min_take=1)
+    fixed = dict(t_max=HORIZON, e_max=5, n_games=5, R0=20, g=0, ceiling=20, n_actions=2, min_take=1)
     for key, value in fixed.items():
         assert gp.get(key) == value, f"game_parameters.{key} = {gp.get(key)!r}; the design point needs {value!r}"
     assert gp.get("rate_tenths") in DESIGN_RATES, f"rate_tenths {gp.get('rate_tenths')!r} is not 5 (m=2) or 6 (m=3)"
     assert list(gp.get("xi_tenths") or []) == list(XI_TENTHS), f"xi_tenths {gp.get('xi_tenths')!r} != {list(XI_TENTHS)}"
-    close = gp.get("close_continue")
-    assert close == 35 / 36 or (allow_fixed_horizon and close is None), f"close_continue {close!r} is not 35/36"
+    assert gp.get("close_continue") is None, f"close_continue {gp.get('close_continue')!r}: the design has a fixed horizon"
     for i in (1, 2):
         obs = config[f"obs_manager_parameters{i}"]
-        assert obs["action_toks"] == DIAL_TOKENS and obs["action_strings"] == ["1", "2", "3"], f"agent {i} actions"
-        assert obs["R0"] == 20 and obs.get("rules") == DIAL_RULES, f"agent {i} must render the pre-registered rules"
+        assert obs["action_toks"] == DIAL_TOKENS and obs["action_strings"] == ["1", "2"], f"agent {i} actions"
+        assert obs["R0"] == 20 and obs.get("rules") == DIAL_RULES_V2, f"agent {i} must render the amended rules"
         ppo = config.get(f"ppo_agent_parameters{i}")
         if ppo is not None:
             assert ppo["action_toks"] == DIAL_TOKENS, f"agent {i} PPO action tokens"
