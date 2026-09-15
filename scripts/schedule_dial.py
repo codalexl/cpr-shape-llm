@@ -26,7 +26,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from make_dial_configs import EVAL_SHAPERS, GATE_EPOCHS, GATE_RUNS, OPTIONAL, SEEDS, SEEDS_LONG  # noqa: E402
+from make_dial_configs import DECISIVE, EVAL_SHAPERS, EXTRA_SEEDS_LONG, GATE_EPOCHS, GATE_RUNS, OPTIONAL, SEEDS, SEEDS_LONG  # noqa: E402
 
 DIAL = "checkpoints/dial"
 LAUNCH_VARS = ("NAME", "SEED", "SMOKE", "SUFFIX", "OUT_SUFFIX", "EPOCHS", "CKPT_FREQ", "WAIT", "REPLAY_WINDOW",
@@ -95,8 +95,8 @@ def phases(length: int = 100) -> dict:
     """Jobs per phase for a training length of 100 or 200 epochs."""
     seeds = SEEDS if length == 100 else SEEDS_LONG
     shapers = [(stage, arm) for stage, arms in EVAL_SHAPERS.items() for arm in arms]
-    by_seed = lambda counts: [(name, seed) for seed in range(max(counts.values()))
-                              for name in sorted(counts, key=lambda n: -counts[n]) if seed < counts[name]]
+    by_seed = lambda counts: [(name, seed) for seed in range(max(counts.values()))  # seed order, the decisive arms first
+                              for name in sorted(counts, key=lambda n: (DECISIVE.index(n) if n in DECISIVE else len(DECISIVE), -counts[n])) if seed < counts[name]]
     gate = [job(name, seed, EPOCHS=GATE_EPOCHS[name], CKPT_FREQ=0, **(dict(SUFFIX=suffix) if suffix else {}))
             for name, (suffix, n) in GATE_RUNS.items() for seed in range(n)]
     gate.sort(key=lambda j: "SUFFIX" not in j.vars)  # the two-learner G3 pilot is the longest run: start it first
@@ -113,6 +113,9 @@ def phases(length: int = 100) -> dict:
         "optional": [optional, [probe(name, seed, ckpt=length) for name, seed in by_seed(OPTIONAL)]],
         "evaluate": [sorted(evals, key=lambda j: -int(j.vars["EPOCHS"])) + [probe(name, seed, ckpt=length) for name, seed in by_seed(seeds)],
                      [probe(folder, seed) for folder in transferred for seed in range(planned_seeds(folder, seeds))]],
+        # 200-epoch training only, if time remains after the planned runs: ShapeLLM-style seeds 3 and 4, then their probes
+        "extra": [[job(name, seed, EPOCHS=length, CKPT_FREQ=length) for name, extra in EXTRA_SEEDS_LONG.items() for seed in extra],
+                  [probe(name, seed, ckpt=length) for name, extra in EXTRA_SEEDS_LONG.items() for seed in extra]] if length == 200 else [[], []],
     }
 
 

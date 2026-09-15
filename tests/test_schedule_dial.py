@@ -23,13 +23,18 @@ def test_job_counts_match_the_budget():
     g3 = [j for j in PHASES["gate"][0] if j.name == "m2_shaper_matched"]
     assert len(g3) == 1 and g3[0].vars["EPOCHS"] == "200" and PHASES["gate"][0][0] == g3[0]
     long = sd.phases(200)
-    assert [len(g) for g in long["train"]] == [34] and [len(g) for g in long["evaluate"]] == [52 + 34, 26]
+    assert [len(g) for g in long["train"]] == [34] and [len(g) for g in long["evaluate"]] == [44 + 34, 22]
+    assert [(j.name, j.seed) for j in long["train"][0][-4:]] == [("m2_shaper_matched", 3), ("m2_tbn_matched", 3),
+                                                                ("m2_shaper_matched", 4), ("m2_tbn_matched", 4)]
+    assert [(j.name, j.seed, j.vars["EPOCHS"]) for j in long["extra"][0]] == [("m2_shapellm", 3, "200"), ("m2_shapellm", 4, "200")]
+    assert len(long["extra"][1]) == 2 and PHASES["extra"] == [[], []]
     assert all(j.vars["EPOCHS"] == j.vars["CKPT_FREQ"] == "200" for j in long["train"][0])
     templates = [v for j in long["evaluate"][0] for k, v in j.env if k.endswith("_TEMPLATE") and "e1_transfer" not in v and "e2_replay" not in v]
     assert templates and all(v.endswith(("checkpoint_200", "cpr_records")) for v in templates)
     assert all(v.endswith("checkpoint_100") for j in long["evaluate"][1] for k, v in j.env if k.endswith("_TEMPLATE"))
     train = PHASES["train"][0]
     assert {j.name for j in train[:4]} == {"m2_naive", "m2_tbn_matched", "m2_shaper_matched", "m2_shapellm"}
+    assert [j.name for j in train[:2]] == ["m2_shaper_matched", "m2_tbn_matched"]  # the decisive contrast leads each seed
     assert all(j.seed == 0 for j in train[:10]) and len(set(train)) == 38
 
 

@@ -69,11 +69,13 @@ python scripts/schedule_dial.py train --length $LENGTH
 python scripts/check_seed_divergence.py checkpoints/dial/m2_naive    # once seed 1 has written its epoch-1 openings
 ```
 
-**Size.** At 100 epochs: 38 runs, about 122 GPU-hours, about a day on five GPUs. At 200 epochs: 34 runs, since ShapeLLM-style and shaper-matched keep five seeds and every other arm runs three, for about 218 GPU-hours, about two days.
+**Size.** At 100 epochs: 38 runs, about 122 GPU-hours, about a day on five GPUs. At 200 epochs: 34 runs, since shaper-matched and tbn-matched keep five seeds and every other arm runs three, for about 218 GPU-hours, about two days.
 
-**Order.** Jobs run in seed order, with the arms that decide S leading each seed.
+**Order.** Jobs run in seed order, with shaper-matched and tbn-matched, the contrast that decides S, leading each seed.
 
-**Optional arm.** If time allows, run `python scripts/schedule_dial.py optional --length $LENGTH`.
+**Extra seeds (200 epochs only).** If time remains after the planned runs, run `python scripts/schedule_dial.py extra --length 200` before anything else. It trains ShapeLLM-style seeds 3 and 4, then probes them. They count toward S only if both finish.
+
+**Optional arm.** If time still allows, run `python scripts/schedule_dial.py optional --length $LENGTH`.
 
 ## Evaluation arms and probes
 

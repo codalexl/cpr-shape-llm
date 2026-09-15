@@ -327,3 +327,13 @@ Thresholds are set against the solver's best response, not at it: a learner that
      - G0, smoke and the gate run on 16 September, training from 17 September, evaluation by 20 or 21 September, and analysis by 22 September.
      - The pond chapters must be submission-ready by 22 September regardless.
   9. **Fallback, fixed now.** If G1, G2 or G3 fails on this design, no training starts. The result is reported as a null, with the learnability, shaping-window and screening analyses as the explanation. No further levers are tried after a second failure.
+- *15 Sep 2026, later the same day, before any run on the amended design.* **Seeds if training runs 200 epochs.** This amends the line "Five seeds on the m = 2 arms that decide S" (14 September, item 2) for 200-epoch training. It replaces the seed plan in item 6 of the previous entry, which kept five seeds on ShapeLLM-style and shaper-matched.
+  1. **Shaper-matched and tbn-matched keep five seeds.** Every other arm, ShapeLLM-style included, runs three, for 34 runs.
+     - **Why the matched pair.** A paired contrast is only as resolved as its smaller arm. The contrast that carries the question is shaper-matched minus tbn-matched: cross-episode credit, with learning rate, clip and update schedule held equal.
+     - **What five buys.** Five seeds on both sides give five paired differences, and a sign-agreement bar of one in sixteen. Five against three give three differences and a bar of one in four.
+     - **Why ShapeLLM-style can drop to three.** Its own control, tbn-slow, already runs three seeds, so five on ShapeLLM-style was asymmetric anyway. It can still carry S's first condition if shaper-matched does not. Its E1–E4 arms at three seeds read policy classes over thousands of rounds per seed.
+  2. **Run order.** In both plans the scheduler lists shaper-matched and tbn-matched first within each seed, so their seeds run before any other arm's at the same seed index.
+  3. **Extra seeds.** If time remains after the planned runs, the next two runs are ShapeLLM-style seeds 3 and 4, not another control.
+     - They count toward S only if both finish training and their probes. ShapeLLM-style is then counted against five seeds.
+     - Otherwise S reads its three planned seeds, and a single extra seed is reported descriptively.
+     - E1–E4 stay at three seeds either way.

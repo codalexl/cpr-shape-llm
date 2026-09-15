@@ -47,7 +47,8 @@ def test_planned_seeds():
     assert ed.planned("m2_probe_of_m2_e2_replay_shaper_matched") == 5 and ed.planned("m2_shaper_matched_g3") == 1
     with pytest.raises(KeyError):
         ed.planned("m2_e1_transfer_naive")
-    assert ed.planned("m2_naive", 200) == 3 and ed.planned("m2_shapellm", 200) == 5
+    assert ed.planned("m2_naive", 200) == 3 and ed.planned("m2_shapellm", 200) == 3 and ed.planned("m2_tbn_matched", 200) == 5
+    assert ed.planned("m2_probe_of_m2_shapellm", 200, extra=True) == 5 and ed.planned("m2_e1_transfer_shapellm", 200, extra=True) == 3
     assert ed.planned("m2_probe_of_m2_e1_transfer_shaper_matched", 200) == 5 and ed.planned("m3_e2_replay_shapellm", 200) == 3
 
 
@@ -121,3 +122,11 @@ def test_gate_from_run_folders(tmp_path, capsys):
     assert capsys.readouterr().out.strip().endswith("GO: training runs 100 epochs")
     data = json.loads((tmp_path / "out" / "gate.json").read_text())
     assert data["go"] is True and data["training_length"] == 100
+
+
+def test_extra_seeds_count_only_when_both_ran():
+    u, x = "unconditional", "mixed"
+    both = {"m2_probe_of_m2_shapellm": probe(u, u, x, x, x)}  # seeds 3 and 4 ran: 2 of 5 is not most
+    one = {"m2_probe_of_m2_shapellm": probe(u, u, x, x)}  # only seed 3 ran: seeds 0-2 decide, 2 of 3 is most
+    assert not ed.decide(both, length=200)["S"]["shapellm"]["1. partner unconditional"]
+    assert ed.decide(one, length=200)["S"]["shapellm"]["1. partner unconditional"]

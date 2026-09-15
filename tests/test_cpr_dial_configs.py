@@ -110,3 +110,5 @@ def test_the_optional_arm_and_the_planned_seeds(configs):
     assert set(mdc.SEEDS) == {f"{stage}_{arm}" for stage, arms in mdc.STAGE_ARMS.items() for arm in arms}
     assert sum(n for _, n in mdc.GATE_RUNS.values()) == 7 and all(name in configs for name in mdc.GATE_RUNS)
     assert sum(mdc.SEEDS_LONG.values()) == 2 * 5 + 8 * 3 and mdc.GATE_EPOCHS == {"g1_m3_harvest": 100, "g2_m2_tft": 100, "m2_shaper_matched": 200}
+    assert {name for name, n in mdc.SEEDS_LONG.items() if n == 5} == set(mdc.DECISIVE) == {"m2_shaper_matched", "m2_tbn_matched"}
+    assert mdc.SEEDS_LONG["m2_shapellm"] == 3 and mdc.EXTRA_SEEDS_LONG == {"m2_shapellm": (3, 4)}

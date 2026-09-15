@@ -25,7 +25,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import cpr_eval as ev  # noqa: E402
-from make_dial_configs import EVAL_SHAPERS, GATE_RUNS, OPTIONAL, SEEDS, SEEDS_LONG  # noqa: E402
+from make_dial_configs import EVAL_SHAPERS, EXTRA_SEEDS_LONG, GATE_RUNS, OPTIONAL, SEEDS, SEEDS_LONG  # noqa: E402
 
 RESTRAIN = 1
 GATE = {  # Section 9: folder, readout, threshold
@@ -39,11 +39,14 @@ LENGTHS = (100, 200)  # G3 over epochs 81-100 sets 100-epoch training; failing t
 EVAL_KINDS = ("e1_transfer", "e2_replay", "e3_frozen_partner", "e4_untrained_partner")
 
 
-def planned(folder: str, length: int = 100) -> int:
+def planned(folder: str, length: int = 100, extra: bool = False) -> int:
     """Pre-registered seeds of a run folder under 100- or 200-epoch training; probes and evaluation arms inherit them
-    from what they read."""
+    from what they read. With `extra` (200 epochs, both extra seeds finished) a training arm in EXTRA_SEEDS_LONG and its
+    probe count those seeds too; its evaluation arms do not."""
     folder = folder.split("_probe_of_", 1)[-1]
     seeds = SEEDS if length == 100 else SEEDS_LONG
+    if extra and length == 200 and folder in EXTRA_SEEDS_LONG:
+        return seeds[folder] + len(EXTRA_SEEDS_LONG[folder])
     table = {**seeds, **OPTIONAL, **{name + suffix: n for name, (suffix, n) in GATE_RUNS.items()}}
     if folder in table:
         return table[folder]
@@ -129,10 +132,14 @@ def gate(windows: dict) -> dict:
 
 
 def decide(summaries: dict, length: int = 100) -> dict:
-    """Section 8 on {folder: {seed: summary}}: every condition of S, T and C, and the verdict."""
+    """Section 8 on {folder: {seed: summary}}: every condition of S, T and C, and the verdict. Seeds beyond a folder's
+    planned count are never counted; ShapeLLM-style's extra seeds count only when both have probe runs."""
+    extra = length == 200 and all(set(seeds) <= set(summaries.get(f"{name[:2]}_probe_of_{name}", {}))
+                                  for name, seeds in EXTRA_SEEDS_LONG.items())
+
     def holds(folder, test):  # the partner trained in `folder`, read from its probe run
-        probed = summaries.get(f"{folder[:2]}_probe_of_{folder}", {})
-        return most([test(s) for s in probed.values()], planned(folder, length))
+        probed, n = summaries.get(f"{folder[:2]}_probe_of_{folder}", {}), planned(folder, length, extra)
+        return most([test(s) for seed, s in probed.items() if int(seed) < n], n)
     is_class = lambda name: (lambda s: s["agent1_class"] == name)
     not_unconditional = lambda s: s["agent1_class"] != "unconditional"
     out = {"S": {}, "T": {}}
@@ -146,7 +153,7 @@ def decide(summaries: dict, length: int = 100) -> dict:
             "2. controls not unconditional (" + ", ".join(controls) + ")": all(holds(x, not_unconditional) for x in controls),
             "3. E1 learner unconditional": holds(f"m2_e1_transfer_{arm}", is_class("unconditional")),
             "4. E2 learner not unconditional, and E4 per-round return below E3": (
-                holds(f"m2_e2_replay_{arm}", not_unconditional) and most(lower, planned(f"m2_{arm}", length))),
+                holds(f"m2_e2_replay_{arm}", not_unconditional) and most(lower, planned(f"m2_e3_frozen_partner_{arm}", length))),
         }
         out["S"][arm] = {**c, "holds": all(c.values())}
     for shaper, control in (("shaper_matched", "tbn_matched"), ("shaper_slow", "tbn_slow"), ("shapellm", "tbn_slow")):

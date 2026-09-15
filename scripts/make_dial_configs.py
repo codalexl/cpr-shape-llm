@@ -48,7 +48,11 @@ SEEDS = {  # Section 5: five seeds on the m = 2 arms that decide S. E1-E4 and pr
     "m2_naive": 5, "m2_slow": 3, "m2_tbn_matched": 5, "m2_shaper_matched": 5, "m2_tbn_slow": 3, "m2_shaper_slow": 3,
     "m2_shapellm": 5, "m3_naive": 3, "m3_slow": 3, "m3_shapellm": 3,
 }
-SEEDS_LONG = {name: 5 if name in ("m2_shapellm", "m2_shaper_matched") else 3 for name in SEEDS}  # if training runs 200 epochs
+# The paired contrast that decides S (cross-episode credit, with learning rate, clip and schedule equal). The scheduler lists
+# these arms first within each seed; if training runs 200 epochs they keep five seeds and every other arm runs three.
+DECISIVE = ("m2_shaper_matched", "m2_tbn_matched")
+SEEDS_LONG = {name: 5 if name in DECISIVE else 3 for name in SEEDS}
+EXTRA_SEEDS_LONG = {"m2_shapellm": (3, 4)}  # the first runs if time remains after 200-epoch training; counted only if both finish
 GATE_RUNS = {"g1_m3_harvest": ("", 3), "g2_m2_tft": ("", 3), "m2_shaper_matched": ("_g3", 1)}  # config: (suffix, seeds)
 GATE_EPOCHS = {"g1_m3_harvest": 100, "g2_m2_tft": 100, "m2_shaper_matched": 200}  # the G3 pilot runs 200 epochs
 OPTIONAL = {"m2_shapellm_history_off": 3}  # run only if training finishes by 20 September 18:00
