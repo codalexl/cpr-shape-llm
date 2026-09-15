@@ -1,4 +1,6 @@
-from trial_batching import concat_trial, first_index_by_id, remap_env_ids
+import pytest
+
+from trial_batching import concat_trial, decomposed_credit, first_index_by_id, remap_env_ids
 
 
 def test_remap_preserves_grouping_and_is_dense():
@@ -25,3 +27,21 @@ def test_single_episode_buffer_equals_naive_layout():
     ep = (["q"] * 4, ["r"] * 4, [0.0] * 4, [0, 1, 0, 1])
     _, _, _, ids = concat_trial([ep])
     assert ids == [0, 1, 0, 1]
+
+
+def test_decomposed_credit_bounds_episodes_and_baselines_the_later_episodes():
+    # two games, two episodes of two rounds; game 1's last round is masked away
+    rewards = [[1.0, 2.0], [1.0, 2.0], [2.0, 1.0], [2.0]]
+    ids = [[0, 1], [0, 1], [0, 1], [0]]
+    env_ids, term = decomposed_credit(rewards, ids, episodes=2)
+    assert env_ids == [0, 1, 0, 1, 2, 3, 2]                      # one GAE sequence per (episode, game)
+    # later-episode return after episode 0: game 0 earns 4, game 1 earns 1; each is baselined by the other game
+    assert term == [3.0, -3.0, 3.0, -3.0, 0.0, 0.0, 0.0]
+    assert decomposed_credit(rewards, ids, episodes=2, weight=0.5)[1] == [1.5, -1.5, 1.5, -1.5, 0.0, 0.0, 0.0]
+
+
+def test_decomposed_credit_with_one_game_is_episode_gae():
+    env_ids, term = decomposed_credit([[1.0], [2.0], [3.0], [4.0]], [[0], [0], [0], [0]], episodes=2)
+    assert env_ids == [0, 0, 1, 1] and term == [0.0, 0.0, 0.0, 0.0]
+    with pytest.raises(AssertionError):
+        decomposed_credit([[1.0], [2.0], [3.0]], [[0], [0], [0]], episodes=2)

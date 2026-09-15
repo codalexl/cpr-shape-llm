@@ -164,6 +164,7 @@ class CustomPPOTrainer(PPOTrainer):
         self.a1_tok, self.a2_tok = self.legal_tokens[0], self.legal_tokens[1]
         self.a3_tok = self.legal_tokens[2] if len(self.legal_tokens) > 2 else None
         self.env_ids, self.n = None, None 
+        self.cross_episode_bonus = None  # per-step cross-episode term of decomposed shaper credit, set for one step by the agent
         self.track_gradients = track_gradients
         if advantage_norm not in ("whiten", "center", "none"):
             raise ValueError(f"advantage_norm must be whiten, center, or none; got {advantage_norm!r}")
@@ -287,6 +288,12 @@ class CustomPPOTrainer(PPOTrainer):
         advantages = advantages.to(get_device())
 
         returns = advantages + values
+        if self.cross_episode_bonus is not None:
+            # Decomposed shaper credit: the baselined later-episode return enters the policy advantage only; the value
+            # head keeps learning within-episode returns (trial_batching.decomposed_credit).
+            bonus = torch.as_tensor(self.cross_episode_bonus, dtype=advantages.dtype, device=advantages.device)
+            assert bonus.shape[0] == advantages.shape[0], "one cross-episode term per step"
+            advantages[:, -1] = advantages[:, -1] + bonus
         advantages_raw = advantages.detach().clone()
         advantages = normalize_advantages(advantages, mask, self.advantage_norm)
         advantages = advantages.detach()

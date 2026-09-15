@@ -57,6 +57,11 @@ class AgentConfig():
     # concatenated batch with env ids unique per (episode, game), so GAE never crosses an episode.
     trial_batched: Optional[bool] = False
     episodes_per_trial: Optional[int] = 5
+    # Shaper credit (docs/PREREGISTRATION_STOCHASTIC_CPR.md, deviation of 15 September). "trial_gae" runs GAE across the
+    # whole trial. "decomposed" runs GAE within each episode and adds, to the policy advantage only, the shaper's return
+    # in the trial's later episodes minus its mean over the other parallel games (trial_batching.decomposed_credit).
+    cross_episode_credit: Optional[str] = "trial_gae"
+    cross_episode_weight: Optional[float] = 1.0
 
 @dataclass
 class EvalAgentConfig():
@@ -133,6 +138,11 @@ class PPOAgent():
         self.episodes_per_trial = int(getattr(config, "episodes_per_trial", 5) or 5)
         self._trial_buffer: List = []
         assert not (self.trial_batched and self.is_shaper), "trial_batched is a naive-schedule control; set is_shaper=false"
+        self.cross_episode_credit = getattr(config, "cross_episode_credit", None) or "trial_gae"
+        weight = getattr(config, "cross_episode_weight", None)
+        self.cross_episode_weight = 1.0 if weight is None else float(weight)
+        assert self.cross_episode_credit in ("trial_gae", "decomposed"), f"unknown cross_episode_credit {self.cross_episode_credit!r}"
+        assert self.cross_episode_credit == "trial_gae" or self.is_shaper, "decomposed cross-episode credit is defined for shapers"
 
     def tokenize_observation(self, obs: List[str]) -> List[torch.Tensor]:
         """Tokenize observations. returns a List of torch.Tensors as it is the format required by the PPO Trainer"""
@@ -189,6 +199,7 @@ class PPOAgent():
         rewards = list(itertools.chain(*traj_data.rewards)) 
         env_ids = list(itertools.chain(*traj_data.env_ids))
 
+        bonus = None
         if self.trial_batched:
             # Buffer this episode; update once per trial on the concatenated batch with
             # episode-bounded GAE (trial_batching.concat_trial). Same schedule and batch as
@@ -199,6 +210,11 @@ class PPOAgent():
                 return
             query_tensors, response_tensors, rewards, env_ids = concat_trial(self._trial_buffer)
             self._trial_buffer = []
+        elif self.is_shaper and self.cross_episode_credit == "decomposed":
+            # GAE within each episode plus the baselined later-episode return (trial_batching.decomposed_credit).
+            from trial_batching import decomposed_credit
+            env_ids, bonus = decomposed_credit(traj_data.rewards, traj_data.env_ids, self.episodes_per_trial,
+                                               self.cross_episode_weight)
         else:
             from trial_batching import remap_env_ids
             env_ids = remap_env_ids(env_ids)  # no-op for the naive/shaper layouts (ids already 0..n-1)
@@ -214,8 +230,12 @@ class PPOAgent():
         
         self.trainer.config.batch_size = len(query_tensors) # Adjust batch size
         self.trainer.env_ids, self.trainer.n = env_ids, len(set(env_ids)) # Update environment ids for multi-turn advantage calculation
+        self.trainer.cross_episode_bonus = None if bonus is None else torch.tensor(bonus, dtype=torch.float32)
 
-        stats = self.trainer.step(query_tensors, response_tensors, rewards) # Update parameters
+        try:
+            stats = self.trainer.step(query_tensors, response_tensors, rewards) # Update parameters
+        finally:
+            self.trainer.cross_episode_bonus = None
         if self.trainer.track_gradients:
             stats["temp_grads"] = self.trainer.gradient_tracker.temp_grad_norm
         self.n_updates += 1
