@@ -1,0 +1,89 @@
+google/gemma-2-2b-it on mps
+
+(1) Three takes: labellings
+
+digits (as pre-registered): labels ['1', '2', '3'] for takes [1, 2, 3]
+  first round (R=20): 0.10/0.88/0.02
+  stock only: R=20: 0.10/0.88/0.02  R=14: 0.23/0.71/0.06  R=8: 0.18/0.70/0.12  R=4: 0.08/0.77/0.15
+  R=14 after you 1, other 1: 0.04/0.94/0.02 | you 1, other 2: 0.02/0.92/0.05 | you 1, other 3: 0.02/0.98/0.00 | you 2, other 1: 0.01/0.83/0.16 | you 2, other 2: 0.02/0.89/0.09 | you 2, other 3: 0.02/0.96/0.02 | you 3, other 1: 0.01/0.97/0.02 | you 3, other 2: 0.02/0.95/0.03 | you 3, other 3: 0.02/0.94/0.04
+  R=4 after you 1, other 1: 0.02/0.97/0.01 | you 1, other 2: 0.02/0.93/0.04 | you 1, other 3: 0.01/0.98/0.00 | you 2, other 1: 0.00/0.77/0.22 | you 2, other 2: 0.01/0.86/0.13 | you 2, other 3: 0.01/0.97/0.02 | you 3, other 1: 0.00/0.92/0.08 | you 3, other 2: 0.01/0.98/0.01 | you 3, other 3: 0.01/0.99/0.01
+
+R/H/G named restrain/harvest/grab: labels ['R', 'H', 'G'] for takes [1, 2, 3]
+  first round (R=20): 0.06/0.25/0.69
+  stock only: R=20: 0.06/0.25/0.69  R=14: 0.06/0.25/0.69  R=8: 0.07/0.27/0.66  R=4: 0.07/0.23/0.71
+  R=14 after you 1, other 1: 0.96/0.02/0.02 | you 1, other 2: 0.96/0.02/0.02 | you 1, other 3: 0.96/0.04/0.00 | you 2, other 1: 0.01/0.46/0.53 | you 2, other 2: 0.03/0.68/0.28 | you 2, other 3: 0.50/0.50/0.00 | you 3, other 1: 0.02/0.34/0.64 | you 3, other 2: 0.25/0.15/0.60 | you 3, other 3: 0.10/0.72/0.18
+  R=4 after you 1, other 1: 0.90/0.05/0.05 | you 1, other 2: 0.92/0.02/0.06 | you 1, other 3: 0.95/0.05/0.00 | you 2, other 1: 0.01/0.40/0.59 | you 2, other 2: 0.04/0.60/0.36 | you 2, other 3: 0.70/0.29/0.00 | you 3, other 1: 0.01/0.40/0.58 | you 3, other 2: 0.47/0.17/0.36 | you 3, other 3: 0.06/0.85/0.09
+
+R/H/G, amounts only: labels ['R', 'H', 'G'] for takes [1, 2, 3]
+  first round (R=20): 0.05/0.17/0.78
+  stock only: R=20: 0.05/0.17/0.78  R=14: 0.06/0.15/0.78  R=8: 0.06/0.17/0.77  R=4: 0.07/0.14/0.79
+  R=14 after you 1, other 1: 0.86/0.03/0.10 | you 1, other 2: 0.55/0.02/0.43 | you 1, other 3: 0.81/0.11/0.08 | you 2, other 1: 0.01/0.62/0.38 | you 2, other 2: 0.01/0.64/0.34 | you 2, other 3: 0.16/0.65/0.19 | you 3, other 1: 0.00/0.05/0.94 | you 3, other 2: 0.03/0.01/0.96 | you 3, other 3: 0.02/0.02/0.96
+  R=4 after you 1, other 1: 0.81/0.05/0.14 | you 1, other 2: 0.49/0.02/0.49 | you 1, other 3: 0.84/0.10/0.06 | you 2, other 1: 0.00/0.53/0.47 | you 2, other 2: 0.02/0.55/0.43 | you 2, other 3: 0.20/0.54/0.26 | you 3, other 1: 0.00/0.05/0.95 | you 3, other 2: 0.03/0.01/0.96 | you 3, other 3: 0.01/0.03/0.96
+
+A/B/C, amounts only: labels ['A', 'B', 'C'] for takes [1, 2, 3]
+  first round (R=20): 0.33/0.06/0.61
+  stock only: R=20: 0.33/0.06/0.61  R=14: 0.33/0.06/0.61  R=8: 0.35/0.06/0.58  R=4: 0.38/0.07/0.55
+  R=14 after you 1, other 1: 0.33/0.25/0.42 | you 1, other 2: 0.16/0.12/0.72 | you 1, other 3: 0.35/0.31/0.35 | you 2, other 1: 0.03/0.58/0.40 | you 2, other 2: 0.06/0.58/0.35 | you 2, other 3: 0.14/0.54/0.33 | you 3, other 1: 0.01/0.27/0.72 | you 3, other 2: 0.08/0.14/0.78 | you 3, other 3: 0.05/0.23/0.72
+  R=4 after you 1, other 1: 0.33/0.25/0.42 | you 1, other 2: 0.14/0.13/0.73 | you 1, other 3: 0.36/0.32/0.32 | you 2, other 1: 0.02/0.55/0.43 | you 2, other 2: 0.07/0.55/0.38 | you 2, other 3: 0.16/0.50/0.34 | you 3, other 1: 0.01/0.29/0.70 | you 3, other 2: 0.05/0.13/0.82 | you 3, other 3: 0.04/0.34/0.63
+
+C/B/A, amounts only (C = 1 unit): labels ['C', 'B', 'A'] for takes [1, 2, 3]
+  first round (R=20): 0.51/0.10/0.39
+  stock only: R=20: 0.51/0.10/0.39  R=14: 0.46/0.09/0.46  R=8: 0.59/0.09/0.32  R=4: 0.54/0.09/0.37
+  R=14 after you 1, other 1: 0.87/0.05/0.08 | you 1, other 2: 0.76/0.03/0.22 | you 1, other 3: 0.90/0.06/0.04 | you 2, other 1: 0.10/0.68/0.22 | you 2, other 2: 0.20/0.61/0.20 | you 2, other 3: 0.53/0.36/0.10 | you 3, other 1: 0.11/0.42/0.47 | you 3, other 2: 0.54/0.08/0.37 | you 3, other 3: 0.28/0.25/0.47
+  R=4 after you 1, other 1: 0.88/0.04/0.07 | you 1, other 2: 0.78/0.02/0.20 | you 1, other 3: 0.92/0.05/0.03 | you 2, other 1: 0.13/0.66/0.21 | you 2, other 2: 0.17/0.66/0.17 | you 2, other 3: 0.61/0.29/0.11 | you 3, other 1: 0.10/0.45/0.45 | you 3, other 2: 0.56/0.10/0.34 | you 3, other 3: 0.24/0.40/0.35
+
+(2) Three takes, digit replies: rewordings of the previous-round line (mean over all nine histories; P(repeat own take))
+  W0 as pre-registered       R=14: after both took 1 0.04/0.94/0.02 | mean 0.02/0.93/0.05 | P(repeat own take) 0.32
+  W0 as pre-registered       R= 4: after both took 1 0.02/0.97/0.01 | mean 0.01/0.93/0.06 | P(repeat own take) 0.31
+  W1 amounts in words        R=14: after both took 1 0.03/0.97/0.00 | mean 0.01/0.97/0.01 | P(repeat own take) 0.34
+  W1 amounts in words        R= 4: after both took 1 0.01/0.98/0.01 | mean 0.01/0.98/0.02 | P(repeat own take) 0.33
+  W2 digits with units       R=14: after both took 1 0.03/0.96/0.01 | mean 0.01/0.97/0.02 | P(repeat own take) 0.34
+  W2 digits with units       R= 4: after both took 1 0.02/0.97/0.01 | mean 0.01/0.97/0.02 | P(repeat own take) 0.33
+  W3 two short lists         R=14: after both took 1 0.07/0.89/0.03 | mean 0.03/0.88/0.09 | P(repeat own take) 0.42
+  W3 two short lists         R= 4: after both took 1 0.06/0.89/0.04 | mean 0.03/0.88/0.09 | P(repeat own take) 0.42
+  W4 asked for / got, words  R=14: after both took 1 0.07/0.93/0.01 | mean 0.02/0.97/0.01 | P(repeat own take) 0.35
+  W4 asked for / got, words  R= 4: after both took 1 0.02/0.97/0.01 | mean 0.01/0.98/0.01 | P(repeat own take) 0.33
+  W5 receipts only, words    R=14: after both took 1 0.05/0.95/0.01 | mean 0.02/0.96/0.01 | P(repeat own take) 0.34
+  W5 receipts only, words    R= 4: after both took 1 0.01/0.98/0.01 | mean 0.01/0.97/0.02 | P(repeat own take) 0.34
+
+(3) Two takes
+
+digits 1/2, rules with the random-end sentence: labels ['1', '2'] for takes [1, 2]
+  first round (R=20): 0.29/0.71
+  stock only: R=20: 0.29/0.71  R=14: 0.62/0.38  R=8: 0.62/0.38  R=4: 0.53/0.47
+  R=20 after you 1, other 1: 0.11/0.89 | you 1, other 2: 0.25/0.75 | you 2, other 1: 0.03/0.97 | you 2, other 2: 0.07/0.93
+  R=14 after you 1, other 1: 0.16/0.84 | you 1, other 2: 0.15/0.85 | you 2, other 1: 0.06/0.94 | you 2, other 2: 0.18/0.82
+  R=8 after you 1, other 1: 0.22/0.78 | you 1, other 2: 0.22/0.78 | you 2, other 1: 0.05/0.95 | you 2, other 2: 0.12/0.88
+  R=4 after you 1, other 1: 0.25/0.75 | you 1, other 2: 0.27/0.73 | you 2, other 1: 0.04/0.96 | you 2, other 2: 0.09/0.91
+  R=1 after you 1, other 1: 0.59/0.41 | you 1, other 2: 0.85/0.15 | you 2, other 1: 1.00/0.00 | you 2, other 2: 1.00/0.00
+
+digits 1/2, amended rules (no random-end sentence): labels ['1', '2'] for takes [1, 2]
+  first round (R=20): 0.32/0.68
+  stock only: R=20: 0.32/0.68  R=14: 0.56/0.44  R=8: 0.62/0.38  R=4: 0.50/0.50
+  R=20 after you 1, other 1: 0.10/0.90 | you 1, other 2: 0.22/0.78 | you 2, other 1: 0.06/0.94 | you 2, other 2: 0.15/0.85
+  R=14 after you 1, other 1: 0.15/0.85 | you 1, other 2: 0.15/0.85 | you 2, other 1: 0.18/0.82 | you 2, other 2: 0.38/0.62
+  R=8 after you 1, other 1: 0.13/0.87 | you 1, other 2: 0.22/0.78 | you 2, other 1: 0.09/0.91 | you 2, other 2: 0.22/0.78
+  R=4 after you 1, other 1: 0.16/0.84 | you 1, other 2: 0.18/0.82 | you 2, other 1: 0.05/0.95 | you 2, other 2: 0.16/0.84
+  R=1 after you 1, other 1: 0.50/0.50 | you 1, other 2: 0.84/0.16 | you 2, other 1: 1.00/0.00 | you 2, other 2: 1.00/0.00
+
+C/D, amounts only: labels ['C', 'D'] for takes [1, 2]
+  first round (R=20): 0.84/0.16
+  stock only: R=20: 0.84/0.16  R=14: 0.78/0.22  R=8: 0.82/0.18  R=4: 0.82/0.18
+  R=14 after you 1, other 1: 0.75/0.25 | you 1, other 2: 0.96/0.04 | you 2, other 1: 0.27/0.73 | you 2, other 2: 0.87/0.13
+
+C/D named cooperate/defect: labels ['C', 'D'] for takes [1, 2]
+  first round (R=20): 0.91/0.09
+  stock only: R=20: 0.91/0.09  R=14: 0.89/0.11  R=8: 0.93/0.07  R=4: 0.94/0.06
+  R=14 after you 1, other 1: 0.99/0.01 | you 1, other 2: 0.99/0.01 | you 2, other 1: 1.00/0.00 | you 2, other 2: 1.00/0.00
+
+(4) Five and six digit takes (a pool of 40)
+
+digits 0-5: labels ['0', '1', '2', '3', '4', '5'] for takes [0, 1, 2, 3, 4, 5]
+  first round (R=40): 0.00/0.01/0.04/0.17/0.75/0.03
+  stock only: R=40: 0.00/0.01/0.04/0.17/0.75/0.03  R=28: 0.00/0.03/0.21/0.35/0.40/0.01  R=16: 0.01/0.13/0.25/0.29/0.29/0.03  R=8: 0.01/0.04/0.13/0.39/0.39/0.04
+  R=28 after you 1, other 1: 0.00/0.01/0.09/0.42/0.48/0.00 | you 2, other 2: 0.00/0.00/0.02/0.40/0.58/0.00 | you 3, other 3: 0.00/0.01/0.04/0.26/0.69/0.00 | you 5, other 5: 0.00/0.01/0.02/0.05/0.83/0.08
+
+digits 1-5: labels ['1', '2', '3', '4', '5'] for takes [1, 2, 3, 4, 5]
+  first round (R=40): 0.02/0.04/0.56/0.34/0.04
+  stock only: R=40: 0.02/0.04/0.56/0.34/0.04  R=28: 0.02/0.14/0.72/0.11/0.01  R=16: 0.10/0.09/0.60/0.13/0.06  R=8: 0.03/0.04/0.69/0.18/0.05
+  R=28 after you 1, other 1: 0.03/0.13/0.47/0.37/0.00 | you 2, other 2: 0.00/0.01/0.43/0.56/0.00 | you 3, other 3: 0.00/0.01/0.16/0.81/0.01 | you 5, other 5: 0.01/0.01/0.08/0.81/0.10

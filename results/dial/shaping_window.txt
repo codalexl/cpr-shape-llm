@@ -1,0 +1,22 @@
+m=2, takes 1-2, fixed 50 rounds, trials of 5 episodes; cross-episode credit weight 0.22
+classes from (restraint after the other restrained / after it did not), thresholds 0.7 / 0.3
+
+starting restraint 0.10; two naive learners end step 0.1: none  step 0.3: none
+  steps shaper 0.3, partner 0.3 | exact credit: shaper conditional (1.00/0.02), partner unconditional (0.94/0.99), shaper return 52.7 | credit 0.22: shaper none (0.02/0.04), partner mixed (0.05/0.90), shaper return 32.1 | trial-batched control: shaper none (0.04/0.11), partner mixed (0.05/0.38), shaper return 21.7
+  steps shaper 0.1, partner 0.3 | exact credit: shaper none (0.02/0.04), partner mixed (0.08/0.99), shaper return 35.0 | credit 0.22: shaper none (0.02/0.05), partner mixed (0.05/0.97), shaper return 34.4 | trial-batched control: shaper none (0.02/0.06), partner mixed (0.05/0.97), shaper return 34.3
+
+starting restraint 0.15; two naive learners end step 0.1: mixed  step 0.3: none
+  steps shaper 0.3, partner 0.3 | exact credit: shaper none (0.01/0.02), partner unconditional (0.95/0.99), shaper return 36.5 | credit 0.22: shaper none (0.00/0.03), partner mixed (0.07/0.98), shaper return 35.1 | trial-batched control: shaper none (0.01/0.03), partner mixed (0.06/0.97), shaper return 34.6
+  steps shaper 0.1, partner 0.3 | exact credit: shaper conditional (1.00/0.03), partner unconditional (0.82/0.99), shaper return 56.0 | credit 0.22: shaper none (0.01/0.06), partner mixed (0.08/0.98), shaper return 35.0 | trial-batched control: shaper none (0.01/0.06), partner mixed (0.07/0.98), shaper return 35.0
+
+starting restraint 0.17; two naive learners end step 0.1: mixed  step 0.3: none
+  steps shaper 0.3, partner 0.3 | exact credit: shaper none (0.00/0.01), partner unconditional (0.90/0.99), shaper return 36.5 | credit 0.22: shaper none (0.00/0.03), partner mixed (0.08/0.98), shaper return 35.2 | trial-batched control: shaper none (0.00/0.03), partner mixed (0.07/0.98), shaper return 34.9
+  steps shaper 0.1, partner 0.3 | exact credit: shaper conditional (0.98/0.03), partner unconditional (0.91/1.00), shaper return 54.7 | credit 0.22: shaper none (0.01/0.07), partner mixed (0.09/0.99), shaper return 35.1 | trial-batched control: shaper none (0.01/0.07), partner mixed (0.08/0.98), shaper return 35.0
+
+starting restraint 0.20; two naive learners end step 0.1: mixed  step 0.3: none
+  steps shaper 0.3, partner 0.3 | exact credit: shaper conditional (1.00/0.00), partner unconditional (0.82/0.99), shaper return 56.0 | credit 0.22: shaper conditional (1.00/0.02), partner unconditional (0.92/0.99), shaper return 53.4 | trial-batched control: shaper none (0.00/0.03), partner mixed (0.08/0.98), shaper return 35.0
+  steps shaper 0.1, partner 0.3 | exact credit: shaper conditional (1.00/0.02), partner unconditional (0.79/0.99), shaper return 55.9 | credit 0.22: shaper conditional (1.00/0.08), partner unconditional (0.97/0.99), shaper return 51.3 | trial-batched control: shaper none (0.01/0.09), partner mixed (0.11/0.99), shaper return 35.1
+
+starting restraint 0.25; two naive learners end step 0.1: unconditional  step 0.3: mixed
+  steps shaper 0.3, partner 0.3 | exact credit: shaper conditional (1.00/0.01), partner unconditional (0.93/0.99), shaper return 53.2 | credit 0.22: shaper mixed (0.04/0.98), partner none (0.01/0.04), shaper return 19.0 | trial-batched control: shaper conditional (1.00/0.03), partner unconditional (0.96/0.99), shaper return 51.9
+  steps shaper 0.1, partner 0.3 | exact credit: shaper conditional (1.00/0.04), partner unconditional (0.84/0.99), shaper return 55.7 | credit 0.22: shaper conditional (1.00/0.12), partner unconditional (0.93/1.00), shaper return 52.8 | trial-batched control: shaper mixed (0.64/0.08), partner unconditional (0.86/0.99), shaper return 59.0

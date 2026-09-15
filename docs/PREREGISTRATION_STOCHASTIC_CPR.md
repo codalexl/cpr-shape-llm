@@ -256,3 +256,74 @@ Thresholds are set against the solver's best response, not at it: a learner that
   - **G3** (shaper restraint in the matched pilot ≥ 0.3, 1 seed): **fail**. Seed 0: 0.007.
   - **G0** (does not gate), `results/dial/g0_preflight.txt`: untrained first-round mix at reset (R=20) is 0.094 / 0.888 / 0.018 on takes 1 / 2 / 3; at R=1 after both requested 1 it is 0.519 / 0.458 / 0.023.
   - Smoke (2 epochs of every arm, plus forced-108) completed with no OOM. Peak in `results/dial/smoke_memory.csv` was 27,751 MiB on a 46,068 MiB L40S.
+- *15 Sep 2026, after the NO GO of 14 September and before any run on the amended design.*
+
+  **Why the gate failed** (`docs/GATE_DIAGNOSIS.md`). At the measured prior, restraint was chosen about 0.03 of the time after round 1.
+  - **G1 and G2.** The random end halved the expected credit for restraint and raised its noise. Detecting restraint's advantage took roughly 40 times (G1) and 4 times (G2) the samples the pond's Test A needed.
+  - **G3.** It could not start: with three takes, restraint did not pay against a partner at the prior.
+
+  The design is amended as follows. The pre-registered design, its configs (commit 8f674be) and its NO GO stay on record.
+
+  1. **Design point.**
+     - Takes 1–2, with tokens `1` and `2`.
+     - A fixed horizon of 50 rounds. There is no round counter and no length in the prompt: the random-end sentence is removed from the rules, and nothing else in the text changes.
+     - Five episodes of five parallel games per trial.
+     - A full pool of 20, rho 0.5 (m = 2) or 0.6 (m = 3), and the same shocks.
+     - The scripted probe restrains or harvests, each with probability 1/2.
+     - `cpr_dial.check_dial_config` accepts only this point. Readouts, classes, thresholds and the decision rules S, T and C are unchanged.
+  2. **Screens of the untrained model.** Run with `scripts/dial_prompt_screens.py` on local MPS; the numbers are in `results/dial/prompt_screens.txt`. G0 on the pod confirms the chosen prompt. Restraint is measured after round 1 unless stated.
+     - **Rewording the previous-round line** (six wordings, digit replies 1–3): restraint is 0.01–0.07 after mutual restraint, and 0.01–0.03 averaged over all histories. *Fails:* the line itself suppresses restraint.
+     - **Letters for takes 1–3:**
+       - R/H/G with names opens on grab (0.69), then repeats its own last move (restraint 0.90–0.96 after its own restraint, whatever the other agent took).
+       - R/H/G with amounts only opens on grab (0.78) and repeats its own grab (0.94–0.96).
+       - With A/B/C and C/B/A the prior follows the letter, not the amount: C draws 0.61 in the first round when it means 3 units and 0.51 when it means 1.
+       - *Fails:* letter bias and self-echo, which the probe classes would read as policy.
+     - **Five or six digit takes** (1–5 and 0–5, pool of 40): the mass sits on 3 and 4, and takes of 2 or less draw 0.01–0.16 after a history line. *Fails* on the prior; 0–5 also restores rescue by abstaining (item 3).
+     - **Two takes:**
+       - C/D draws C 0.78–0.84 without history, and 0.89–1.00 when named cooperate/defect. *Fails:* it starts cooperative, which removes the controls' contrast (item 5).
+       - Digits 1/2 under the amended rules draw restraint 0.32 in the first round and 0.05–0.38 after a history line at stocks 4–20 (mean 0.16). Harvest stays the more likely take, and restraint is not repeated (0.10–0.22 after the model's own restraint). *Chosen.*
+  3. **Solver under the amended design** (`results/dial/design_report_v2.txt`). Best responses are stationary over the fixed horizon, found by coordinate ascent from five starts, so their values are a lower bound.
+     - **m = 2:**
+       - The best expected drift of restrain against harvest is −0.67 a round, and a lone restrainer never keeps the pool (0.00).
+       - Against a best responder, committed harvest earns 31.5 and tit-for-tat 62.5.
+       - A restrained partner is worth 55.1.
+       - T = 75.2 > R = S = 50.0 > P = 17.8, so the payoff degeneracy of Section 2 stands.
+     - **m = 3:** committed harvest earns 90.7 against 78.3 for tit-for-tat, so commitment wins. A lone restrainer keeps the pool 0.80 of the time.
+     - **K = 30:** committed harvest against tit-for-tat is 39.7 against 64.1 at m = 2, and 94.6 against 80.1 at m = 3.
+     - **Wider action sets.** With an abstain action added, committed harvest at m = 2 earns 100.0 with survival 1.00, so take 0 stays out. The 0–5 and 1–5 variants are solved in `results/dial/learnability.txt`.
+     - **The negative control's margin is 12.4 with two takes, not 21.** Across horizons (`results/dial/learnability.txt`):
+       - Commitment fails at m = 2 and wins at m = 3 for every horizon from 30 to 100 rounds.
+       - With two takes, the m = 3 margin peaks at 45 rounds (12.8) and falls to 0.5 by 100 rounds. The m = 2 margin grows with the horizon (31.0 at 50).
+       - 50 rounds is kept. Compared with 45, the m = 2 margin is 5.8 larger for 0.4 less on the control, and learnability and the shaping window are identical at both.
+  4. **Learnability** (`results/dial/learnability.txt`). The figures are epochs to a two-SD restraint signal with five games; the pond's learner took off at three to four times its figure.
+     - G1 needs 7.4, 4.7, 3.4 and 2.8 epochs at restraint priors 0.06, 0.10, 0.15 and 0.20. G2 needs at most 0.7.
+     - Against a partner at the same prior, restraint now pays: +0.01 at 0.06, rising to +0.17 at 0.30. The signal takes 273, 59, 24 and 8 epochs at 0.10, 0.15, 0.20 and 0.30.
+     - With three takes and 10 percent grab it did not pay (−0.01 at 0.10).
+  5. **The I4 gate and the shaping window from the measured prior.**
+     - **I4 toy gate** (`python cpr_dial.py --gate`, starting restraint 0.06 and 0.16).
+       - At m = 2 and 0.06 it separates the classes in all four learner settings: committed harvest none, best fixed rule conditional, learning aware unconditional (gains +9.2 to +12.0).
+       - At 0.16 it separates them in three of four; the reciprocity learner at step 0.3 also ends unconditional under the best fixed rule.
+       - At m = 3, committed harvest still teaches yielding (restraint 0.93–0.99 in the not-rewarded cell).
+     - **Shaping window** (`results/dial/shaping_window.txt`). Two-parameter learners use the trial-level objective, with cross-episode credit attenuated to lambda^50 = 0.22.
+       - From starting restraint 0.10, 0.15 or 0.17, neither the shaper nor its trial-batched control leaves the defection basin.
+       - From 0.20, the shaper ends conditional and its partner unconditional (shaper return 51.3–53.4). The control ends none against a mixed partner (35.0–35.1).
+       - From 0.25, the control also turns its partner unconditional (51.9–59.0), and naive pairs begin to cooperate.
+       - At 45 rounds the thresholds are the same (`results/dial/shaping_window_T45.txt`).
+     - **Where the prior sits.** The measured two-action prior (mean 0.16 after a history line, 0.32 in the first round) is at the lower edge of the window. G3 decides.
+  6. **G3.**
+     - **Run:** shaper-matched against naive at m = 2, one seed, 200 epochs.
+     - **Pass at 100:** over epochs 81–100, the shaper's restraint share is at least 0.3 and pool survival (the pool alive at round 50) is at least 0.5. Training then runs 100 epochs.
+     - **Pass at 200:** otherwise, both conditions hold over epochs 181–200. Training then runs 200 epochs, with ShapeLLM-style and shaper-matched on five seeds and every other arm on three.
+     - **Otherwise it fails.**
+     - G1 and G2 are unchanged: 100 epochs, threshold 0.5.
+     - `scripts/evaluate_dial.py --gate` applies this rule and prints the training length.
+  7. **What the claim can carry.** From a starting restraint near 0.16, the toy gate no longer separates a good fixed rule from learning-aware shaping in every setting.
+     - The clause "could not have produced by playing a good fixed rule" is reported as supported by policy identity only with that qualification.
+     - S itself rests, as its conditions already require, on four contrasts: the trial-batched control, transfer (E1), replay (E2), and the frozen partner (E3 against E4).
+  8. **Budget and timeline.** An epoch costs about 2.3 times the pond's.
+     - The gate takes about 6.4 hours, set by G3.
+     - Training takes about 122 GPU-hours at 100 epochs (38 runs), or about 218 at 200 epochs (34 runs).
+     - E1 and E2 take about 34 GPU-hours; E3, E4 and the probes about 20.
+     - G0, smoke and the gate run on 16 September, training from 17 September, evaluation by 20 or 21 September, and analysis by 22 September.
+     - The pond chapters must be submission-ready by 22 September regardless.
+  9. **Fallback, fixed now.** If G1, G2 or G3 fails on this design, no training starts. The result is reported as a null, with the learnability, shaping-window and screening analyses as the explanation. No further levers are tried after a second failure.
