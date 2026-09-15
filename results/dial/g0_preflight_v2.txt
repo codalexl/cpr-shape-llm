@@ -1,0 +1,31 @@
+Action token check
+  [ok ] '1' -> 235274
+  [ok ] '2' -> 235284
+
+Loading google/gemma-2-2b-it ...
+
+Untrained action distribution (device: cuda)
+  prompt                                    1        2
+  reset (R=20, no history)              0.321    0.679
+  R=20, both requested 1                0.095    0.905
+  R=14, both requested 1                0.148    0.852
+  R=8, both requested 1                 0.165    0.835
+  R=4, both requested 1                 0.182    0.818
+  R=1, both requested 1                 0.531    0.469
+  R=20, both requested 2                0.148    0.852
+  R=14, both requested 2                0.407    0.593
+  R=8, both requested 2                 0.245    0.755
+  R=4, both requested 2                 0.182    0.818
+  R=1, both requested 2                 0.999    0.001
+  R=20, you 1, other 2                  0.245    0.755
+  R=14, you 1, other 2                  0.182    0.818
+  R=8, you 1, other 2                   0.223    0.777
+  R=4, you 1, other 2                   0.165    0.835
+  R=1, you 1, other 2                   0.818    0.182
+  R=20, you 2, other 1                  0.053    0.947
+  R=14, you 2, other 1                  0.182    0.818
+  R=8, you 2, other 1                   0.095    0.905
+  R=4, you 2, other 1                   0.060    0.940
+  R=1, you 2, other 1                   0.998    0.002
+
+Record these numbers before training. Any post-training shift must be read against this baseline, not against a uniform prior.

@@ -337,3 +337,9 @@ Thresholds are set against the solver's best response, not at it: a learner that
      - They count toward S only if both finish training and their probes. ShapeLLM-style is then counted against five seeds.
      - Otherwise S reads its three planned seeds, and a single extra seed is reported descriptively.
      - E1–E4 stay at three seeds either way.
+- *15 Sep 2026, 17:25 UTC, after G0, smoke and the amended gate on pod `zrsa8n4hdbdep2`, commit dda96da.* `python scripts/evaluate_dial.py --gate` printed **NO GO**. No training started. Numbers from `results/dial/gate_v2.json`.
+  - **G1** (learner restraint vs committed harvest ≥ 0.5, most of 3 seeds): **pass**. Seeds 0 / 1 / 2: 0.967 / 0.989 / 0.958 (epochs 81–100).
+  - **G2** (learner restraint after tit-for-tat restrained ≥ 0.5, most of 3 seeds): **pass**. Seeds 0 / 1 / 2: 0.907 / 0.982 / 0.916 (epochs 81–100).
+  - **G3** (shaper restraint ≥ 0.3 and pool survival ≥ 0.5): **fail** at both windows. Seed 0 epochs 81–100: restraint 0.139, survival 0.00. Epochs 181–200: restraint 0.104, survival 0.00. `training_length` is null.
+  - **G0** (does not gate), `results/dial/g0_preflight_v2.txt`: after-history restraint on stocks 4–20 had mean 0.174 (n=16; local screen 0.16). Inside 0.10–0.25, so the gate ran.
+  - Under item 9 of the 15 September amendment, this is the second gate failure. No further levers. The result is reported as a null, with the learnability, shaping-window and screening analyses as the explanation.
