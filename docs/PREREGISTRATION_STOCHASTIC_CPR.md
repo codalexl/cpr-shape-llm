@@ -427,3 +427,13 @@ Thresholds are set against the solver's best response, not at it: a learner that
      - **Otherwise,** no training starts on this design. The pond is the thesis, and the dial is one exploratory chapter, whose evidence is the three logged gate attempts, the learnability bound and the channel measurement.
      - No further lever is tried, and there is no fourth attempt.
   7. **Status of the dial.** It follows two gate failures and an estimator chosen after the second, so every dial result is exploratory, training included. The pond chapters remain the confirmatory study and must be submission-ready by 22 September regardless.
+- *16 Sep 2026, 05:15 UTC, after the third G3 on pod `zrsa8n4hdbdep2`, commit ff6f080.* `python scripts/evaluate_dial.py --gate --out results/dial/gate_v3` printed **GO: training runs 100 epochs**. Numbers from `results/dial/gate_v3/gate.json`.
+  - **G1** (learner restraint vs committed harvest ≥ 0.5, most of 3 seeds): **pass**. Seeds 0 / 1 / 2: 0.967 / 0.989 / 0.958 (epochs 81–100).
+  - **G2** (learner restraint after tit-for-tat restrained ≥ 0.5, most of 3 seeds): **pass**. Seeds 0 / 1 / 2: 0.907 / 0.982 / 0.916 (epochs 81–100).
+  - **G3a** (split-credit shaper restraint ≥ 0.3 and pool survival ≥ 0.5): **pass** over epochs 81–100, so training length is 100. Seed 0 epochs 81–100: restraint 0.582, survival 0.766. Epochs 181–200: restraint 0.676, survival 1.00.
+  - **tbn-matched pilot** (same G3a criterion, does not gate): **pass over epochs 81–100**. Seed 0 epochs 81–100: restraint 0.586, survival 0.772. Epochs 181–200: restraint 0.608, survival 0.98.
+  - **G3b** (reported, does not gate), 800 episode pairs, reading none for all three:
+    - split-credit shaper: r = −0.061 [−0.130, +0.009], partial r = 0.108 [0.038, 0.176];
+    - tbn-matched: r = −0.053 [−0.122, +0.016], partial r = 0.107 [0.038, 0.175];
+    - second G3 (chained GAE): r = −0.016 [−0.085, +0.053], partial r = −0.143 [−0.210, −0.074].
+  - Printed reading: G3a passes; G3b says whether the trial-level objective has a channel to act on. The 2-GPU pod was `podStop`'d (`desiredStatus: EXITED`). Training starts on a 7-GPU pod at 100 epochs; the main verdict still reads only the pre-registered arms.

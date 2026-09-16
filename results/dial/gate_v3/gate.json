@@ -1,0 +1,113 @@
+{
+  "checks": {
+    "G1 (m=3): learner restraint against committed harvest": {
+      "folder": "g1_m3_harvest",
+      "threshold": 0.5,
+      "values": {
+        "0": 0.9672270334521991,
+        "1": 0.9890486257928118,
+        "2": 0.9582613204286208
+      },
+      "verdict": "pass"
+    },
+    "G2 (m=2): learner restraint after tit-for-tat restrained": {
+      "folder": "g2_m2_tft",
+      "threshold": 0.5,
+      "values": {
+        "0": 0.9065956029313791,
+        "1": 0.982250447809803,
+        "2": 0.9158407079646018
+      },
+      "verdict": "pass"
+    },
+    "G3a (m=2): the split-credit shaper learns restraint in the pilot": {
+      "folder": "m2_shaper_matched_split_g3",
+      "threshold": 0.3,
+      "values": {
+        "100": {
+          "0": [
+            0.5824824238366254,
+            0.766
+          ]
+        },
+        "200": {
+          "0": [
+            0.6762,
+            1.0
+          ]
+        }
+      },
+      "verdict": "pass"
+    }
+  },
+  "go": true,
+  "training_length": 100,
+  "reference": {
+    "G3a for the tbn-matched pilot (does not gate)": {
+      "folder": "m2_tbn_matched_g3tbn",
+      "values": {
+        "100": {
+          "0": [
+            0.5859801024018649,
+            0.772
+          ]
+        },
+        "200": {
+          "0": [
+            0.6077345849881655,
+            0.98
+          ]
+        }
+      },
+      "verdict": "pass over epochs 81-100"
+    }
+  },
+  "G3b": {
+    "split-credit shaper pilot": {
+      "folder": "m2_shaper_matched_split_g3",
+      "values": {
+        "0": {
+          "r": -0.060776617330516466,
+          "low": -0.12954629945455334,
+          "high": 0.008574936039163553,
+          "partial": 0.10755454777577865,
+          "partial_low": 0.03848280824796636,
+          "partial_high": 0.17560338751922888,
+          "pairs": 800,
+          "reading": "none"
+        }
+      }
+    },
+    "tbn-matched pilot": {
+      "folder": "m2_tbn_matched_g3tbn",
+      "values": {
+        "0": {
+          "r": -0.05338581712618679,
+          "low": -0.12224886921929207,
+          "high": 0.01598877796551624,
+          "partial": 0.10675655900575583,
+          "partial_low": 0.0376767208676937,
+          "partial_high": 0.1748209118155441,
+          "pairs": 800,
+          "reading": "none"
+        }
+      }
+    },
+    "second G3 (chained GAE)": {
+      "folder": "m2_shaper_matched_g3",
+      "values": {
+        "0": {
+          "r": -0.016174443608818496,
+          "low": -0.08539413420228492,
+          "high": 0.05320063091193024,
+          "partial": -0.14307117700550814,
+          "partial_low": -0.21034270999291815,
+          "partial_high": -0.07445115853293327,
+          "pairs": 800,
+          "reading": "none"
+        }
+      }
+    }
+  },
+  "reading": "G3a passes; G3b says whether the trial-level objective has a channel to act on"
+}
