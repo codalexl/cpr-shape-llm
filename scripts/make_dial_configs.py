@@ -100,6 +100,8 @@ def with_agent2(cfg: dict, shaper: bool, lr: float, slow: bool, trial_batched: b
     if split:  # trial_batching.split_credit
         ppo.update(cross_episode_credit="split", cross_episode_weight=SPLIT_CREDIT_WEIGHT,
                    cross_episode_baseline_trials=SPLIT_BASELINE_TRIALS, episodes_per_trial=int(cfg["game_parameters"]["e_max"]))
+    elif shaper:  # chained credit with terminal values at episode ends (the 21 September fix, trial_batching.episode_terminals)
+        ppo["episode_terminal_values"], ppo["episodes_per_trial"] = True, int(cfg["game_parameters"]["e_max"])
     return cfg
 
 
@@ -113,9 +115,9 @@ def one_learner(naive: dict, partner_from: dict | None = None, **extra) -> dict:
     else:
         cfg["obs_manager_parameters2"] = copy.deepcopy(partner_from["obs_manager_parameters2"])
         ppo = cfg["ppo_agent_parameters2"] = copy.deepcopy(partner_from["ppo_agent_parameters2"])
-        if ppo.pop("cross_episode_credit", None) == "split":  # a frozen shaper takes no update step: no credit keys
-            for key in ("cross_episode_weight", "cross_episode_baseline_trials", "episodes_per_trial"):
-                ppo.pop(key)
+        for key in ("cross_episode_credit", "cross_episode_weight", "cross_episode_baseline_trials",
+                    "episodes_per_trial", "episode_terminal_values"):  # a frozen partner takes no update step: no estimator keys
+            ppo.pop(key, None)
     cfg.update(copy.deepcopy(extra))
     return cfg
 

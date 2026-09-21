@@ -43,9 +43,11 @@ def configs(tmp_path_factory):
 
 TRIAL = {"ppo_agent_parameters2.trial_batched", "ppo_agent_parameters2.episodes_per_trial"}
 TIMESCALE = {"ppo_agent_parameters2.ppo_params.learning_rate", "ppo_agent_parameters2.ppo_params.cliprange"}
-CREDIT = TRIAL | {"obs_manager_parameters2.is_shaper", "ppo_agent_parameters2.is_shaper", "obs_manager_parameters2.transmit_info"}
+TERMINAL = {"ppo_agent_parameters2.episode_terminal_values"}  # the 21 September fix: chained credit, terminal values at episode ends
+CREDIT = {"ppo_agent_parameters2.trial_batched", "obs_manager_parameters2.is_shaper", "ppo_agent_parameters2.is_shaper",
+          "obs_manager_parameters2.transmit_info"} | TERMINAL
 SPLIT = {"ppo_agent_parameters2.cross_episode_credit", "ppo_agent_parameters2.cross_episode_weight",
-         "ppo_agent_parameters2.cross_episode_baseline_trials", "ppo_agent_parameters2.episodes_per_trial"}
+         "ppo_agent_parameters2.cross_episode_baseline_trials"} | TERMINAL
 
 
 def test_every_config_is_a_design_point(configs):

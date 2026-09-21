@@ -618,4 +618,7 @@ def check_dial_config(config: dict) -> str:
                     f"agent {i}: split credit needs a shaper at weight {SPLIT_CREDIT_WEIGHT} with a {SPLIT_BASELINE_TRIALS}-trial baseline"
             else:
                 assert credit == "trial_gae" and "cross_episode_weight" not in ppo, f"agent {i}: unknown or partial cross-episode credit"
+                if ppo.get("is_shaper") and "frozen_partner_adapter" not in config:  # a frozen partner takes no update
+                    assert ppo.get("episode_terminal_values") is True, \
+                        f"agent {i}: a chained-credit shaper must carry episode_terminal_values (the 21 September fix)"
     return DESIGN_RATES[gp["rate_tenths"]]

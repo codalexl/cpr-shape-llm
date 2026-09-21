@@ -46,3 +46,13 @@ def test_split_credit_keeps_what_the_parallel_games_share():
     assert means == [3.0, 0.0] and term == [2.0, 2.0, 0.0, 0.0]
     with pytest.raises(AssertionError):
         split_credit([[1.0], [2.0], [3.0]], [[0], [0], [0]], episodes=2)
+
+
+def test_episode_terminals_mark_the_last_live_step_of_each_episode_and_game():
+    from trial_batching import episode_terminals
+    # two episodes of two rounds, two games; game 1's pool dies after round 1 of episode 0
+    ids = [[0, 1], [0], [0, 1], [0, 1]]
+    term = episode_terminals(ids, episodes=2)
+    #        e0r1: g0 g1 | e0r2: g0 | e1r1: g0 g1 | e1r2: g0 g1
+    assert term == [False, True, True, False, False, True, True]
+    assert sum(term) == 4  # one terminal per (episode, game)

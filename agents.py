@@ -65,6 +65,9 @@ class AgentConfig():
     cross_episode_credit: Optional[str] = "trial_gae"
     cross_episode_weight: Optional[float] = 1.0
     cross_episode_baseline_trials: Optional[int] = 5
+    # Chained credit with terminal values at episode ends (trial_batching.episode_terminals). False reproduces the
+    # estimator of the runs before 21 September 2026, which bootstrapped through the reset into the next episode.
+    episode_terminal_values: Optional[bool] = False
 
 @dataclass
 class EvalAgentConfig():
@@ -147,6 +150,9 @@ class PPOAgent():
         assert self.cross_episode_credit in ("trial_gae", "split"), f"unknown cross_episode_credit {self.cross_episode_credit!r}"
         assert self.cross_episode_credit == "trial_gae" or self.is_shaper, "split cross-episode credit is defined for shapers"
         self._future_history = deque(maxlen=int(getattr(config, "cross_episode_baseline_trials", None) or 5))
+        self.episode_terminal_values = bool(getattr(config, "episode_terminal_values", False))
+        assert not self.episode_terminal_values or (self.is_shaper and self.cross_episode_credit == "trial_gae"), \
+            "episode_terminal_values applies to a shaper with chained (trial_gae) credit"
 
     def tokenize_observation(self, obs: List[str]) -> List[torch.Tensor]:
         """Tokenize observations. returns a List of torch.Tensors as it is the format required by the PPO Trainer"""
@@ -230,6 +236,12 @@ class PPOAgent():
         else:
             from trial_batching import remap_env_ids
             env_ids = remap_env_ids(env_ids)  # no-op for the naive/shaper layouts (ids already 0..n-1)
+        terminal = None
+        if self.is_shaper and self.episode_terminal_values:
+            from trial_batching import episode_terminals
+            terminal = episode_terminals(traj_data.env_ids, self.episodes_per_trial)
+            assert len(terminal) == len(env_ids)
+            print(f"\nagent{self.agent_id} chained credit with terminal values at {sum(terminal)} episode ends")
 
         # Soft NaN-filter can still shrink the batch (e.g. opponent illegal). Skip rather than
         # run score scaling / PPO on a degenerate sample size.
@@ -243,11 +255,13 @@ class PPOAgent():
         self.trainer.config.batch_size = len(query_tensors) # Adjust batch size
         self.trainer.env_ids, self.trainer.n = env_ids, len(set(env_ids)) # Update environment ids for multi-turn advantage calculation
         self.trainer.cross_episode_bonus = None if bonus is None else torch.tensor(bonus, dtype=torch.float32)
+        self.trainer.episode_terminal = None if terminal is None else torch.tensor(terminal, dtype=torch.bool)
 
         try:
             stats = self.trainer.step(query_tensors, response_tensors, rewards) # Update parameters
         finally:
             self.trainer.cross_episode_bonus = None
+            self.trainer.episode_terminal = None
         if self.trainer.track_gradients:
             stats["temp_grads"] = self.trainer.gradient_tracker.temp_grad_norm
         self.n_updates += 1

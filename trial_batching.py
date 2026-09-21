@@ -70,6 +70,25 @@ def split_credit(rewards_by_round: Sequence[Sequence[float]], ids_by_round: Sequ
     return remap_env_ids(ids_out), term, means
 
 
+def episode_terminals(ids_by_round: Sequence[Sequence[int]], episodes: int) -> List[bool]:
+    """Per flattened live step of a shaper's trial: True at the last live step of each (episode, game).
+
+    The executed chained estimator (`cross_episode_credit = "trial_gae"`) bootstrapped the value at those steps from
+    the next live step of the same game, which after a collapse is the first round of the next episode with a fresh
+    pool (review round 5, 21 September). With `episode_terminal_values` the trainer uses v_next = 0 there; the
+    lambda-chain of later advantages still crosses the boundary, so cross-episode credit is kept.
+    """
+    rounds = len(ids_by_round)
+    assert rounds % episodes == 0, f"{rounds} rounds do not split into {episodes} episodes"
+    per = rounds // episodes
+    flat = [(r // per, int(g)) for r, ids in enumerate(ids_by_round) for g in ids]
+    last_index: Dict[Tuple[int, int], int] = {}
+    for i, key in enumerate(flat):
+        last_index[key] = i
+    last = set(last_index.values())
+    return [i in last for i in range(len(flat))]
+
+
 def first_index_by_id(ids: Sequence[int]) -> Dict[int, int]:
     """Opening step of each sequence in a flattened batch (pure twin of training_utils.first_index_by_env_id)."""
     first: Dict[int, int] = {}

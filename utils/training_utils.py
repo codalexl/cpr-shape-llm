@@ -165,6 +165,7 @@ class CustomPPOTrainer(PPOTrainer):
         self.a3_tok = self.legal_tokens[2] if len(self.legal_tokens) > 2 else None
         self.env_ids, self.n = None, None 
         self.cross_episode_bonus = None  # per-step cross-episode term of split shaper credit, set for one step by the agent
+        self.episode_terminal = None  # per-step flag: the environment resets after this step, so v_next = 0 (set for one step by the agent)
         self.track_gradients = track_gradients
         if advantage_norm not in ("whiten", "center", "none"):
             raise ValueError(f"advantage_norm must be whiten, center, or none; got {advantage_norm!r}")
@@ -276,12 +277,16 @@ class CustomPPOTrainer(PPOTrainer):
         advantages = torch.zeros(rewards.shape)
         time_steps = int(rewards.shape[0] / self.n)
 
+        terminal = self.episode_terminal
         for game_id in range(self.n): 
           # Get positions within flattened rewards
           target_positions = torch.where(torch.tensor(self.env_ids) == game_id)[0]
           time_steps = len(target_positions)
           for t in reversed(range(time_steps)): 
-            v_next = values[target_positions[t+1],-1] if t < (time_steps-1) else 0.0 # Extract next values
+            # No bootstrap across an environment reset: at an episode's last live step v_next is 0. The lambda-chain
+            # (adv_next) still crosses the boundary, which is the cross-episode credit of the trial objective.
+            resets = terminal is not None and bool(terminal[target_positions[t]])
+            v_next = values[target_positions[t+1],-1] if (t < (time_steps-1) and not resets) else 0.0 # Extract next values
             delta = rewards[target_positions[t], -1] + self.config.gamma * v_next - values[target_positions[t], -1]
             adv_next = advantages[target_positions[t+1], -1] if t < (time_steps-1) else 0.0
             advantages[target_positions[t], -1] = delta + self.config.gamma * self.config.lam * adv_next
