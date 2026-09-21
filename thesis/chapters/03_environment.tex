@@ -1,327 +1,226 @@
 \chapter{Environment}
 \label{ch:env}
 
-Two environments live in the repository: the logistic game on which
-every training run is executed, and a linear-regrowth fixture kept as the
-test of the harvest, scarcity and absorbing-zero rules.
+% Written 21 September 2026 from analysis/SPINE.md section 3 and docs/DIAL_ARMS.md.
 
-\section{Shared rules (linear and logistic)}
+The experiment needs a game in which a co-player's restraint is worth
+something to a shaper whatever the shaper's own competence, in which no
+player can secure the resource alone, and which is small enough to solve
+exactly so that every quantity an agent is compared against is fixed before
+training.
+This chapter defines that game, solves it, and states the two regimes that
+make one of them a negative control.
+Nothing here is a training result.
 
-Two agents, simultaneous requests \(a_i \in \{0,1,2,3\}\), fixed horizon
-\(T\).
-Reward is units \textbf{received} that step.
-All arithmetic is integer.
-No float reaches a prompt.
+\section{Definition}
+\label{sec:env-def}
 
-Order within a step (\texttt{cpr\_env.py}):
-
-\begin{enumerate}
-\item Both agents request.
-\item If \(a_1+a_2 \le R\): each receives its request;
-  \(R \leftarrow R-(a_1+a_2)\).
-  Else (\textbf{scarcity}): each receives
-  \(\min(a_i, \lfloor R/2 \rfloor)\); remainder wasted; \(R \leftarrow 0\).
-\item If \(R>0\): regenerate, capped at the ceiling.
-  Else: \(R\) stays 0 (\textbf{absorbing zero}).
-\end{enumerate}
-
-Two load-bearing edges, both deliberate:
-
-\begin{itemize}
-\item \textbf{Exact depletion} (\(a_1+a_2=R\)) takes the \emph{normal}
-  branch, drives \(R\) to 0, then absorbing zero kills regeneration.
-  Regenerating before the \(R>0\) check would lose this path.
-\item At \(R=1\), two agents both requesting 1 hit \(\mathrm{cap}=0\),
-  receive nothing, and wipe the last unit.
-  Constant-profile matrices never visit this cell; tests cover it
-  separately.
-\end{itemize}
-
-A training step is \textbf{masked} iff \(R_{\mathrm{start}}=0\) (the pool
-was already dead).
-The collapse step itself is a real decision and is not masked.
-\texttt{collapse\_step} is 1-indexed; \texttt{None}/\(-1\) means the pool
-survived.
-
-Episodes always run the full horizon.
-A dead pool pays 0.
-
-\section{Linear fixture --- \texttt{verify\_cpr.py}, not the live game}
-
-Linear regeneration is \(R \leftarrow \min(C, R+g)\) when
-\texttt{rate\_tenths} is unset.
-\texttt{CPRParams} defaults and \path{verify_cpr.py} use \(R_0=20\),
-\(g=2\), ceiling \(C=20\), \(T=30\).
-\path{tests/test_cpr_env.py} requires \texttt{CPRDynamics} to reproduce
-the 16-cell linear payoff matrix exactly.
-
-Headline linear cells (fixture, not training) are in
-Table~\ref{tab:linear-fixture}.
-
-\begin{table}[ht]
-\centering
-\caption{Linear fixture payoffs (\(R_0=20\), \(g=2\), \(T=30\)).
-  These cells are the harvest/scarcity/absorbing-zero ground truth, not a
-  live training config.}
-\label{tab:linear-fixture}
-\begin{tabular}{lrr}
-\toprule
-Profile & Per-agent return & Collapse \\
-\midrule
-\((1,1)\) & 30 & none \\
-\((2,2)\) & 18 & step 9 \\
-\((3,3)\) & 14 & step 5 \\
-\((2,1)\) temptation & 36 & --- \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\paragraph{Written finding (linear grid).}
-When the opponent harvests exactly the regrowth rate \(g\), the pool's only
-net loss is the learner's own harvest.
-Total extractable stock is pinned near \(R_0\); harvesting fast or slow
-does not change how much there is.
-Against an opponent playing \(g\), the payoff column is degenerate (exactly
-flat at \(g=2\) where the arithmetic divides evenly; near-flat at
-neighbouring \(g\)).
-That is why linear \(R_0=20\) is a dead grid for learning against the
-untrained take-2 prior.
-It remains in the repository as the harvest/scarcity/absorbing-zero
-fixture.
-It is not a live training config.
-The launcher refuses to train a config that lacks \texttt{rate\_tenths} or
-that is logistic but not the locked point below.
-
-\section{Live lock --- logistic chicken}
-
-Live training (\texttt{LOGISTIC} in \texttt{cpr\_env.py}; all
-\texttt{configs/cpr\_*.json}):
-\[
-R_0=8,\quad K=40,\quad T=36,\quad \texttt{rate\_tenths}=9.
-\]
-Those integers are a method fact, not a literature calibration.
-The regeneration law and its stochastic form are placed against the
-fisheries models of Schaefer, Reed and Sethi et al.\ in
-Appendix~\ref{app:binomial}; none of them is a source of \((8,40,36,9)\).
-
-The live game is the finite-horizon Markov game
-\(\mathcal{G}=(\mathcal{S},\mathcal{A},P,c,T,R_0)\) with
-\(\mathcal{S}=\{0,\dots,K\}\), \(\mathcal{A}=\{0,1,2,3\}\),
-\(R_1=R_0\).
-Writing \(A_t=a_{1,t}+a_{2,t}\), receipts and post-harvest stock are
+Two players share an integer stock and act simultaneously for a fixed
+horizon of \(T=50\) rounds.
+The game is the finite Markov game
+\(\mathcal{G}=(\mathcal{S},\mathcal{A},P,c,T,R_1)\) with
+\(\mathcal{S}=\{0,\dots,K\}\), \(K=20\), \(\mathcal{A}=\{1,2\}\) and
+\(R_1=K\): every episode starts with a full pool.
+Writing \(A_t=a_{1,t}+a_{2,t}\) for the joint request, receipts and the
+post-harvest stock are
 \begin{equation}
-  (c_{1,t}, c_{2,t}, \tilde{R}_t) =
+  (c_{1,t},c_{2,t},\tilde{R}_t)=
   \begin{cases}
-    \bigl(a_{1,t},\, a_{2,t},\, R_t-A_t\bigr) & A_t \le R_t, \\[2pt]
+    (a_{1,t},\,a_{2,t},\,R_t-A_t) & A_t\le R_t,\\[2pt]
     \bigl(\min(a_{1,t},\lfloor R_t/2\rfloor),\,
-          \min(a_{2,t},\lfloor R_t/2\rfloor),\, 0\bigr) & A_t > R_t.
+          \min(a_{2,t},\lfloor R_t/2\rfloor),\,0\bigr) & A_t>R_t,
   \end{cases}
-  \label{eq:harvest}
+  \label{eq:dial-harvest}
 \end{equation}
-Growth after a strictly positive post-harvest stock is the rounded
-logistic surplus-production increment of Schaefer \cite{schaefer1954},
-scaled by a multiplier \(\xi_t\); an empty pool is absorbing:
-\begin{align}
-  R_{t+1}
-  &=
+so a joint request the stock cannot meet empties it and wastes the
+remainder.
+A strictly positive post-harvest stock regrows by the rounded logistic
+increment, scaled by a multiplicative shock, and an empty pool is absorbing:
+\begin{equation}
+  R_{t+1}=
   \begin{cases}
-    \min\bigl(K,\, \tilde{R}_t + g(\tilde{R}_t;\xi_t)\bigr)
-      & \tilde{R}_t > 0, \\
-    0 & \tilde{R}_t = 0,
+    \min\bigl(K,\ \tilde{R}_t+g(\tilde{R}_t;\xi_t)\bigr) & \tilde{R}_t>0,\\
+    0 & \tilde{R}_t=0,
   \end{cases}
-  \label{eq:regen} \\
-  g(R;\xi)
-  &=
-  \mathrm{round\_half\_even}\bigl(\xi\,\rho\, R\,(K-R)/K\bigr).
-  \label{eq:growth}
-\end{align}
-In code the argument is the exact rational
-\(\texttt{rate\_tenths}\cdot\texttt{xi\_tenths}\cdot R\cdot(K-R)/(100K)\).
-Stage~A is \(\xi_t\equiv 1\) (\(\texttt{xi\_tenths}=10\)), bit-identical
-to the formula without \(\xi\).
-Stage~B draws \(\xi_t\) i.i.d.\ uniform on \(\{0.7,1.0,1.3\}\), common
-to both players within a game, never applied at \(\tilde{R}_t=0\).
-Player \(i\)'s return is the undiscounted sum of receipts,
-\begin{equation}
-  G_i=\sum_{t=1}^{T} c_{i,t}.
-  \label{eq:return}
-\end{equation}
-The collapse round is the first round after which the pool is empty, and
-survival is the event that no such round falls within the horizon:
-\begin{equation}
-  \tau=\min\{\,t:\tilde{R}_t=0\,\},
   \qquad
-  S=\mathbb{1}[\tau>T],
-  \label{eq:collapse}
+  g(R;\xi)=\operatorname{round}\Bigl(\xi\,\rho\,\frac{R(K-R)}{K}\Bigr),
+  \label{eq:dial-growth}
 \end{equation}
-with \(\tau=\infty\) if the pool never empties.
-Because \(g\ge 0\) and \(\xi_t\ge 0\), the stock falls only through
-harvest, so collapse is always a consequence of the players' requests.
-Rate is stored as tenths (\(9 \to 0.9\)) so every reported quantity is an
-integer or a \texttt{Fraction}.
-Python binary float \(\texttt{round}(\mathrm{rate}\cdot R\cdot(1-R/K))\)
-disagrees at 27 \((K,R,\mathrm{rate})\) triples on this grid; training does
-not use that float.
-Growth is zero at \(R=0\) and \(R=K\).
-At this lock, there are \textbf{no} interior freeze stocks
-(\(\texttt{zero\_growth\_stocks}(40, 9) = ()\)); \(R=1\) still grows by 1.
-At low rates (for example \(0.2\) at \(K=40\)) rounding produces
-interior stocks with zero growth, a logistic analogue of the cap-0 trap;
-the rate was chosen so that none exists.
+with half-even rounding and \(\xi_t\) drawn independently each round from
+\(\{0.7,1.0,1.3\}\), equally likely, shared by both players and taken from a
+per-seed table that every arm reuses.
+In code the argument is an exact rational, so no floating-point value
+reaches a prompt or a record.
+Player \(i\)'s return is \(G_i=\sum_{t=1}^{T}c_{i,t}\), and an episode
+\emph{survives} if the pool is non-empty when the horizon is reached.
+A round is masked only if the pool was already empty at its start; the
+collapse round itself is a real decision and is scored.
 
-A policy \(\pi_i\) maps the player's observable history to a distribution
-over \(\mathcal{A}\).
-The constant policies \(\pi_i\equiv k\), \(k\in\mathcal{A}\), induce a
-\(4\times 4\) matrix of returns and collapse rounds,
-\(M(k_1,k_2)=(G_1,G_2,\tau)\), which is the empirical payoff matrix of
-Leibo et al.\ \cite{leibo2017} restricted to constant strategies;
-Table~\ref{tab:chicken} reports its relevant cells.
-Under this reduction the game is \textbf{chicken, not prisoner's
-dilemma}: \((1,1)\) lives and \((2,2)\) dies, the asymmetric profiles
-\((2,1)\) and \((1,2)\) are the strict pure equilibria and \((1,1)\) is
-not one, with the degenerate feature that the dove's return is \(36\)
-whether or not it is exploited.
-ShapeLLM already evaluates iterated chicken
-\cite{garciasegura2025,rapoport1966}.
-Mutual take-1 is not the joint optimum: one round of \((0,0)\) then
-mutual 3 forever returns 105 each, with a fixed point at \(R=14\).
-\(R_0=8\) is one unit below the mutual-2 survival threshold \(R=9\).
+\paragraph{The shock.}
+The multiplier is a bounded, mean-one, three-point discretisation of
+per-unit stochastic regrowth: if each unit of surviving stock recruits
+independently, the increment is binomial with the logistic term of
+\eqref{eq:dial-growth} as its mean, and the multiplier approximates its
+spread while keeping the state space finite and the dynamic programme exact.
+The level of \(\pm 30\) per cent is inherited from the predecessor design
+(Section~\ref{sec:env-pond}), where it was the largest symmetric
+three-point spread that left the constant-play cells unchanged.
+In the terms of Reed \cite{reed1979} and Sethi et al.\ \cite{sethi2005}
+this is growth uncertainty alone: both players observe the stock and both
+requests exactly, and the shock is never applied to an empty pool.
+
+\paragraph{The dial.}
+One parameter separates two regimes: \(\rho\), stored as
+\texttt{rate\_tenths} 5 or 6.
+Write \(m\) for the peak integer growth at \(\xi=1\), which is 2 at
+\(\rho=0.5\) and 3 at \(\rho=0.6\).
+Nothing else differs between them --- prompts, tokens, horizon, stock,
+shock table and every hyperparameter are identical --- so a contrast between
+regimes isolates the growth rate.
+
+\paragraph{No abstain action.}
+The action set is \(\{1,2\}\) and there is no take-0.
+With an abstain action available, committed harvest at \(m=2\) earns 100.0
+with survival 1.00, because one player can keep the pool alive by taking
+nothing; that restores exactly the escape this design exists to remove.
 
 \begin{table}[ht]
-\centering
-\caption{Constant-action payoffs on the locked logistic CPR.
-  This is a reduction, not the sequential optimum.}
-\label{tab:chicken}
-\begin{tabular}{lrl}
+\centering\small
+\caption{The live design point, accepted by \texttt{cpr\_dial.check\_dial\_config}
+  and by no other configuration.}
+\label{tab:dial-lock}
+\begin{tabular}{ll}
 \toprule
-Constant pair & Learner return & Lives? \\
+Quantity & Value \\
 \midrule
-\((1,1)\) & 36 & yes \\
-\((2,2)\) & 7 & no --- dies at round 4 \\
-\((2,1)\) hawk vs dove & 72 & yes \\
-\((3,3)\) & 5 & no --- dies at round 2 \\
+Players, actions & two; take 1 or 2 (tokens \texttt{235274}, \texttt{235284}) \\
+Stock & starts at 20, capacity 20 \\
+Horizon & 50 rounds; no round counter and no length in the prompt \\
+Trial & 5 episodes \(\times\) 5 parallel games \\
+Growth & \(\rho=0.5\) (\(m=2\)) or \(0.6\) (\(m=3\)) \\
+Shock & \(\xi\in\{0.7,1.0,1.3\}\), i.i.d., shared, per-seed table \\
+Empty pool & absorbing \\
+Reward & units received that round \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Against a fixed opponent \(\sigma\), the optimal value satisfies the
-Bellman equation
+\section{Exact solution}
+\label{sec:env-solution}
+
+The state space is 21 stocks by 50 rounds with three shocks per transition,
+so values are computed exactly by backward induction rather than estimated
+by simulation (\texttt{cpr\_dial.py}).
+Against a fixed partner policy the value of the optimal reply satisfies
 \begin{equation}
-  V^{\sigma}(R,t)
-  =
-  \max_{a\in\mathcal{A}}
-  \Bigl\{
-    c_1\bigl(R,a,\sigma(R,t)\bigr)
-    + \mathbb{E}_{\xi}\bigl[V^{\sigma}(R',t+1)\bigr]
-  \Bigr\},
+  V^{\sigma}(R,t)=\max_{a\in\mathcal{A}}
+  \Bigl\{c_1\bigl(R,a,\sigma(R,t)\bigr)
+    +\mathbb{E}_{\xi}\bigl[V^{\sigma}(R',t+1)\bigr]\Bigr\},
   \qquad V^{\sigma}(\cdot,T+1)=0,
-  \label{eq:bellman-br}
+  \label{eq:dial-bellman}
 \end{equation}
-with \(R'\) given by \eqref{eq:harvest}--\eqref{eq:growth}, and the value
-of each opening action is
-\begin{equation}
-  Q^{\sigma}_{\mathrm{open}}(a)
-  =
-  c_1\bigl(R_0,a,\sigma(R_0,1)\bigr)
-  + \mathbb{E}_{\xi}\bigl[V^{\sigma}(R',2)\bigr].
-  \label{eq:q-open}
-\end{equation}
-Against the frozen hawk \(\sigma\equiv 2\) this gives
-\(Q=(105,104,102,6)\) in Stage~A and
-\((102.5, 101.7, 99.1, 91.1)\) in Stage~B for openings \(0,1,2,3\).
-The largest achievable joint return satisfies the two-action Bellman
-equation
-\begin{equation}
-  W^{*}(R,t)
-  =
-  \max_{(a_1,a_2)\in\mathcal{A}^2}
-  \Bigl\{
-    c_1+c_2+\mathbb{E}_{\xi}\bigl[W^{*}(R',t+1)\bigr]
-  \Bigr\},
-  \qquad
-  W^{*}:=W^{*}(R_0,1),
-  \label{eq:bellman-joint}
-\end{equation}
-attained in Stage~A by one round of \((0,0)\) then \((3,3)\) at the
-fixed point \(R=14\), for \(105\) per player (\(W^{*}=210\)).
-Under Stage~B \(W^{*}=207.1\); restricting both players to the same
-action in every round gives the symmetric optimum \(206.6\), or
-\(103.3\) per player, which is the value reported in the Stage~B tables.
-Since the state space has 41 stocks, 36 rounds and at most three draws,
-\eqref{eq:bellman-br} and \eqref{eq:bellman-joint} are solved exactly by
-backward induction; \texttt{python cpr\_xi.py} prints every
-dynamic-programming number in this report and
-\texttt{tests/test\_cpr\_xi.py} pins them.
+with \(R'\) given by \eqref{eq:dial-harvest}--\eqref{eq:dial-growth}.
+Best responses within the stationary class are found by coordinate ascent
+from five starts, so the values reported for them are lower bounds on what a
+stationary policy can achieve, which is the direction that matters: they
+understate rather than overstate what an agent could have done.
+\texttt{tests/test\_cpr\_dial.py} pins every number below.
 
-For any pair of policies the outcome is summarised by the three social
-metrics of P\'erolat et al.\ \cite{perolat2017}, normalised against the
-exact optimum rather than left as raw counts:
-\begin{equation}
-  \begin{aligned}
-  \text{sustainability}&=\Pr(S=1),
-  &\quad
-  \text{efficiency}&=\frac{\mathbb{E}[G_1+G_2]}{W^{*}},
-  \\[2pt]
-  \text{equality}&=1-\frac{\mathbb{E}\,|G_1-G_2|}{\mathbb{E}[G_1+G_2]}.
-  \end{aligned}
-  \label{eq:metrics}
-\end{equation}
-Survival \(\hat{S}\) and mean return \(\hat{G}_i\) in
-Chapters~\ref{ch:design} and~\ref{ch:results} are the sample versions of
-the first two; equality is read off the per-agent returns.
+\section{Why this lock can host the question}
+\label{sec:env-invariants}
 
-Opening 1 then 2 forever returns 71 at the \(R=9\) fixed point
-(Figure~\ref{fig:farm}).
-Opening 2 then remaining on 2 dies at round 4 (return 7).
-Opening 0 versus always-2 moves stock \(8\to 11\) in Stage~A, not onto
-that fixed point.
-Under Stage~B a first \((0,2)\) or \((1,1)\) lands in \(\{9,11,12\}\)
-and a first \((1,2)\) lands in \(\{8,9,10\}\); constant take-2 thereafter
-survives with probability \(0.80\) from the first set and \(0.40\) from
-the second (learner returns \(58.3\) and \(34.7\)).
-The untrained prior sits on 2 (Chapter~\ref{ch:method}).
-Leave-2 (first action not 2) is the experimental statistic for that
-prior-dominated class; 0 and 1 are not the same basin.
+\paragraph{I2, no unilateral salvation \((m=2)\).}
+The best expected drift of restraint against a harvesting partner is
+\(-0.67\) units a round, and a lone restrainer never reaches the horizon
+with a live pool (survival 0.00).
+Restraint pays only if it is sustained by both players.
 
-\begin{figure}[ht]
-\centering
-\begin{tikzpicture}[
-  box/.style={draw, rounded corners=2pt, align=center, inner sep=6pt,
-    font=\small, minimum width=3.4cm},
-  arr/.style={-{Latex}, thick},
-]
-\node[box] (r8) {Stock \(R=8\)\\opening};
-\node[box, right=1.6cm of r8] (open) {Learner 1,\\partner 2};
-\node[box, right=1.6cm of open] (r9) {Stock \(R=9\)\\fixed point};
-\node[box, below=1.1cm of r9] (farm) {Mutual 2\\farms the horizon};
-\draw[arr] (r8) -- (open);
-\draw[arr] (open) -- node[above, font=\scriptsize] {\(8\to 9\)} (r9);
-\draw[arr] (r9) -- (farm);
-\end{tikzpicture}
-\caption{Basin switch at the opening against a frozen hawk.
-  A first-step take of 1 against take-2 moves stock \(8\to 9\).
-  At \(R=9\), mutual take-2 is a fixed point and the rest of the horizon
-  can be farmed.
-  Open 0 against take-2 goes \(8\to 11\), not onto that fixed point.
-  A tape of later 2s after open-1 is therefore not evidence of a 36-step
-  dove policy.}
-\label{fig:farm}
-\end{figure}
+\paragraph{I3, commitment fails \((m=2)\).}
+Against a best-responding partner, committed harvest earns 31.5 while
+tit-for-tat earns 62.5.
+A restrained partner is worth 55.1 units to a best responder, and that
+figure does not depend on the shaper first learning to manage the stock,
+because no policy can manage it alone.
 
-\section{Observation surface (prompts)}
+\paragraph{Payoff degeneracy, stated as a property.}
+Exploiting an always-restrainer earns 75.2 while the restrainer still earns
+50.0, the value of mutual restraint; mutual harvest earns 17.8.
+In one-shot terms \(T=75.2>R=S=50.0>P=17.8\), so a restrainer pays nothing
+for being exploited.
+Restraint is therefore cheap for the co-learner and does not by itself
+discriminate shaping, which is why the readout of Chapter~\ref{ch:method} is
+the shape of the acquired policy and not the amount of restraint.
 
-\texttt{CPRObservationManager} renders every prompt from structured state.
-It never parses a previous prompt string.
-Reset observations are
-\texttt{game\_description + instruction\_prompt} (rules, Gemma turn tags,
-initial resource line at \(R_0\), ``Reply with only one number'').
-Subsequent steps add the current resource and a previous-round line that
-reports \textbf{requests and receipts} separately, so scarcity is visible.
-The shaper, if \texttt{transmit\_info}, also sees joint-request counts and
-episode summaries that survive episode boundaries inside a trial and clear
-at trial start.
-Naive learners reset every episode.
-Parallel games render independently.
+\paragraph{\(m=3\), the negative control.}
+At the higher growth rate both invariants fail: committed harvest earns 90.7
+against tit-for-tat's 78.3, so commitment wins, and a lone restrainer keeps
+the pool 0.80 of the time.
+An exploitative asymmetry there is what commitment predicts, which is what
+makes the regime a control rather than a second experiment
+(Chapter~\ref{ch:design}, decision C).
 
-Integer resource levels only.
-Action strings \texttt{"0"}--\texttt{"3"}.
+\paragraph{What the toy gate adds.}
+A two-parameter learner played against three scripted partners --- committed
+harvest, the best fixed rule, and a learning-aware schedule --- ends in three
+different policy classes at \(m=2\).
+That licenses reading policy identity as the primary outcome.
+It does not predict that PPO on LoRA adapters will find the learning-aware
+schedule, which is the experiment.
+
+\section{What the agents read}
+\label{sec:env-prompt}
+
+Both seats receive the same rules string, rendered from structured state;
+no prompt is ever parsed from a previous prompt.
+The horizon is never stated and there is no round counter, so a stationary
+policy conditioned on the stock and the previous round is expressible.
+At the start of an episode:
+
+\begin{quote}\small
+\begin{verbatim}
+You are interacting with another agent. Each round you choose how many
+units to take from a shared resource (1 or 2). You receive exactly the
+number of units you successfully take. If the two requests together
+exceed the resource, both of you are cut back and the remainder is lost.
+After each round the resource regrows by an amount that varies by up to
+30 percent from round to round, but once it reaches zero it never
+recovers. Your goal is to maximise the total units you collect.
+Current resource level: 20.
+Reply with only one number: 1 or 2.
+\end{verbatim}
+\end{quote}
+
+From the second round a previous-round line reports requests and receipts
+separately, so scarcity is visible:
+
+\begin{quote}\small
+\begin{verbatim}
+Current resource level: 14.
+In the previous round you requested 1 and received 1; the other agent
+requested 2 and received 2.
+\end{verbatim}
+\end{quote}
+
+The rules state that regrowth varies but not the law that governs it, so an
+agent must infer the dynamics from its trajectory.
+One arm removes the previous-round line from both seats, and one gives
+agent~2 two further lines that persist across episodes within a trial: the
+joint-request counts so far, and a one-line summary of each finished
+episode.
+Those are the only prompt differences in the experiment
+(Chapter~\ref{ch:design}).
+
+\section{The predecessor design, and why it was replaced}
+\label{sec:env-pond}
+
+The project began on a larger stock of the same integer family
+(\(R_0=8\), \(K=40\), \(T=36\), \(\rho=0.9\), takes 0--3).
+That lock cannot host the question.
+Regrowth there peaks at nine units a round against a joint harvest of at
+most six, so an agent that manages the stock keeps it alive against almost
+any partner: a restrained partner is worth 2.0 units to a best responder
+from the starting stock and 0.0 from a full one.
+One restraint rescues a falling pool, so a slow partner and a shaper that
+never restrains produce the same outcome, and any measured stake is a
+measure of the shaper's own incompetence.
+The design above removes each of those escapes by construction.

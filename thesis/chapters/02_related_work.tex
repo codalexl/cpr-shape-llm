@@ -1,172 +1,157 @@
 \chapter{Related work}
 \label{ch:lit}
 
-This chapter places the thesis in three literatures: opponent shaping,
-from differentiable to model-free to prompt-based; language-model agents
-in social dilemmas and commons; and the renewable-resource economics
-that supplies the regeneration model.
-The gap it identifies is precise: no published work trains a
-language-model shaper against an independently learning language-model
-partner on a resource stock, and none studies stochastic regeneration
-as the quantity that decides whether shaping has anything to buy.
+% Written 21 September 2026 from analysis/SPINE.md section 2.
+% TODO(lit): two citations are wanted and are not yet in refs.bib. Section 2.1 should cite the
+% two-timescale / Stackelberg learning-dynamics literature (Fiez, Chasnov and Ratliff 2020; Borkar
+% 1997) and Section 2.4 the commitment argument in Chicken (Schelling 1960). Add them only after the
+% usual verification; the text below stands without them.
 
-\section{Opponent shaping: from gradients to prompts}
+This chapter places the thesis in three literatures: opponent shaping, from
+differentiable methods to prompt-based ones; language-model agents in social
+dilemmas and commons; and the resource economics the environment is drawn
+from.
+The gap it identifies is not a combination of attributes that no one has
+tried.
+It is an identification problem: published evidence that a shaping objective
+changed a co-player's learning comes from comparisons in which the shaper
+also learns on a different timescale, and in the games used, that difference
+predicts the same outcome.
+
+\section{Opponent shaping}
+\label{sec:lit-shaping}
 
 Foerster et al.\ \cite{foerster2018} introduce opponent shaping: an agent
-differentiates through the co-player's anticipated naive gradient step.
-The method is white-box and one-step; LLM co-players have neither accessible
-parameters nor a known learning rule, so that channel is closed.
+differentiates through its co-player's anticipated learning step.
+The method is white-box and one-step.
+Language-model co-players have neither accessible parameters nor a known
+learning rule, so that channel is closed.
 
-Lu et al.\ \cite{lu2022} recast shaping as model-free RL in a meta-game:
-meta-step equals one inner episode, meta-action equals the shaper's next
-inner policy, meta-reward equals inner return.
-That is the template ShapeLLM instantiates in prompts.
-Khan et al.\ \cite{khan2024} scale the same meta-game to long-horizon
-gridworlds and split memory into \textbf{history} (intra-episode) and
-\textbf{context} (inter-episode).
-Both are necessary for shaping in their ablations.
-They also warn that CoinGame leaks past actions through current state, so a
-memoryless agent can look as if it shapes.
-A scalar CPR stock is itself a statistic of past harvests, so a shaping
-claim on this environment needs a control in which the partner has the
-same information but not the shaping objective; the info-off arm of
-Chapter~\ref{ch:design} is that control.
+Lu et al.\ \cite{lu2022} recast shaping as model-free reinforcement learning
+in a meta-game: a meta-step is an inner episode, the meta-action is the
+shaper's next inner policy, and the meta-reward is the inner return.
+Khan et al.\ \cite{khan2024} scale the same construction to long-horizon
+gridworlds and separate two kinds of memory, history within an episode and
+context across episodes, finding both necessary.
+They also warn that in CoinGame the current state leaks past actions, so an
+agent can appear to shape without conditioning on anything across episodes.
+A resource stock is itself a statistic of past harvests, so the same warning
+applies here, and it is why one arm removes the previous-round line and
+another removes the trial-memory prompt (Chapter~\ref{ch:design}).
 
-Garcia Segura, Hailes and Musolesi \cite{garciasegura2025} adapt model-free
-opponent shaping to LLM agents: Gemma-2-2b-it, one action token, trial-level
-PPO for the shaper, episode-level PPO for the naive learner, interaction
-only.
-History is the last joint action; context is cross-episode state-visitation
-counts in the prompt.
-They evaluate five iterated \(2\times 2\) games (deterministic payoffs).
-One of those is the Iterated Chicken Game (Swerve/Go); ShapeLLM cites
-Rapoport and Chammah \cite{rapoport1966} for that class (body paywalled;
-cited here via ShapeLLM and the journal record).
-The live CPR lock is the same payoff \emph{class} --- chicken, not
-prisoner's dilemma --- so chicken is already on the keep list.
-This thesis reuses that stack, with permission, on a sequential CPR, and
-asks whether the objective steers a learning partner there; that is the
-question of Chapter~\ref{ch:results}, not a premise of this chapter.
+Both of those meta-game methods evaluate a shaper by freezing it and
+training a fresh co-player against it.
+That test is adopted here as E1 (Chapter~\ref{ch:method}); it is not part of
+the evaluation in the language-model work below, which replays the
+co-trained pair.
 
-\section{LLM agents in dilemmas and commons}
+Garc\'ia Segura et al.\ \cite{garciasegura2025} adapt model-free opponent
+shaping to language-model agents.
+A shaper and a naive learner, both Gemma-2-2b-it with LoRA adapters, play
+five repeated \(2\times2\) games through prompts; the shaper updates once per
+trial on the trial's return while the naive learner updates after every
+episode.
+The reported evidence is average reward per step and the visitation of
+joint-action cells, and in the iterated Chicken game the shaper reaches an
+exploitative asymmetry.
+Two features of that comparison matter here.
+The shaper's learning rate is an order of magnitude below its co-player's
+and it takes one update where the co-player takes five, so the two agents
+differ in three respects at once; and the paper's shaping control enriches
+the naive learner's observations rather than matching the shaper's schedule.
+In games where commitment pays, a slower learner is closer to a committed
+player, so the timescale difference alone predicts an exploitative
+asymmetry.
+Distinguishing the two explanations requires a control that holds learning
+rate, clip, batch and update schedule fixed and removes only the
+cross-episode objective; that control is the trial-batched arm of
+Chapter~\ref{ch:design}, and it is the methodological contribution of this
+thesis.
 
-Akata et al.\ \cite{akata2025} characterise \emph{frozen} LLMs across 144
-structurally distinct \(2\times 2\) games.
-GPT-4 is unforgiving in the iterated prisoner's dilemma and fails to act on
-conventions it can predict.
-Opponents are scripts or other frozen models: nobody learns, nobody shapes.
-Their priors are letter-token \(2\times 2\) games, not a digit/harvest-token
-prior.
+Duque et al.\ \cite{duque2025} collapse shaping into a policy-gradient term
+that multiplies own and opponent advantages, and evaluate it on domains that
+include a spatial commons with probabilistic regrowth; a later application
+\cite{duque2026} places the same method in a climate-investment simulator.
+Both assume observable opponent advantages, which the prompt-only regime
+does not provide, and both train in symmetric self-play rather than against
+an independent learner.
+Piche et al.\ \cite{piche2025} train language-model agents with advantage
+alignment in self-play on social dilemmas, and use group-relative common
+random numbers to reduce variance; the paired noise tables used for
+measurement here are that device, not that training method.
 
-Tennant, Hailes and Musolesi \cite{tennant2025} apply intrinsic-reward PPO
-(Deontological/Utilitarian) to Gemma-2-2b-it on iterated prisoner's dilemma;
-that is interventional moral alignment of the trained agent's own reward,
-not opponent shaping, and not a CPR result.
+\section{Language-model agents in dilemmas and commons}
+\label{sec:lit-llm}
 
-Piatti et al.\ \cite{piatti2024} put frozen LLM societies on a shared stock
-that \textbf{doubles} each month (\(g=2\)), capped at 100, over \(T=12\).
-All but the strongest models collapse the resource; communication and a
-hand-written universalisation prompt are the load-bearing interventions when
-survival occurs.
-Agents do not fine-tune.
-Regeneration is piecewise doubling, not the live logistic lock.
-GovSim's own limitations name shocks to regeneration as missing realism;
-Stage~B of this thesis supplies one, on a solvable stock.
+Akata et al.\ \cite{akata2025} characterise frozen language models across
+structurally distinct \(2\times2\) games: no agent learns, so no agent
+shapes.
+Tennant et al.\ \cite{tennant2025} train Gemma-2-2b-it with intrinsic moral
+rewards on the iterated prisoner's dilemma, which modifies the trained
+agent's own objective rather than its co-player's learning.
 
-P{\'e}rolat et al.\ \cite{perolat2017} is the multi-agent RL commons this
-thesis is a reduction of: twelve independent DQNs on a gridworld harvest
-apples whose respawn probability rises with the number of apples nearby
-and is zero when none remain, so a patch can be permanently depleted.
-Sustainability, when it appears, arrives through \textbf{exclusion}
-(tagging and territory).
-The environment of Chapter~\ref{ch:env} is the two-player mean-field
-reduction of that process: the logistic increment is the expectation of
-the per-unit respawn (Appendix~\ref{app:binomial}), the stock is a single
-scalar, and the exclusion mechanism is removed on purpose, so that the
-harvest decision is the only decision and the game can be solved exactly.
-The sustainability, efficiency and equality metrics of that paper are the
-outcome metrics of Chapter~\ref{ch:results}, normalised against the exact
-optimum.
+Piatti et al.\ \cite{piatti2024} place societies of frozen language models
+on a shared stock that regrows by doubling, and find that most models
+collapse it; communication and a universalisation prompt are the
+interventions that prevent collapse.
+No agent is fine-tuned, and the regeneration law is not the logistic one
+used here.
+That study is the closest existing statement about language models and a
+commons, and it concerns prompting a frozen model rather than training one
+against a co-learner.
 
-\section{Shaping, sustainability, and noise as background}
+P\'erolat et al.\ \cite{perolat2017} study a spatial commons with twelve
+independent learners, where sustainability arrives through exclusion:
+tagging and territory.
+The environment here removes exclusion deliberately so that the harvest
+decision is the only decision and the game can be solved exactly.
+Their sustainability, efficiency and equality metrics are reported in
+Chapter~\ref{ch:results} as outcomes, not as evidence about the objective;
+Chapter~\ref{ch:method} explains why they cannot discriminate shaping in
+this game.
+Leibo et al.\ \cite{leibo2017} give the empirical-payoff-matrix reduction
+that Chapter~\ref{ch:env} applies to constant strategies.
 
-Duque et al.\ \cite{duque2025} collapse opponent shaping into a
-policy-gradient term that multiplies own and opponent advantages.
-They evaluate, among other domains, Melting Pot's Commons Harvest Open: a
-seven-agent spatial commons whose apples regrow \emph{probabilistically}.
-That result \textbf{blocks} any sentence of the form ``first opponent
-shaping under noise.''
-What it does not do: treat noise as the object of study, run noise-level
-ablations, or measure asymmetric steering of an independent learner.
-Agents are RL policies in symmetric self-play; opponent advantages are
-assumed observable --- unavailable in the ShapeLLM (prompt-only) regime.
+\section{Resource dynamics}
+\label{sec:lit-cpr}
 
-Duque et al.\ \cite{duque2026} apply Advantage Alignment to a
-climate-investment simulator whose harmful events are independent
-Bernoullis.
-Opponent shaping \(\times\) sustainability is not an empty niche.
-Stochasticity there is background risk for an equilibrium analysis (the
-paper studies an unseeded setting).
-There are no noise ablations aimed at the shaping-signal/noise confound, and
-no LLM / in-context shaper.
-
-Piche et al.\ \cite{piche2025} is the closest LLM competitor: Advantage
-Alignment in self-play (same LoRA-tuned model, role-conditioned) on social
-dilemmas.
-Naive multi-agent GRPO erodes cooperative priors; AdAlign yields
-reciprocity.
-Training is \textbf{symmetric}.
-There is no shaper-versus-independent-learner condition and no resource
-stock.
-Their group-relative common-random-number batches are prior art for variance
-reduction in LLM RL.
-Stage~B uses paired \(\xi\) tables as a variance-reduction device
-(identical draws across arms); that is a measurement design, not Piche's
-training baseline.
-
-\section{Renewable-resource economics}
-
-The regeneration law is the logistic surplus-production model of Schaefer
-\cite{schaefer1954}, the standard single-stock model of fisheries
-economics \cite{clark1990}; Gordon \cite{gordon1954} supplies the
-open-access result that unmanaged effort dissipates rent and that the
-economic optimum lies below maximum sustained yield.
+The regrowth law is the logistic surplus-production model of Schaefer
+\cite{schaefer1954}, the standard single-stock model of fisheries economics
+\cite{clark1990}; Gordon \cite{gordon1954} supplies the open-access result
+that unmanaged effort dissipates rent.
 Reed \cite{reed1979} studies the same stock under multiplicative
-recruitment uncertainty, \(X_{t+1}=Z_tG(X_t-h_t)\) with
-\(\mathbb{E}Z_t=1\), and proves that the optimal harvest is a
-constant-escapement feedback rule whose target coincides with the
-deterministic one under a self-sustaining condition.
-Sethi et al.\ \cite{sethi2005} separate growth, measurement and
-implementation uncertainty and show that Reed's result survives the first
-alone.
-Stage~B of this thesis is Reed's model with two uncoordinated harvesters,
-an integer cap on each harvest, and the shock applied to the surplus
-rather than to the whole recruitment so that the stock never falls below
-the escapement; Appendix~\ref{app:binomial} writes the correspondence out
-and shows that the joint optimum and every safe policy of the dynamic
-programme are constant-escapement rules in Reed's sense.
-The parameters \((R_0,K,T,\rho)=(8,40,36,0.9)\) are a design choice
-(Chapter~\ref{ch:env}), not a calibration from any of these papers.
+recruitment uncertainty and shows that the optimal harvest is a
+constant-escapement feedback rule, and Sethi et al.\ \cite{sethi2005}
+separate growth, measurement and implementation uncertainty and show that
+the result survives the first alone.
+The shock used here is growth uncertainty in that sense: a bounded,
+mean-one, three-point multiplier on the growth increment, with the stock and
+both requests observed exactly.
+The parameters are design choices fixed by the invariants of
+Chapter~\ref{ch:env}, not calibrations from any of these papers.
 
-The executed lock --- \((1,1)\) lives, \((2,2)\) dies --- is chicken, the
-same class ShapeLLM already runs as the Iterated Chicken Game.
-Maynard Smith and Price \cite{maynardsmith1973} is the hawk/mouse ESS
-ancestor: computer contests of always-dangerous Hawk versus never-escalate
-Mouse; Hawk is not an ESS when injury is costly.
-That paper does not print the later textbook \(V/C\) \(2\times 2\)
-matrix, and it is not a calibration of \((R_0,K,T)\).
+Under constant strategies the game is chicken rather than a prisoner's
+dilemma, the class Rapoport and Chammah \cite{rapoport1966} name and the
+class ShapeLLM already evaluates; Maynard Smith and Price
+\cite{maynardsmith1973} give its evolutionary ancestor.
+The relevant property here is not the name but the consequence: in chicken
+the player who commits wins, which is why the \(m=3\) regime is a negative
+control and why a timescale control is necessary at \(m=2\).
 
 \section{The gap}
+\label{sec:lit-gap}
 
-Observational LLM-commons work freezes every agent
+Observational work on language models and commons freezes every agent
 \cite{piatti2024,akata2025}.
-Interventional LLM shaping \cite{garciasegura2025,piche2025} has not been
-run on a resource stock, and ShapeLLM's matrix games are deterministic.
-Advantage Alignment and InvestESG-OS put opponent shaping in stochastic
-environments but use noise as texture, not as the quantity that decides
-whether shaping has anything to buy.
-This thesis fills that gap with an exactly solvable stock in which the
-deterministic game bounds any shaping effect at one unit and the
-stochastic game does not (Section~\ref{sec:a-to-b}), and with a ladder
-that isolates the objective from the partner's timescale and prompt
-(Section~\ref{sec:ladder}).
+Interventional work that trains a language-model shaper against an
+independent language-model learner \cite{garciasegura2025} compares it with
+learners that differ from it in learning rate and update frequency as well
+as in objective, in games where that difference alone predicts the reported
+outcome, and evaluates by replaying the co-trained pair rather than by
+freezing the shaper.
+No published design separates the objective from the timescale that
+accompanies it, and none measures what the co-player acquired independently
+of the partner that trained it.
+This thesis supplies both, in a sequential commons whose exact solution
+fixes what a co-player's restraint is worth and whose two regimes differ in
+one parameter.

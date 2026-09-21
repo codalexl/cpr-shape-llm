@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Tables for the dial results chapter, from the executed records (analysis/SPINE.md sections 4 and 6).
 
-    python scripts/dial_results_tables.py [--root checkpoints/dial] [--out results/dial/tables]
+    python scripts/dial_results_tables.py [--root checkpoints/dial] [--out thesis/tables/dial]
 
-Writes one LaTeX booktabs table per readout plus summary.json. Every number is composed from the
+Writes one LaTeX booktabs table per readout where the thesis inputs them, plus summary.json under results/dial. Every number is composed from the
 estimators in scripts/evaluate_dial.py (summarise, channel, policy_class), which tests/test_evaluate_dial.py
 pins; nothing is computed twice in two places.
 
@@ -178,7 +178,7 @@ def channel(root, arms):
 def main(argv=None) -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--root", default="checkpoints/dial")
-    ap.add_argument("--out", default="results/dial/tables")
+    ap.add_argument("--out", default="thesis/tables/dial")
     ap.add_argument("--window", type=int, default=20)
     a = ap.parse_args(argv)
     root, out = ROOT / a.root, ROOT / a.out
@@ -193,10 +193,11 @@ def main(argv=None) -> None:
                                                                    "m2_shaper_matched_split", "m2_shapellm"])
     for name, text in tables.items():
         (out / f"{name}.tex").write_text(text)
-    (out / "summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n")
+    data = ROOT / "results" / "dial" / "tables_summary.json"
+    data.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n")
     for name in tables:
         print(f"wrote {(out / (name + '.tex')).relative_to(ROOT)}")
-    print(f"wrote {(out / 'summary.json').relative_to(ROOT)}")
+    print(f"wrote {data.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":

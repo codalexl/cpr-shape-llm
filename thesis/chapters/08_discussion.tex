@@ -1,0 +1,182 @@
+\chapter{Discussion}
+\label{ch:discussion}
+
+% Written 21 September 2026 from analysis/SPINE.md sections 2, 7b and 8.
+
+Chapter~\ref{ch:results} reported a null on the pre-registered arms, and two
+findings that the null does not contain: chained cross-episode credit
+extinguished the resource on every seed at \(m=2\), and the exploitative
+outcome associated with opponent shaping appeared at \(m=3\) under a partner
+with no shaping objective.
+This chapter says what those results mean, what they do not mean, and what
+they imply for opponent shaping between language-model agents.
+
+\section{What the experiment establishes}
+\label{sec:disc-establishes}
+
+The environment was built so that a shaper would have something to buy.
+At \(m=2\) no player can keep the pool alive alone, commitment loses to
+reciprocity, and a restrained partner is worth 55.1 units to a best
+responder (Chapter~\ref{ch:env}).
+Before any arm ran, two gates established that this stack can acquire the
+relevant behaviour here: restraint against a committed harvester, and
+reciprocity against tit-for-tat (Section~\ref{sec:gates}).
+In that environment, with the objective isolated from its update schedule by
+a trial-batched control at the same learning rate, clip, batch and prompt,
+the trial-level objective did not move the co-learner's acquired policy in
+the direction the claim requires.
+
+This is a negative result about a specific estimator of a specific
+objective, obtained in a setting constructed so that a positive result was
+detectable.
+That is the sense in which it is informative: the design's own manipulation
+checks passed, the controls acquired the target behaviour, and the arms that
+carried the objective did not.
+
+\section{The estimator, not the objective, carried the difference}
+\label{sec:disc-estimator}
+
+The sharpest comparison in the experiment is internal.
+Shaper-matched and the split-credit arm differ in nothing except how
+cross-episode credit is estimated: the same seat, learning rate, clip,
+update schedule, batch and prompt, and in both cases the shaper is trained
+on the return of the whole trial.
+Under chained whole-trial GAE the resource was extinguished on every seed
+and the co-learner ended mixed or none.
+Under credit split into within-episode advantages plus a later-episode
+return taken against a baseline from previous trials, the resource survived
+in 0.58 of episodes, the co-learner became unconditional on four of five
+seeds, and the frozen policy transferred to a fresh learner on five of five.
+Neither arm beat the controls; one matched them and the other destroyed the
+thing being contested.
+
+Three properties of the chained estimator explain the asymmetry, and each
+was measured rather than assumed.
+Credit reaches a step discounted by \(\lambda\) per live step, so a reward
+one episode later enters the opening advantage of a full episode at
+\(0.97^{50}=0.22\) (Chapter~\ref{ch:method}).
+Advantages are whitened per update, which removes the component of the
+cross-episode term that is common to the trial --- precisely the component a
+shared co-learner's response produces.
+And the estimates themselves were noisy where the naive learner's were not:
+in the pilot diagnosis, whole-trial advantages had a standard deviation of
+14 to 32 against 2 to 7, and the restrain-minus-harvest gap was never
+significant over ten blocks.
+
+The practical implication is narrow and useful.
+An opponent-shaping objective for language-model agents is not only a choice
+of objective; it is a choice of estimator, and at this scale the estimator
+dominates the outcome.
+Reporting the objective without reporting how its credit is assigned leaves
+the result unidentified.
+
+\section{Where the exploitative outcome came from}
+\label{sec:disc-m3}
+
+At \(m=3\) the ShapeLLM-style arm produced the pattern the shaping
+literature reports: agent~2 earning 1.81 units per live round against
+agent~1's 1.01, with the asymmetric profile on 0.83 of rounds.
+Reported alone, in the currency that opponent-shaping papers use, that is a
+successful shaping result.
+It is not one here, for a reason fixed before the data: the slow arm, whose
+agent~2 differs from an ordinary naive learner only in learning rate and
+clip, produced the same signature, and decision~C passed on three of three
+seeds.
+
+The mechanism is not mysterious.
+At \(m=3\) a single player can sustain the pool and commitment wins
+(Chapter~\ref{ch:env}), and an agent that updates more slowly is closer to a
+committed player.
+A slow partner therefore collects the asymmetric profile without any
+cross-episode credit at all.
+This is the two-timescale reading of the outcome rather than a shaping
+reading, and the design separates them because the regimes differ in one
+environment parameter and nothing else.
+
+The consequence for how such results should be read is general.
+In games where commitment pays, an exploitative asymmetry between a slower
+agent and a faster one is the expected outcome of the speed difference.
+Evidence that an objective produced it therefore requires a control that
+holds the speed and the update schedule fixed --- which is what the
+trial-batched arms supply here, and what the published comparison, whose
+only shaping control is an observation-space ablation, does not.
+
+\section{Relation to ShapeLLM}
+\label{sec:disc-shapellm}
+
+This thesis asks ShapeLLM's question in a different environment class, and
+its result should not be read as a refutation of that paper.
+Three differences bound the comparison.
+The environment is a sequential resource game with a stock and a horizon of
+50 rounds, not a repeated \(2\times2\) matrix game at \(T=20\).
+The hyperparameters are this stack's, and they differ from the paper's in
+GAE \(\lambda\), value coefficient, mini-batch, score scaling, entropy and
+the shaper's learning rate and clip (Chapter~\ref{ch:design}).
+And the readout is the co-learner's acquired policy under a scripted probe,
+not the reward each agent collects while both are still training.
+
+What transfers is the identification argument.
+The paper's evidence is average reward per step and joint-action visitation
+for a shaper that also learns ten times more slowly and updates five times
+less often, in games that include Chicken, where commitment pays.
+The present experiment shows that in a game of that family the same evidence
+form is produced by a slow partner with no shaping objective.
+The claim that the objective is responsible therefore needs the schedule and
+timescale controls, independently of whether the claim is true.
+That is a statement about what the evidence can identify, not about whether
+LLM agents can shape.
+
+\section{Implications for shaping on shared resources}
+\label{sec:disc-commons}
+
+One result deserves emphasis beyond the shaping question.
+The arms that maximised the shaper's own trial return drove a renewable
+resource to extinction in every episode of every seed, earning 0.38 to 0.49
+units per round where mutual harvest pays 0.36 and mutual restraint pays
+1.00.
+The objective did not merely fail to teach restraint; optimising it produced
+worse outcomes for both agents than not optimising it at all.
+
+Two readings follow, and the experiment does not separate them.
+The objective may be pointing at a real gradient that this estimator cannot
+follow, in which case the collapse is a failure of credit assignment.
+Or the trial return may be maximised, within the reachable policy space, by
+harvesting hard while the partner still restrains --- a locally attractive
+policy that destroys the resource that makes it valuable.
+Distinguishing these requires an estimator with lower variance and the same
+objective, which the split-credit arm begins but does not settle.
+
+For deployment the weaker statement is already enough.
+An agent trained to maximise its own return across an interaction in which a
+co-learner adapts can arrive at a policy that is worse for itself and for
+the other party than an agent trained on the immediate episode.
+Where the shared object is a resource that can be exhausted, the failure
+mode is not a lost bargain but a destroyed commons.
+
+\section{What would change the answer}
+\label{sec:disc-next}
+
+The result is bounded by one base model, one adapter rank, one environment
+family, 100 epochs and three to five seeds (Chapter~\ref{ch:lim}).
+Within those bounds, three specific things would move it.
+
+A lower-variance estimator of the same trial objective is the first.
+The split-credit arm shows that the estimator changes the outcome; it does
+not show that a better one produces shaping, because it matched the controls
+rather than exceeding them.
+
+A co-learner that does not acquire the target behaviour on its own is the
+second.
+At \(m=2\) the naive baseline became unconditional on every seed, so the
+design's headroom for a shaping effect was smaller than the solver's stake
+suggested.
+An environment, prior or budget in which the control does not already
+succeed would restore it --- at the cost of a new pre-registration, since
+changing the design point after seeing these results would convert a
+registered null into an unregistered positive.
+
+A direct test of whether the chained estimator can learn restraint at all
+against a stationary, reciprocal partner is the third, and it is cheap: it
+requires no co-learner and therefore cannot produce a shaping result, only
+locate the failure.
+It is specified in Chapter~\ref{ch:lim}.

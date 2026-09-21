@@ -1,518 +1,216 @@
 \chapter{Method}
 \label{ch:method}
 
-Training reuses the ShapeLLM PPO loop
-(\texttt{environment.outer\_rollout}, \texttt{PPOAgent},
-\texttt{CustomPPOTrainer}) on the logistic CPR of Chapter~\ref{ch:env}
-\cite{garciasegura2025}.
-This chapter defines the policy, the reward handed to the optimiser, the
-advantage estimator and its two normalisation operators, the PPO objective
-with every hyperparameter, and the two training schedules, naive and
-shaper, whose difference is the object of Chapter~\ref{ch:results}.
-The scientific object is that game's reward, not a new optimiser.
+% Written 21 September 2026 from analysis/SPINE.md sections 4 and 6, and docs/DIAL_ARMS.md.
 
-\section{Model, tokens, generation}
+This chapter defines the agents, the three learning rules that distinguish
+the arms, the two estimators of cross-episode credit, and the readouts.
+It contains no training results.
+The training loop is ShapeLLM's, reused unmodified
+\cite{garciasegura2025}; what is this project's is the environment of
+Chapter~\ref{ch:env}, the control that isolates the objective, and the
+evaluation.
 
-Base model: \texttt{google/gemma-2-2b-it}, \texttt{torch.bfloat16}, eager
-attention.
-Actions are single digit tokens (Table~\ref{tab:tokens}).
+\section{Agents}
+\label{sec:method-agents}
 
-\begin{table}[ht]
-\centering
-\caption{Legal action tokens for Gemma-2-2b-it.
-  \texttt{AllowedTokensLogitsProcessor} masks every other vocabulary
-  entry.}
-\label{tab:tokens}
-\begin{tabular}{rr}
-\toprule
-Action & Token id \\
-\midrule
-0 & 235276 \\
-1 & 235274 \\
-2 & 235284 \\
-3 & 235304 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\paragraph{Policy.}
-Each learning agent carries a rank-2 LoRA adapter \(\theta\) on the query
-and value projections \cite{hu2022} and a scalar value head
-\(V_{\theta}\) on the final hidden state (TRL's
-\texttt{AutoModelForCausalLMWithValueHead}); the base weights are frozen.
-At round \(t\) the agent receives a prompt \(x_t\) rendered from its
-observable history (Chapter~\ref{ch:env}): the rules, the current stock
-and, from round~2, the previous round's requests and receipts.
-A shaper with \texttt{transmit\_info} also sees the joint-request counts
-and episode summaries of the current trial.
-The action is one token drawn from the softmax over the four legal action
-tokens, every other vocabulary entry being floored by the logits
-processor:
+Both seats are \texttt{google/gemma-2-2b-it} in bfloat16 with the base
+weights frozen, carrying a rank-2 LoRA adapter \cite{hu2022} on the query
+and value projections and a scalar value head.
+At each round the agent receives the prompt of Section~\ref{sec:env-prompt}
+and emits one token, sampled from the softmax over the two legal action
+tokens with every other vocabulary entry masked:
 \begin{equation}
-  \pi_{\theta}(a\mid x_t)
-  =
+  \pi_{\theta}(a\mid x_t)=
   \frac{\exp z_{\theta}(x_t)_a}{\sum_{a'\in\mathcal{A}}\exp z_{\theta}(x_t)_{a'}},
-  \qquad a\in\mathcal{A},
+  \qquad \mathcal{A}=\{1,2\}.
   \label{eq:policy}
 \end{equation}
-where \(z_{\theta}(x_t)\) are the logits at the answer position.
-Generation is one new token (\texttt{max\_new\_tokens=1},
-\texttt{do\_sample=True}, \texttt{top\_p=1.0}, \texttt{top\_k=0},
-temperature~1), so the emitted token is exactly a draw from
-\eqref{eq:policy}.
-Illegal draws (observed under MPS multinomial, not under the mask) are
-rejection-sampled up to four times.
-
-\paragraph{Untrained prior.}
-The pre-flight script (\texttt{scripts/cpr\_preflight.py}) measures the
-untrained distribution at about \(0.90\) on token~2.
-At the opening prompt of the executed runs, the first episode of every run
-(three games before any update) opened 2 on 205 of 240 games, 1 on 25 and
-3 on 10, so the untrained opening mass is about \(0.85\) on token~2,
-\(0.10\) on token~1, \(0.04\) on token~3 and effectively zero on token~0
-(these draws are not independent; see the seeds paragraph below).
-That is an executed observation, not a literature citation.
-The prior is not flattened, score scaling and score normalisation are
-off, and no action-specific bonus is added: the reward is the receipt of
-\eqref{eq:harvest} and the penalty of \eqref{eq:klreward} and nothing
-else.
-An entropy coefficient of \(0.15\) in an early pilot moved the learner
-onto take-3 rather than restraint; every live configuration uses
-\(0.05\), decaying to \(0.01\).
-
-\section{Learning algorithm}
-\label{sec:algorithm}
-
-\paragraph{Per-step reward.}
-The reward handed to the optimiser at round \(t\) is the receipt
-\(c_t\in\{0,1,2,3\}\) of \eqref{eq:harvest}, penalised by the divergence of
-the sampled token from the frozen reference model, which is the same
-network with the adapter disabled:
+The reward handed to the optimiser is the receipt of
+\eqref{eq:dial-harvest}, penalised by the divergence of the sampled token
+from the frozen reference model, which is the same network with the adapter
+disabled:
 \begin{equation}
-  \tilde{r}_t
-  =
-  c_t-\beta_t\bigl[\log\pi_{\theta}(a_t\mid x_t)-\log\pi_{\mathrm{ref}}(a_t\mid x_t)\bigr].
+  \tilde{r}_t=c_t-\beta_t\bigl[\log\pi_{\theta}(a_t\mid x_t)-\log\pi_{\mathrm{ref}}(a_t\mid x_t)\bigr].
   \label{eq:klreward}
 \end{equation}
-The coefficient \(\beta_t\) follows the adaptive controller of Ziegler et
-al.\ \cite{ziegler2019} as implemented in TRL~0.11.4: initial value
-\(0.2\), target divergence \(6\), horizon \(10^{4}\) steps.
-With batches of at most \(108\) positions the controller barely moves; the
-logged value falls from \(0.200\) to \(0.181\) over the 75 updates of a
-15-epoch naive run.
-The term is zero under the untrained prior and grows as the policy leaves
-it: at \(\pi_{\theta}(1\mid x_1)=0.9\) against \(\pi_{\mathrm{ref}}(1\mid
-x_1)=0.1\) it is \(0.2\times\log 9\approx 0.44\) per step, comparable with
-the one-unit receipt difference between neighbouring actions.
-It is a restoring force towards the prior and is part of every result in
-Chapter~\ref{ch:results}.
-Steps after collapse (\(R_t=0\)) carry a NaN reward and are dropped from
-the batch before any statistic is computed; the collapse step itself is a
-real decision and stays.
-\texttt{game.records} stores the true zero for those steps.
+That penalty is a restoring force toward the untrained prior, which is
+harvest-heavy: at the live prompt the untrained model requests restraint on
+about 0.17 of states after a previous-round line.
+Every result is obtained under it.
 
-\paragraph{Advantages.}
-Advantages are generalised advantage estimates \cite{schulman2016}
-computed by a backward pass over each parallel game,
-\begin{equation}
-  \delta_t=\tilde{r}_t+\gamma V_{\theta}(x_{t+1})-V_{\theta}(x_t),
-  \qquad
-  \hat{A}_t=\sum_{l\ge 0}(\gamma\lambda)^{l}\,\delta_{t+l},
-  \qquad \gamma=1,\ \lambda=0.97,
-  \label{eq:gae}
-\end{equation}
-where the pass runs over one episode for a naive learner and over the
-concatenated episodes of a trial for a shaper, so that with \(\gamma=1\) a
-shaper's opening-step advantage includes receipts from later episodes of
-the same trial.
-The value target is the GAE return \(\hat{G}_t=\hat{A}_t+V_{\theta}(x_t)\).
-Before entering the loss, the advantages of a batch \(\mathcal{B}\) are
-transformed by one of two operators, where \(\mu_{\mathcal{B}}\) and
-\(\sigma_{\mathcal{B}}\) are the mean and standard deviation over the
-unmasked positions of the batch:
-\begin{equation}
-  \mathcal{N}_{\mathrm{whiten}}(\hat{A}_t)
-  =
-  \frac{\hat{A}_t-\mu_{\mathcal{B}}}{\sqrt{\sigma_{\mathcal{B}}^2+\varepsilon}},
-  \qquad
-  \mathcal{N}_{\mathrm{centre}}(\hat{A}_t)
-  =
-  \hat{A}_t-\mu_{\mathcal{B}}.
-  \label{eq:norm}
-\end{equation}
-Whitening is the TRL default (\texttt{masked\_whiten}, the OpenAI
-\texttt{lm-human-preferences} convention documented by Huang et al.\
-\cite{huang2024}); centring is the \texttt{advantage\_norm=center} flag of
-this repository.
-Masked positions are zeroed after either operator.
-Engstrom et al.\ \cite{engstrom2020} show that PPO's measured behaviour is
-driven by such code-level choices, not only by the clip.
+Agent~1 is the same naive learner in every arm and is never edited.
+Agent~2 is the seat the arms swap.
+Scripted partners --- committed harvest, tit-for-tat, the probe and the
+replay tape --- read structured game state and never the prompt.
 
-\paragraph{Objective.}
-With \(\tilde{A}_t=\mathcal{N}(\hat{A}_t)\), the probability ratio
-\(\varrho_t=\pi_{\theta}(a_t\mid x_t)/\pi_{\theta_{\mathrm{old}}}(a_t\mid x_t)\),
-the old value estimate \(V_{\mathrm{old}}\) and the clipped value
-\(V^{\mathrm{c}}=\operatorname{clip}(V_{\theta},V_{\mathrm{old}}-\epsilon_v,V_{\mathrm{old}}+\epsilon_v)\),
-each agent maximises the clipped surrogate of Schulman et al.\
-\cite{schulman2017}
+\section{Three learning rules}
+\label{sec:method-rules}
+
+A shaper differs from an ordinary learner in two ways at once.
+It waits for a whole trial of \(E=5\) episodes and then takes one PPO step
+on the concatenated batch, where a naive learner takes five; and it lets
+generalised advantage estimation run across those five episodes, so a later
+episode can credit an earlier one.
+Comparing a shaper with a naive learner therefore confounds the objective
+with the update schedule and with five times fewer optimiser steps.
+
+\paragraph{Naive.}
+After each episode \(e\), agent~\(i\) updates on that episode's batch, with
+advantages computed within the episode:
 \begin{equation}
-  \begin{aligned}
-  \mathcal{L}(\theta)=\mathbb{E}_{\mathcal{B}}\Bigl[
-    &\min\bigl(\varrho_t\tilde{A}_t,\;
-      \operatorname{clip}(\varrho_t,1-\epsilon,1+\epsilon)\,\tilde{A}_t\bigr)\\
-    &-\tfrac{c_v}{2}\max\bigl((V_{\theta}(x_t)-\hat{G}_t)^2,\,(V^{\mathrm{c}}(x_t)-\hat{G}_t)^2\bigr)
-    +c_e\,\mathcal{H}\bigl(\pi_{\theta}(\cdot\mid x_t)\bigr)
-  \Bigr],
-  \end{aligned}
-  \label{eq:ppo}
+  \theta_{e+1}=\theta_e+\alpha\,\nabla_{\theta}\mathcal{L}
+  \bigl(\theta_e;\ \tau_e(\pi_{\theta_e},\pi_{\phi})\bigr).
+  \label{eq:naive-update}
 \end{equation}
-where the entropy is taken over the four legal tokens only.
-The policy clip is \(\epsilon=0.2\) for naive learners (the TRL default;
-no live configuration overrides it) and \(0.1\) for the shaper and for
-agent~2 of the slow-learning-rate control; the value clip is
-\(\epsilon_v=0.2\); \(c_v=0.01\); and \(c_e\) starts at \(0.05\) and falls
-by \(0.04/150\) per update with a floor of \(0.01\), so it reaches
-\(0.03\) after the 75 updates of a naive run and \(0.046\) after the 15
-updates of a shaper.
-The optimiser is Adam \cite{kingma2015} with the learning rate of
-Table~\ref{tab:hyperparameters} and default moments
-(\(\beta_1=0.9\), \(\beta_2=0.999\), \(\varepsilon=10^{-8}\)); one pass
-over the batch in minibatches of five; no gradient clipping.
-The batch is the set of unmasked positions of one episode (naive) or one
-trial (shaper), so its size varies with survival.
+
+\paragraph{Trial-batched naive (tbn).}
+Agent~2 buffers the trial's five episodes and takes \emph{one} step on the
+concatenated batch, with the advantage pass reset at every episode
+boundary.
+It therefore has the shaper's schedule, batch size and number of optimiser
+steps, and no cross-episode credit.
+This is the control in every contrast that tests the objective.
+
+\paragraph{Shaper.}
+Agent~2 holds its parameters fixed for the trial and updates once toward the
+trial-level objective of Lu et al.\ \cite{lu2022} as instantiated for
+language models \cite{garciasegura2025}:
+\begin{equation}
+  J(\phi)=\mathbb{E}\Bigl[\sum_{e=1}^{E}G^{(e)}_{2}\bigl(\pi_{\phi},\pi_{\theta_e}\bigr)\Bigr],
+  \qquad
+  \theta_{e+1}=\theta_e+\alpha\,\nabla_{\theta}\mathcal{L}\bigl(\theta_e;\tau_e\bigr),
+  \label{eq:shaper-objective}
+\end{equation}
+where the inner update is agent~1's own learning.
+The objective credits agent~2 for the change it induces in agent~1 between
+episodes.
+Since \(\pi_{\theta_e}\) appears inside the sum, the only quantity
+distinguishing \eqref{eq:shaper-objective} from ordinary learning against a
+slowly changing opponent is credit that crosses episode boundaries.
+
+\section{Two estimators of cross-episode credit}
+\label{sec:method-estimators}
+
+The objective says which quantity to maximise; an estimator says how credit
+reaches a step. That choice is not neutral, and the experiment reports two.
+
+\paragraph{Chained whole-trial GAE.}
+The advantage pass runs over the concatenated trial, so with \(\gamma=1\)
+the opening step of an episode carries receipts from later episodes.
+Credit is attenuated by \(\lambda\) per live step: a reward one episode
+later reaches the first round of a full 50-round episode at
+\(0.97^{50}=0.22\), and later episodes arrive more weakly still.
+This is the estimator of every pre-registered shaper arm.
+
+\paragraph{Split credit.}
+Advantages are computed within each episode, and the policy advantage --- not
+the critic's target --- gains the agent's return in the trial's later
+episodes minus a baseline taken over the previous five trials, at unit
+weight.
+The baseline cannot come from the trial's other parallel games: they share
+one co-learner, so whatever agent~2's play does to agent~1 appears in all of
+them, and subtracting their mean would remove the effect being credited.
+This arm is an addition, logged as a deviation, and is never substituted for
+a pre-registered arm.
+
+\paragraph{A property both inherit.}
+Advantages are whitened per update, as in the released implementation.
+For a cross-episode term this subtracts the trial's mean, which is the
+component a persistent co-learner response produces; under equal episode
+lengths roughly three fifths of that response's expected contribution is
+removed.
+What the arms optimise is therefore an attenuated, trial-mean-centred proxy
+for \eqref{eq:shaper-objective}, and Chapter~\ref{ch:lim} states the
+consequence.
+
+\section{Reading what an agent became}
+\label{sec:method-probe}
+
+Co-play returns cannot answer the question.
+At \(m=2\) a restrainer earns the value of mutual restraint whether or not
+it is exploited (Section~\ref{sec:env-invariants}), so the amount of
+restraint does not discriminate the shape of a policy.
+What is read instead is agent~1's policy, measured away from the partner
+that trained it.
+
+\paragraph{The probe.}
+That seed's trained agent~1 is frozen and plays 20 epochs against a scripted
+partner that takes 1 or 2 with equal probability from a per-seed table, so
+two agents at the same seed index face identical draws.
+Agent~2 does not take part.
+Four conditional rates are estimated on live rounds, each the probability
+that agent~1 takes~1: after the partner took~1, after the partner took~2,
+at stock below 12, and at stock 12 or above.
+A rate resting on fewer than 30 rounds is undetermined.
+
+\paragraph{Classes.}
+Each agent is assigned one class: \emph{none} if all four rates are below
+0.3; \emph{conditional} if it restrains after restraint and not after a take
+(a reciprocator), or at low stock and not at high (a stock rule);
+\emph{unconditional} if all four are at least 0.7; \emph{mixed} otherwise.
+The distinction that matters is conditional against unconditional: a
+conditional policy is a good fixed rule, reachable without any co-player
+modelling, whereas unconditional restraint persists where it is not
+reciprocated.
+
+\paragraph{The frozen battery.}
+Four further runs carry the finished agent~2.
+E1 trains a fresh naive learner against it, frozen, for 100 epochs and probes
+the result: does the finished policy teach a stranger?
+E2 replaces it with a tape of its recorded takes, which cannot respond, and
+asks whether responding was necessary.
+E3 and E4 freeze both seats, against the agent's own trained partner and
+against an untrained one, and compare agent~2's per-round return.
+E1 is part of the claim; E2--E4 interpret it.
+
+\section{Metrics}
+\label{sec:method-metrics}
+
+The primary readout is the probe class, per seed, with the round counts each
+rate rests on.
+Reported beside it, and never as evidence for the claim: survival, return
+per episode and per live round against the exact anchors of
+Section~\ref{sec:env-invariants}, agent~2's own restraint share, and the two
+readouts the shaping literature uses --- average reward per step per seat,
+and the shares of the four joint-request cells, which is state visitation in
+this game.
+
+Sustainability, efficiency and equality in the sense of P\'erolat et al.\
+\cite{perolat2017} are reported as outcomes but are not criteria, for
+reasons specific to this game.
+The best joint profile at \(m=2\) is asymmetric --- a best responder against a
+restrainer earns 75.2 against 50.0, a joint 125.2, where mutual restraint
+earns 100.0 --- so an efficiency score ranks exploitation above mutual
+restraint and an equality score penalises the asymmetry that the shaping
+literature treats as success.
+Survival cannot discriminate either: mutual restraint, tit-for-tat and any
+stock rule all keep the pool alive.
 
 \begin{table}[ht]
-\centering
-\small
-\caption{Every hyperparameter of the executed runs.
-  ``Shaper'' is agent~2 of the naive--shaper configurations; ``control''
-  is agent~2 of the slow-learning-rate naive--naive configuration, which
-  copies the shaper's learning rate and clip but keeps the naive schedule
-  and prompt.
-  Agent~1 of every two-learner configuration, and the learner of Tests
-  A~and~B, are naive learners.}
+\centering\small
+\caption{Hyperparameters of the executed runs, and their provenance.
+  ``Ours'' means chosen in this project.}
 \label{tab:hyperparameters}
-\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{4.3cm}>{\raggedright\arraybackslash}X}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{4.0cm}>{\raggedright\arraybackslash}p{4.4cm}X}
 \toprule
-Quantity & Value \\
+Quantity & Value here & ShapeLLM \\
 \midrule
-Base model & \texttt{gemma-2-2b-it}, bf16, eager attention, base weights frozen \\
-Adapter & LoRA \(r=2\), \(\alpha=32\), dropout \(0.05\), on \texttt{q\_proj} and \texttt{v\_proj} \\
-Value head & scalar, on the final hidden state \\
-Generation & one token, sampling, \texttt{top\_p} 1, \texttt{top\_k} 0, temperature 1 \\
-Learning rate (Adam) & naive \(1.41\times 10^{-6}\); shaper \(3\times 10^{-7}\); control \(3\times 10^{-7}\) \\
-Adam moments & \(\beta_1=0.9\), \(\beta_2=0.999\), \(\varepsilon=10^{-8}\); no gradient clipping \\
-Policy clip \(\epsilon\) & naive 0.2; shaper 0.1; control 0.1 \\
-Value clip \(\epsilon_v\), coefficient \(c_v\) & 0.2, 0.01 \\
-Entropy coefficient \(c_e\) & \(0.05\to 0.01\), \(-0.04/150\) per update, over the four legal tokens \\
-KL coefficient \(\beta_t\) & adaptive, initial 0.2, target 6, horizon \(10^{4}\); logged \(0.200\to 0.181\) over 75 updates \\
-\(\gamma\), \(\lambda\) & 1, 0.97 \\
-GAE span & naive and control: one episode; shaper: one trial of 5 episodes \\
-Update schedule & naive and control: after each episode; shaper: once per trial \\
-Batch & unmasked positions of the span (\(\le 108\) per episode, \(\le 540\) per trial) \\
-Minibatch, PPO epochs & 5, 1 \\
-Trial prompt & shaper only: info-on (counts and episode summaries) or info-off \\
-Advantage operator & centre in every two-learner and Stage~B run; whiten in the whitened Test~A/B runs \\
-Trial geometry & \(T=36\) rounds, \(E=5\) episodes per trial, 3 parallel games, 15 games per epoch \\
-Epochs & 15; 30 for seed-fixed whitened Test~A seed~0; 50 for the long seed-0 runs \\
-Updates per 15 epochs & naive and control 75; shaper 15 \\
-Seeds & 0, 1, 2 (see the seeds paragraph) \\
-Hardware & NVIDIA L40S (RunPod) for Stage~B, the seed-fixed packet, whitened seeds 1--2 and the 50-epoch naive run; Apple silicon (MPS) for the pre-fix Test~A/B seed-0 tapes \\
-Software & \texttt{trl} 0.11.4, \texttt{transformers} 4.47.0, \texttt{peft} \\
+Base model, adapter & gemma-2-2b-it, LoRA \(r=2\), \(\alpha=32\) & same stack \\
+Learning rate & \(1.41\times10^{-6}\) matched; \(3\times10^{-7}\) slow & \(1.41\times10^{-6}\) naive; \(1.41\times10^{-7}\) shaper \\
+Policy clip & 0.2 matched; 0.1 slow & 0.2 \\
+\(\gamma\), \(\lambda\) & 1, 0.97 & 1, 0.95 \\
+Value coefficient & 0.01 & 0.2 naive, \(10^{-3}\) shaper \\
+Entropy coefficient & \(0.05\to0.01\) over 150 updates & none \\
+Mini-batch, PPO epochs & 5, 1 & 10, 1 \\
+Advantage operator & whitened per update & whitened \\
+Trial geometry & \(T=50\), \(E=5\), 5 parallel games & \(T=20\), \(E=5\), 5 games \\
+Epochs & 100 & 200--300 \\
 \bottomrule
 \end{tabularx}
 \end{table}
 
-\paragraph{Seeds.}
-Each experiment \(k\) calls \texttt{set\_seed}\((k)\) before constructing
-its agents.
-TRL's \texttt{PPOTrainer} then calls \texttt{set\_seed}\((0)\) in its own
-constructor (its \texttt{PPOConfig} default), after the adapter and value
-head have been created.
-On every run dated 6~September or earlier the action sampler was therefore
-drawn from the seed-0 stream, and the nominal seed controlled only the
-value-head initialisation.
-Those runs of nominally different seeds on the same hardware begin
-identically and diverge only through non-deterministic bf16 kernels and,
-in Stage~B, through the noise tables, which are seeded separately and
-correctly.
-\texttt{scripts/audit\_seeds\_and\_scale.py} measures the consequence: the
-pre-fix whitened Test~A seeds 1 and 2 opened identically on all 75 games
-of their first five epochs, and the Stage~B naive--naive, naive--shaper
-and slow-LR seeds 1 and 2 opened identically on 92--95\% of games over
-the whole run.
-The entry points re-seed after construction.
-The 8--9~September packet used that fix: seed-fixed Test~A centre pairs
-agree on \(0.56\)--\(0.61\) of openings in epochs 1--5 (pre-fix whitened
-\(s1\) vs \(s2\) was \(1.00\)); NS~\(\xi\) seed~0 is identical to the
-pre-fix seed-0 tape, as expected.
-Every run of the final grid uses the fix.
-Chapter~\ref{ch:lim} states what the shared stream does to the inference
-from the earlier pilots; the seed-fixed pilots and the grid are the only
-runs described as having independent seeds.
-
-\section{What the normalisation operator changes}
-\label{sec:operator}
-
-The opening-step advantage \(A_0\) is logged for the first index of each
-parallel game in the flattened batch, raw and after the operator.
-At \(\varrho_t=1\) the policy-gradient term of \eqref{eq:ppo} has expected
-gradient on the logit of opening action \(k\)
-\begin{equation}
-  \frac{\partial\mathcal{L}}{\partial z_k}\Big|_{x_1}
-  =
-  \pi(k\mid x_1)\bigl(\tilde{A}(k)-\bar{A}\bigr),
-  \qquad
-  \bar{A}=\sum_{a\in\mathcal{A}}\pi(a\mid x_1)\,\tilde{A}(a),
-  \label{eq:logit-update}
-\end{equation}
-where \(\tilde{A}(a)\) is the normalised opening advantage of action
-\(a\), because \(\partial\log\pi(a\mid x)/\partial z_k=\mathbb{1}[a=k]-\pi(k\mid x)\)
-for a softmax.
-The sign of the update on logit \(k\) is the sign of
-\(\tilde{A}(k)-\bar{A}\), so an action whose advantage is positive but
-below the policy-weighted mean is pushed down; and the magnitude is
-proportional to \(\pi(k\mid x_1)\), so a rare action moves slowly however
-large its advantage.
-Both operators in \eqref{eq:norm} are affine with positive scale, so they
-agree on every sign; they differ in the scale of the gradient by
-\(\sigma_{\mathcal{B}}\).
-
-\paragraph{The measured scale.}
-Per update, from the \texttt{live\_adv} logs of the six Test~A runs, the
-batch standard deviation of the raw advantages has median \(13\)--\(15\)
-(interquartile range \(12\)--\(15\) on the centred runs).
-On the whitened runs it falls to \(2\)--\(5\) in the updates where every
-game collapsed by round~4, because such a batch contains almost no
-variation to divide by: whitening then scales an uninformative batch up to
-unit variance.
-An earlier estimate of \(53\), inferred from run-averaged opening
-advantages, was not a per-batch quantity and is withdrawn.
-
-\paragraph{Why the scale is not a step size.}
-Adam's update \(\hat{m}/(\sqrt{\hat{v}}+\varepsilon)\) is invariant to a
-uniform rescaling of the gradient \cite{kingma2015}, so a run in which
-every batch were rescaled by the same \(\sigma_{\mathcal{B}}\) would take
-the same steps under either operator.
-Multiplying the learning rate by \(\sigma_{\mathcal{B}}\) does not convert
-a whitened run into a centred one.
-What the operator changes is the weight of the policy-gradient term
-relative to two things that are not rescaled.
-First, the value loss and the entropy bonus in \eqref{eq:ppo}: under
-whitening the policy term is of order one per position while the value
-regression on returns of \(10\)--\(100\) contributes a gradient of order
-\(c_v\,|V_{\theta}-\hat{G}|\approx 0.01\times 40\) through the shared
-adapter, so the two are comparable; under centring the policy term is
-\(13\)--\(15\) times larger and dominates.
-Second, the other batches: Adam's second moment is a running average over
-updates, so the step taken on a batch scales with that batch's gradient
-norm relative to the recent history.
-Under whitening every batch has unit advantage variance, and a batch in
-which every game collapsed drives a step of the same size as a batch
-containing a surviving game; under centring the surviving batch carries a
-gradient several times larger than a collapse-only batch
-(\(\sigma_{\mathcal{B}}\approx 14\) against \(2\)) and takes a
-proportionally larger step.
-Centring therefore weights informative batches over uninformative ones;
-whitening equalises them and raises the relative weight of the critic and
-the entropy bonus.
-Which of these produced the difference between the whitened and centred
-seed-0 runs is not identified by the executed runs; the ablation that
-would identify it is whitening with \(c_v\) and \(c_e\) divided by
-\(\sigma_{\mathcal{B}}\), or plain SGD in place of Adam, neither of which
-was run.
-
-\paragraph{Worked example.}
-With the first-episode opening distribution \(\pi(2)\approx 0.85\),
-\(\pi(1)\approx 0.10\) and the centred seed-0 opening advantages of
-Chapter~\ref{ch:results} (\(\tilde{A}(1)=+16.7\), \(\tilde{A}(2)=-5.7\),
-\(\bar{A}\approx -3.2\)), \eqref{eq:logit-update} gives a gradient of
-about \(+2.0\) on logit~1 and \(-2.1\) on logit~2.
-Dividing by \(\sigma_{\mathcal{B}}\approx 13\) gives the whitened
-counterparts \(+0.15\) and \(-0.16\) with the same signs.
-The quantity that differed between the whitened seed-0 run and the
-whitened seeds 1--2 is not this scale but the sign of
-\(\tilde{A}(2)-\bar{A}\): in the seed-0 run the post-operator opening-2
-advantage stayed between \(+0.5\) and \(+1.1\) in every epoch because
-nearly every game in every batch collapsed, so there was no surviving game
-in the batch for the opening-2 games to be compared against, whereas in
-seeds 1--2 it turned negative from epoch~4, once surviving games entered
-the batches (Table~\ref{tab:a0-epochs}).
-
-\section{Frozen-bot tests (executed path)}
-
-Before any shaper-versus-naive grid, one PPO learner is trained against a
-non-learning partner.
-This is a \emph{precondition} measurement, not opponent shaping: if the
-prior never leaves opening 2 against a partner that is already frozen
-on 2, a later two-learner table in which one agent leaves 2 cannot be
-read as ``the shaper taught restraint.''
-The two-learner and Stage~B grids therefore use mean-centring
-(Table~\ref{tab:hyperparameters}), the operator under which leave-2 is
-reliable within 15 epochs on this lock.
-The TRL default (whitening) is retained as the Test~A/B contrast, not
-hidden.
-
-\begin{itemize}
-\item \textbf{Test A.} \texttt{ConstantActionAgent} always requests 2
-  (frozen hawk).
-\item \textbf{Test B.} Same bot always requests 1 (frozen dove).
-\end{itemize}
-
-The bot has no Gemma weights.
-\texttt{is\_shaper=False} so \texttt{outer\_rollout} calls a no-op
-\texttt{update\_parameters} once per episode.
-Only the learner's LoRA and value head train.
-Records still include both request columns.
-
-Trial geometry in the Test~A/B configs: \(T=36\), \(E=5\)
-episodes per trial, \(3\) parallel games, 15 epochs.
-That is 15 games per epoch and 225 games per run
-(Figure~\ref{fig:trial}).
-
-\begin{figure}[ht]
-\centering
-\begin{tikzpicture}[
-  font=\small,
-  epibox/.style={
-    draw, rounded corners=2pt, minimum width=1.55cm,
-    minimum height=0.62cm, inner sep=1pt,
-  },
-  arr/.style={-{Latex}, thick},
-  player/.style={circle, inner sep=2.0pt},
-]
-\node[font=\scriptsize] at (4.2, 3.05)
-  {one epoch $=$ one trial of \(3\times 5=15\) games};
-\foreach \e/\x in {1/0, 2/2.1, 3/4.2, 4/6.3, 5/8.4} {
-  \node[font=\scriptsize] at (\x, 2.55) {$e=\e$};
-  \node[epibox, fill=blue!32] (n1e\e) at (\x, 1.70) {};
-  \node[epibox, fill=orange!38] (n2e\e) at (\x, 0.85) {};
-  \node[epibox, fill=black!12] (n3e\e) at (\x, 0.00) {};
-}
-\foreach \e in {1,2,3,4} {
-  \pgfmathtruncatemacro{\nxt}{\e+1}
-  \draw[arr] (n1e\e) -- (n1e\nxt);
-  \draw[arr] (n2e\e) -- (n2e\nxt);
-  \draw[arr] (n3e\e) -- (n3e\nxt);
-}
-\node[left=0.18cm of n1e1, font=\scriptsize] {$n=1$};
-\node[left=0.18cm of n2e1, font=\scriptsize] {$n=2$};
-\node[left=0.18cm of n3e1, font=\scriptsize] {$n=3$};
-\draw[decorate, decoration={brace, amplitude=4pt, mirror}]
-  ([yshift=-5pt]n3e3.south west) -- ([yshift=-5pt]n3e3.south east)
-  node[midway, below=4pt, font=\scriptsize] {$T=36$ rounds};
-% one episode, round by round
-\node[player, fill=gray!55] (p1a) at (0.55, -1.55) {};
-\node[player, fill=black, right=3pt of p1a] (p2a) {};
-\node[font=\scriptsize, above=1pt of p1a, xshift=5pt] {$t=1$};
-\node[player, fill=gray!55] (p1b) at (2.65, -1.55) {};
-\node[player, fill=black, right=3pt of p1b] (p2b) {};
-\node[font=\scriptsize, above=1pt of p1b, xshift=5pt] {$t=2$};
-\node[font=\scriptsize] (dots) at (4.55, -1.55) {$\cdots$};
-\node[player, fill=gray!55] (p1c) at (6.15, -1.55) {};
-\node[player, fill=black, right=3pt of p1c] (p2c) {};
-\node[font=\scriptsize, above=1pt of p1c, xshift=5pt] {$t=T$};
-\draw[arr] (p2a) -- (p1b);
-\draw[arr] (p2b) -- (dots);
-\draw[arr] (dots) -- (p1c);
-\draw[dashed, rounded corners=3pt]
-  (-0.35, -2.05) rectangle (8.95, -1.05);
-\draw[dashed, -{Latex}] (n3e1.south) -- ++(0,-0.35) -| (0.55, -1.05);
-\node[font=\scriptsize, anchor=north] at (4.2, -2.20)
-  {naive: PPO after each episode\qquad shaper: PPO once per trial};
-\end{tikzpicture}
-\caption{One training epoch of the CPR loop, drawn after Garcia Segura
-  et al.\ (their Figure~1).
-  Rows are three independent parallel copies of the same game.
-  Columns are five sequential episodes of \(T=36\) rounds.
-  Same-coloured boxes are successive episodes of one parallel copy.
-  The dashed box is one episode: both agents act simultaneously each
-  round.
-  A naive learner updates after every episode; a shaper updates once
-  from the whole trial.
-  Fifteen such epochs are 225 games.
-  Frozen-bot Test~A/B uses the same geometry; the partner does not
-  update.}
-\label{fig:trial}
-\end{figure}
-
-Versus always-2, a constant take-1 scores 36 and lives; constant take-2
-scores 7 and dies.
-Versus always-1, constant take-2 scores 72 and lives; constant take-1
-scores 36; take-3 dies.
-Test~B does not treat ``copy 1'' as the unique high-return reply.
-
-\section{Naive and shaping schedules}
-\label{sec:schedules}
-
-\texttt{finetuning\_cpr.py} trains two \texttt{PPOAgent}s through the same
-\texttt{outer\_rollout}.
-Training proceeds in trials of \(E=5\) episodes
-(Figure~\ref{fig:trial}).
-A naive learner updates its parameters after every episode \(e\) from
-that episode's batch,
-\begin{equation}
-  \theta_{e+1}
-  =
-  \theta_e+\alpha_{\mathrm{n}}\,\nabla_{\theta}
-  \mathcal{L}\bigl(\theta_e;\ \tau_e(\pi_{\theta_e},\pi_{\phi})\bigr),
-  \label{eq:naive-update}
-\end{equation}
-where \(\tau_e\) is the trajectory of episode \(e\) and \(\pi_{\phi}\) is
-the partner (the gradient step is Adam's, written here as a plain step for
-readability).
-A shaper holds \(\phi\) fixed for the whole trial and updates once, from
-the concatenated trajectories, towards the model-free opponent-shaping
-objective of Lu et al.\ \cite{lu2022} as instantiated for language-model
-agents by Garcia Segura et al.\ \cite{garciasegura2025}:
-\begin{equation}
-  J(\phi)
-  =
-  \mathbb{E}\Bigl[
-    \sum_{e=1}^{E}
-    G_{\mathrm{shaper}}^{(e)}\bigl(\pi_{\phi},\pi_{\theta_e}\bigr)
-  \Bigr],
-  \qquad
-  \theta_{e+1}=\theta_e+\alpha_{\mathrm{n}}\nabla_{\theta}
-  \mathcal{L}\bigl(\theta_e;\tau_e(\pi_{\theta_e},\pi_{\phi})\bigr).
-  \label{eq:shaper-objective}
-\end{equation}
-The naive objective \eqref{eq:naive-update} treats the partner as fixed
-within the episode; the shaper objective \eqref{eq:shaper-objective}
-credits \(\phi\) for the partner's parameter change
-\(\theta_e\to\theta_{e+1}\) that \(\phi\) induced, through the trial-level
-GAE of \eqref{eq:gae}.
-That dependence is the only thing that distinguishes shaping from
-ordinary learning against a slowly changing opponent, and it can only be
-exploited if the shaper's own policy changes on a timescale at which the
-naive learner responds.
-The shaper's learning rate \(\alpha_{\mathrm{s}}=3\times 10^{-7}\),
-tighter clip and once-per-trial schedule therefore also make it a slower,
-more stationary opponent than a matched-learning-rate naive learner.
-The slow-learning-rate naive--naive control of
-Section~\ref{sec:ladder} gives agent~2 the same learning rate and
-clip but the naive schedule and no trial prompt, and so isolates that side
-effect from the shaping term.
-When \texttt{transmit\_info=true}, the shaper prompt also keeps
-joint-request counts and episode summaries for the trial.
-Live protocol:
-\path{cpr_naive_naive_center.json},
-\path{cpr_naive_shaper_center.json},
-\path{cpr_naive_shaper_center_info_off.json},
-\path{cpr_naive_naive_slow2_center.json}, and their \texttt{\_xi}
-counterparts.
-
-\texttt{finetuning\_fixed\_opponent.py} is not used for CPR.
-
-\section{Stage B noise (machinery)}
-
-Stage~B configs (\texttt{cpr\_*\_xi.json}) attach a common-random-number
-table of \(\texttt{xi\_tenths}\in\{7,10,13\}\) per seed
-(\texttt{cpr\_env.make\_noise\_table}).
-The same table is shared across arms so arm contrasts are not confounded
-by different draws.
-\(\texttt{xi\_tenths}=10\) is bit-identical to Stage~A.
-Test~A \(\xi\) uses \texttt{finetuning\_cpr\_fixed.py}; two-learner
-\(\xi\) uses \texttt{finetuning\_cpr.py}.
-Tables are saved as \texttt{noise\_table.npy} next to the records.
-This is a measurement device, not a new optimiser.
+The differences in Table~\ref{tab:hyperparameters} are the reason the arm
+that carries the paper's ingredients is called ShapeLLM-style and not
+ShapeLLM: it is that method's schedule, objective and trial memory on this
+stack's settings, not a reproduction of the published configuration.

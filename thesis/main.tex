@@ -30,7 +30,7 @@
   {{\Huge Opponent shaping for language-model agents\\[0.25em]
   in a sequential common-pool resource}}%
 }
-\date{Submission date: 19 September 2026}
+\date{Submission date: 30 September 2026}
 \author{Alex Lyu\thanks{%
 {\bf Disclaimer:}
 This report is submitted as part requirement for the MSc Data Science and
@@ -48,42 +48,31 @@ Supervisors: Prof.\ Mirco Musolesi; Marta Emili Garcia Segura}
 \maketitle
 
 \begin{abstract}
-This report studies opponent shaping for language-model agents, as
-instantiated by ShapeLLM, in a sequential common-pool resource with
-stochastic regeneration.
-The environment is a two-player integer logistic stock
-(\(R_0=8\), \(K=40\), \(T=36\), \(\rho=0.9\)), the mean-field reduction
-of the Commons Harvest gridworld, small enough to be solved exactly:
-under constant strategies it is a chicken game, and its best-response
-and joint-optimum Bellman equations fix every value a learner is compared
-against.
-Agents are Gemma-2-2b-it with rank-2 LoRA adapters trained by PPO, with
-the naive and trial-level (shaping) schedules of ShapeLLM, reused with
-permission.
-
-The exact solution shows that in the deterministic game a committed hawk
-gains at most one unit from anything a shaper could induce, so a shaping
-experiment there is unpowered by construction; under a mean-one
-multiplicative shock on the growth increment, chosen so that the
-constant-strategy cells are invariant, the hawk's stake in its partner's
-stock-conditioned restraint is 36 units and its ceiling 105.5.
-The experiments are pre-registered as an ablation ladder that changes one
-ingredient of the partner per rung (learning rate, update schedule,
-cross-episode credit, trial prompt), with a transfer test of the frozen shaper
-against a fresh learner, hypotheses stated as inequalities against exact
-cells with paired controls and common random numbers, and a one-factor
-sensitivity check on every hyperparameter that differs from ShapeLLM's
-release.
-Pilot runs fixed the design and exposed three properties of the training
-loop: a library reseed that made nominal seeds share one sampling
-stream, an unreported KL-to-prior term in the reward, and the Adam
-invariance that voids the step-size reading of advantage normalisation.
-In the first two blocks of the grid, a naive learner against a frozen
-hawk acquired stock-conditioned restraint on every seed within 100
-epochs, in both stages, and two of six seeds lost the high-return policy
-they had found; the ladder that tests the shaping objective against that
-baseline is reported in Chapter~7.
-% [Ladder sentence: to be written once blocks 3--5 have run.]
+Opponent shaping trains an agent to influence how a co-player learns.
+ShapeLLM showed that a language-model shaper, trained on the return of a
+multi-episode trial, reaches the exploitative outcome of iterated Chicken
+against a naive language-model learner.
+That shaper also learns an order of magnitude more slowly and updates five
+times less often than its co-player, and in Chicken a slower agent behaves
+more like a committed one, so the outcome has two candidate causes that the
+published design does not separate.
+This thesis asks the same question in a two-player stochastic common-pool
+resource whose exact solution fixes what a co-player's restraint is worth,
+and separates the causes with a control that shares the shaper's update
+schedule, learning rate, clip, batch and prompt but not its cross-episode
+objective.
+Agents are Gemma-2-2b-it with rank-2 LoRA adapters trained by PPO.
+Across 43 pre-registered training runs in two growth regimes, the
+trial-level objective did not change the policy the co-learner acquired: two
+naive learners produced an unconditional restrainer on every seed, and the
+shaping arms did not.
+Where the objective was estimated by chaining advantages across the trial,
+it extinguished the resource on every seed, both agents earning near the
+mutual-harvest value, while the controls sustained it.
+An arm differing only in how that credit is estimated sustained the resource
+and matched the controls.
+The exploitative outcome the literature reports appeared only in the regime
+where a partner with no shaping objective produced it too.
 \end{abstract}
 
 \noindent
@@ -102,11 +91,9 @@ The implementation is available at
 \input{chapters/05_implementation}
 \input{chapters/06_experimental_design}
 \input{chapters/07_results}
-\input{chapters/08_limitations}
-\input{chapters/09_conclusion}
-
-\appendix
-\input{chapters/appendix_binomial}
+\input{chapters/08_discussion}
+\input{chapters/09_limitations}
+\input{chapters/10_conclusion}
 
 \bibliographystyle{plain}
 \bibliography{refs}

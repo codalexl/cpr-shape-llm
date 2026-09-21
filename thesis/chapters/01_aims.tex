@@ -1,138 +1,151 @@
-\chapter{Aims}
+\chapter{Introduction}
 \label{ch:aims}
 
-This report studies opponent shaping for language-model agents, as
-instantiated by ShapeLLM \cite{garciasegura2025}, in a sequential
-common-pool resource with stochastic regeneration.
-Frozen LLM groups have been studied on shared stocks without training
-\cite{piatti2024}; ShapeLLM trains a shaper on iterated matrix games.
-The environment here is a two-player integer logistic CPR
-(Chapter~\ref{ch:env}) played by Gemma-2-2b-it agents with rank-2 LoRA
-adapters and PPO (Chapter~\ref{ch:method}).
-Stage~B, a mean-one multiplicative shock on the growth increment, is
-the setting of the shaping tests.
-Stage~A is the same recipe on the deterministic game: the exact
-solution shows a committed hawk already earns \(72\) against both safe
-scripts, so that game is unpowered; it is a control, not the aim.
-The stock is small enough to be solved exactly by dynamic programming, so
-every quantity a learner is compared against is a number fixed before
-training, not a baseline estimated from another run.
+% Written 21 September 2026 from analysis/SPINE.md sections 1, 2 and 7b.
 
-\section{Research questions}
+Language-model agents trained by reinforcement learning are increasingly
+deployed where they will act alongside other agents that are themselves
+learning.
+Opponent shaping asks whether such an agent can be trained to influence how
+a co-player learns, rather than only how to play against it.
+Garc\'ia Segura et al.\ \cite{garciasegura2025} put that question to
+language models: their shaper, trained on the return of a multi-episode
+trial while a naive learner adapts against it, reaches the exploitative
+outcome of the iterated Chicken game, earning 2.98 units per step against
+its co-player's 1.01.
+
+That result has two candidate causes.
+The shaper is trained on a trial-level objective, which is the mechanism the
+paper proposes.
+It also learns an order of magnitude more slowly and updates five times less
+often than its co-player, and in Chicken the player who commits wins, so an
+agent that changes its policy slowly behaves more like a committed one.
+The published design contains no learning-rate or update-schedule control:
+its only shaping ablation enriches the naive learner's observations.
+Which of the two causes produces the outcome is therefore open, and it
+matters, because only one of them is a capability that transfers to settings
+where commitment does not already pay.
+
+\section{What answering the question requires}
+\label{sec:aims-requires}
+
+Two things, neither of which is present in the published comparison.
+
+First, a control that differs from the shaper in the objective and in
+nothing else.
+A shaper does two things at once: it waits for a whole trial before
+updating, and it lets credit cross episode boundaries within that trial.
+Comparing it with an ordinary learner conflates the two.
+The control used throughout this thesis is a \emph{trial-batched naive}
+agent, which keeps the shaper's learning rate, clip, update schedule, batch
+and prompt, and cuts credit at every episode boundary.
+The difference between them is the objective and nothing else.
+
+Second, an environment in which a co-player's policy is worth something to
+the shaper whatever the shaper's own competence.
+This is not automatic.
+In the resource game this project began with, an agent that manages the
+stock well keeps it alive against almost any partner, so a partner's
+restraint is worth 2.0 units to a best responder and 0.0 from a full stock:
+the apparent stake is a measure of the shaper's incompetence rather than of
+what shaping buys.
+The environment used here is built to remove that escape (Chapter~\ref{ch:env}).
+
+\section{The environment and the design}
+\label{sec:aims-design}
+
+The experiment runs on a two-player stochastic common-pool resource with
+integer stock, simultaneous takes of one or two units, stochastic regrowth
+and a fixed 50-round horizon.
+A single growth parameter switches it between two regimes.
+At \(m=2\) no player can keep the pool alive alone and commitment loses to
+reciprocity, so a shaper must induce restraint rather than out-commit its
+co-player; a restrained co-player is worth 55.1 units.
+At \(m=3\) a single player can sustain the pool and commitment wins, which
+makes that regime a negative control: an exploitative outcome there is
+explained by commitment, and a pre-registered rule says so before the data.
+Both regimes are solved exactly, so every quantity an agent is compared
+against is a number fixed before training.
+
+The claim, the arms, the readouts and the decision rules were registered
+before the runs, and the registration carries three gates that had to pass
+first, two of which failed on earlier designs and are on record.
+Forty-three training runs of 100 epochs were executed across nine arms at
+\(m=2\) and three at \(m=3\).
+What an agent acquired is read not from its co-play returns but from its
+frozen policy, probed for 20 epochs against a scripted partner and assigned
+a class.
+
+\section{Findings}
+\label{sec:aims-findings}
 
 \begin{enumerate}
-\item \textbf{Structure.}
-  What does the exact solution imply about what a learner whose
-  first-action prior is peaked on take-2 can acquire, and whether a
-  shaping objective has a return to collect?
-  In the deterministic game a committed hawk earns \(72\) against both
-  ``restrain once, then take~2'' and ``take~1 if \(R<12\), else~2''
-  (Table~\ref{tab:noise-dp}), so inducing one of those scripts rather
-  than the other does not raise the hawk's own return above \(72\);
-  hypothesis H-A tests that, on Stage~A, naive--shaper minus slow-LR
-  lies within one unit.
-  Under the Stage~B shock the same hawk earns \(35.7\) against
-  restrain-once and \(72\) against the feedback script, and \(105.5\) if
-  it best-responds to feedback: that \(36\)--\(70\) range is a bound on
-  \emph{scripts}, not on an executed policy
-  (Section~\ref{sec:a-to-b}).
-\item \textbf{Shaping.}
-  Does cross-episode credit in the trial-level objective
-  \eqref{eq:shaper-objective} change hawk-role return and dove-role
-  low-stock restraint relative to a partner that shares the shaper's
-  learning rate, clip, update schedule and batch, but resets GAE at
-  episode boundaries?
-  An ablation ladder changes one ingredient of agent~2 per rung:
-  learning rate and clip; then that schedule without cross-episode
-  credit (trial-batched naive); then the shaping term (info-off); then
-  the trial prompt (Section~\ref{sec:ladder}).
-  The slow partner is a timescale control, not the control for the
-  shaping term.
-  Check C2 is Stage~B Test~A only and is operational
-  \eqref{eq:c2}: last-window leave-2 on live steps with \(0<R<12\) at
-  least \(0.5\), and survival given a leave-2 opening at least \(0.40\).
-  It held on all three seeds (\(0.89\), \(0.78\), \(1.00\) and
-  \(0.99\), \(0.93\), \(1.00\); Section~\ref{sec:grid-c1c2}).
-  That is not the claim that the learner matches the dynamic-programming
-  feedback rule (take~1 iff \(R<12\)): in the same window Stage~B seed~2
-  is take-1 on \(0.99\)--\(1.00\) of live steps with \(R<20\) and
-  \(0.85\) take-1 (\(0.14\) take-3) at \(R\ge 20\), with learner return
-  \(44.2\) against a frozen hawk at \(72.0\)
-  (Table~\ref{tab:grid-pi-bands}).
-  Because the gate held, later hawk-role returns are scored against
-  \(72\) not \(35.7\); a null on dove-role low-stock restraint against
-  that already-high ceiling is expected, and the informative contrasts
-  are hawk-role return, speed to majority restraint, and exploitation
-  (H-X).
-\item \textbf{Transfer.}
-  Does a trained shaper, frozen, steer a fresh learner differently from
-  a frozen hawk?
-  This is ShapeLLM's claim stated for this game.
+\item \textbf{The trial-level objective did not change what the co-learner
+  acquired.} On the pre-registered arms the result is a null. It fails on the
+  controls rather than on the shapers: two naive learners produced an
+  unconditional restrainer on five of five seeds, and the shaping arms did
+  not.
+\item \textbf{Estimated by chaining advantages across the trial, the
+  objective destroyed the resource.} Every such arm recorded survival 0.00
+  on every seed, with both agents earning near the mutual-harvest value,
+  while the controls sustained the pool and earned near mutual restraint.
+\item \textbf{The estimator, not the objective, separates the arms.} An arm
+  identical in every respect except how cross-episode credit is estimated
+  sustained the resource and left an unconditional co-learner. It matched
+  the controls; it did not beat them.
+\item \textbf{The exploitative outcome appeared only where commitment
+  explains it.} At \(m=3\) the ShapeLLM-style arm reproduced the published
+  pattern, and so did an arm with no trial objective at all. The
+  pre-registered negative control fires, and the outcome is not evidence of
+  shaping.
 \end{enumerate}
 
-\section{Approach}
-
-The environment is a finite Markov game whose best-response and
-joint-optimum Bellman equations are solved exactly
-(Chapter~\ref{ch:env}).
-The deterministic increment is the integer rounding of the logistic
-mean of a per-unit binomial; Stage~B is a bounded, mean-preserving
-three-point spread on that increment (Appendix~\ref{app:binomial}).
-That construction is a scalar harvest--regrowth analogue, not a
-mean-field of Commons Harvest's spatial exclusion.
-Agents are Gemma-2-2b-it with rank-2 LoRA and PPO, naive episode updates
-against a trial-level shaper, with hyperparameters and provenance in
-Chapter~\ref{ch:method}.
-Experiments are pre-registered as inequalities against exact cells or
-paired controls, with decision rules fixed before the grid
-(Chapter~\ref{ch:design}); independent seeds on one CUDA platform,
-common random numbers across Stage~B arms, fifteen-epoch runs as
-pilots.
-The training loop was audited before those claims: a library reseed
-that made nominal seeds share one sampling stream, a KL-to-reference
-term in the token reward, and the Adam invariance that voids reading
-advantage whitening as a step-size; reported grid runs use the seed
-fix.
-Results are reported against the pre-registration
-(Chapter~\ref{ch:results}); what they do not license is stated
-(Chapter~\ref{ch:lim}).
-
 \section{Contributions}
+\label{sec:aims-contributions}
 
 \begin{itemize}
-\item An exactly solvable two-player integer logistic CPR, with Bellman
-  equations and a constant-strategy reduction that is chicken, not a
-  prisoner's dilemma.
-  The increment is the rounded Schaefer mean of a per-unit binomial
-  (Appendix~\ref{app:meanfield}), not a reduction of the gridworld's
-  exclusion mechanics.
-  From the exact solution: in Stage~A a committed hawk earns \(72\)
-  against both safe scripts above, so H-A's one-unit tolerance is the
-  available gap on the hawk's return; in Stage~B the gap between those
-  scripts is \(35.7\) versus \(72\), with exploitation ceiling \(105.5\).
-\item A pre-registered ablation that isolates, in agent~2, learning rate
-  and clip, update schedule and batch, cross-episode credit (the
-  shaping term), and the trial prompt, including a trial-batched naive
-  so that info-off minus slow-LR is not read as shaping; a transfer
-  test; and a one-factor sensitivity check on hyperparameters that
-  differ from ShapeLLM's release.
-\item The executed Test~A grid (whitened, 100 epochs, three seeds, both
-  stages): R1 passed; C1 holds in substance (Stage~B leave-2 shares
-  \(0.98\)--\(1.00\); seed~1 lies \(<0.001\) outside the Stage~A Wilson
-  upper bound); C2 held as \eqref{eq:c2} on every Stage~B seed.
-  The shaping ladder is not a result of this chapter.
+\item An exactly solved two-player stochastic commons in which the value of
+  a co-player's restraint does not depend on the shaper's own competence,
+  with a one-parameter negative control in which commitment pays.
+\item An identification design for opponent shaping: the trial-batched
+  control that separates the cross-episode objective from the update
+  schedule and the timescale that accompany it.
+\item A pre-registered null with its mechanism: in an environment verified
+  learnable before training, the trial-level objective produced no change in
+  the co-learner's acquired policy, and the measurements that say why.
+\item The finding that credit assignment dominates the objective at this
+  scale: two arms differing only in the estimator of the same objective
+  differ in whether the resource survives at all.
+\item A gate protocol that spends compute only after the environment is
+  shown learnable, with three logged attempts, two of which stopped an
+  experiment that would have produced an uninterpretable result.
 \end{itemize}
 
-\section{Scope}
+\section{What this thesis does not claim}
+\label{sec:aims-scope}
 
-The commons is scalar and two-player; the spatial and exclusion
-mechanisms of the gridworld commons are removed on purpose so that the
-harvest decision is the only decision.
-The base model is fixed; noise levels other than the executed
-\(\pm 30\%\) multiplier, and the binomial kernel itself, are covered by
-the dynamic programme, not by training runs.
-C2 is not reported for Stage~A; low-stock leave-2 there was \(0.33\),
-\(0.08\) and \(1.00\) in the same window.
-The training stack (Gemma-2-2b-it, rank-2 LoRA, trial PPO) is reused from
-ShapeLLM with permission \cite{garciasegura2025}; the scientific object
-is the environment, the design, and the contrasts.
+It does not show that opponent shaping fails for language-model agents.
+One base model, one adapter rank, one environment family, 100 epochs and
+three to five seeds bound every statement here.
+It does not show that the trial-level objective is unlearnable, only that
+this estimator of it did not learn in this setting.
+It does not refute Garc\'ia Segura et al.: the environment class, the
+hyperparameters and the readout all differ, and the reinterpretation offered
+in Chapter~\ref{ch:discussion} concerns what that evidence form can
+identify, not whether the reported result occurred.
+
+\section{Organisation}
+\label{sec:aims-organisation}
+
+Chapter~\ref{ch:lit} places the work against opponent shaping, language-model
+agents in social dilemmas, and the resource economics the environment is
+drawn from.
+Chapter~\ref{ch:env} defines the environment and solves it.
+Chapter~\ref{ch:method} gives the agents, the three learning rules and the
+readouts.
+Chapter~\ref{ch:impl} covers the implementation and the tests.
+Chapter~\ref{ch:design} is the pre-registration: arms, decision rules and
+gates.
+Chapter~\ref{ch:results} reports the runs, Chapter~\ref{ch:discussion}
+interprets them, Chapter~\ref{ch:lim} states what bounds them, and
+Chapter~\ref{ch:conc} concludes.
