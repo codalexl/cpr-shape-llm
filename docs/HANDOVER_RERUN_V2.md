@@ -20,7 +20,7 @@ the gates, and every evaluation run that reads only those (the split arm's E1–
 ## Before anything runs (on the pod)
 
 ```
-git pull && git log --oneline -1                       # must include "terminal values at episode ends"
+git pull && git log --oneline -1                       # must be at or after the commit "Dial configs regenerated with the fix"
 python -m pytest tests -q                              # all pass on trl 0.11.4
 python scripts/make_dial_configs.py && git status --short configs/dial     # prints nothing
 grep -l '"episode_terminal_values": true' configs/dial/m2_shapellm.json configs/dial/m2_shaper_matched.json \

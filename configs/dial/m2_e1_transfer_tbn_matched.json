@@ -96,8 +96,7 @@
     "final_entropy_coef": 0.01,
     "entropy_coef_horizon": 150,
     "track_gradients": true,
-    "trial_batched": true,
-    "episodes_per_trial": 5
+    "trial_batched": true
   },
   "frozen_partner_adapter": null
 }
