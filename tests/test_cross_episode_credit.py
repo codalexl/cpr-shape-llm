@@ -16,7 +16,23 @@ from utils.training_utils import CustomPPOTrainer
 
 def fake_trainer(env_ids, bonus):
     return types.SimpleNamespace(config=types.SimpleNamespace(whiten_rewards=False, gamma=1.0, lam=0.97), env_ids=env_ids,
-                                 n=len(set(env_ids)), advantage_norm="none", cross_episode_bonus=bonus)
+                                 n=len(set(env_ids)), advantage_norm="none", cross_episode_bonus=bonus, episode_terminal=None)
+
+
+def test_terminal_flags_zero_the_bootstrap_and_keep_the_chain():
+    """The corrected chained estimator: at a flagged step v_next is 0 but the lambda-chain still crosses."""
+    from trial_batching import gae_over_sequences
+    device = get_device()
+    rewards, values = torch.zeros(5, 2, device=device), torch.zeros(5, 2, device=device)
+    rewards[:, -1] = torch.tensor([2.0, 2.0, 1.0, 1.0, 1.0], device=device)
+    values[:, -1] = torch.tensor([5.0, 4.0, 3.0, 2.0, 1.0], device=device)
+    mask, env_ids = torch.ones(5, 2, device=device), [0, 0, 0, 0, 0]
+    trainer = fake_trainer(env_ids, None)
+    trainer.episode_terminal = torch.tensor([False, True, False, False, True])
+    _, adv, _ = CustomPPOTrainer.compute_advantages(trainer, values.clone(), rewards.clone(), mask)
+    expected = gae_over_sequences([2, 2, 1, 1, 1], [5, 4, 3, 2, 1], env_ids, [False, True, False, False, True], 1.0, 0.97)
+    assert torch.allclose(adv[:, -1].cpu(), torch.tensor(expected), atol=1e-5)
+    assert abs(expected[1] - (2.0 + 0.0 - 4.0)) < 1e-9  # no bootstrap into step 2's value at the flagged step
 
 
 def test_the_term_moves_the_policy_advantage_and_not_the_value_target():
@@ -35,8 +51,9 @@ def test_the_term_moves_the_policy_advantage_and_not_the_value_target():
 def stub_agent(credit, shaper=True):
     seen = []
     trainer = types.SimpleNamespace(config=types.SimpleNamespace(batch_size=0), env_ids=None, n=None, cross_episode_bonus=None,
-                                    track_gradients=False, update_entropy_coef=lambda: None)
+                                    episode_terminal=None, track_gradients=False, update_entropy_coef=lambda: None)
     agent = types.SimpleNamespace(trial_batched=False, is_shaper=shaper, cross_episode_credit=credit, cross_episode_weight=1.0,
+                                  episode_terminal_values=False,
                                   episodes_per_trial=2, min_valid_transitions=2, agent_id=2, trainer=trainer, n_updates=0,
                                   _future_history=deque(maxlen=5), _record_openings=lambda *a: None,
                                   _record_live_advantages=lambda *a: None, _print_stats=lambda *a: None,

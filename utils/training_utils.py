@@ -274,22 +274,16 @@ class CustomPPOTrainer(PPOTrainer):
             rewards = masked_whiten(rewards, mask, shift_mean=False)
             rewards = torch.masked_fill(rewards, ~mask.bool(), 0) # Added this because of the latest version of TRL 
 
+        # The pass itself is a pure function (trial_batching.gae_over_sequences), tested against an independent
+        # implementation and a brute-force reference; this method only moves tensors in and out of it.
+        from trial_batching import gae_over_sequences
+        terminal = getattr(self, "episode_terminal", None)
+        adv = gae_over_sequences(
+            rewards[:, -1].detach().cpu().tolist(), values[:, -1].detach().cpu().tolist(), list(self.env_ids),
+            None if terminal is None else [bool(x) for x in terminal], float(self.config.gamma), float(self.config.lam),
+        )
         advantages = torch.zeros(rewards.shape)
-        time_steps = int(rewards.shape[0] / self.n)
-
-        terminal = self.episode_terminal
-        for game_id in range(self.n): 
-          # Get positions within flattened rewards
-          target_positions = torch.where(torch.tensor(self.env_ids) == game_id)[0]
-          time_steps = len(target_positions)
-          for t in reversed(range(time_steps)): 
-            # No bootstrap across an environment reset: at an episode's last live step v_next is 0. The lambda-chain
-            # (adv_next) still crosses the boundary, which is the cross-episode credit of the trial objective.
-            resets = terminal is not None and bool(terminal[target_positions[t]])
-            v_next = values[target_positions[t+1],-1] if (t < (time_steps-1) and not resets) else 0.0 # Extract next values
-            delta = rewards[target_positions[t], -1] + self.config.gamma * v_next - values[target_positions[t], -1]
-            adv_next = advantages[target_positions[t+1], -1] if t < (time_steps-1) else 0.0
-            advantages[target_positions[t], -1] = delta + self.config.gamma * self.config.lam * adv_next
+        advantages[:, -1] = torch.tensor(adv, dtype=advantages.dtype)
         advantages = advantages.to(get_device())
 
         returns = advantages + values

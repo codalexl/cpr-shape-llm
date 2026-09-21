@@ -89,6 +89,35 @@ def episode_terminals(ids_by_round: Sequence[Sequence[int]], episodes: int) -> L
     return [i in last for i in range(len(flat))]
 
 
+def gae_over_sequences(rewards: Sequence[float], values: Sequence[float], env_ids: Sequence[int],
+                       terminal: Optional[Sequence[bool]], gamma: float, lam: float) -> List[float]:
+    """The advantage pass of CustomPPOTrainer.compute_advantages as a pure function over one flattened batch.
+
+    Steps sharing an env id form one sequence in batch order. Within a sequence, delta_t = r_t + gamma v_{t+1} - v_t
+    and A_t = delta_t + gamma lam A_{t+1}; the last step of a sequence has v_{t+1} = 0 and no chain. Where `terminal`
+    is true the environment resets after the step, so v_{t+1} = 0 there too, while the lambda-chain still crosses
+    (the corrected chained estimator of the shaper arms). Returns one advantage per step in batch order.
+    """
+    n = len(rewards)
+    assert len(values) == n and len(env_ids) == n, "rewards, values and env ids must align"
+    assert terminal is None or len(terminal) == n, "one terminal flag per step"
+    advantages = [0.0] * n
+    positions: Dict[int, List[int]] = {}
+    for i, g in enumerate(env_ids):
+        positions.setdefault(int(g), []).append(i)
+    for seq in positions.values():
+        adv_next = 0.0
+        for k in range(len(seq) - 1, -1, -1):
+            i = seq[k]
+            last = k == len(seq) - 1
+            resets = terminal is not None and bool(terminal[i])
+            v_next = 0.0 if (last or resets) else float(values[seq[k + 1]])
+            delta = float(rewards[i]) + gamma * v_next - float(values[i])
+            advantages[i] = delta + gamma * lam * (0.0 if last else adv_next)
+            adv_next = advantages[i]
+    return advantages
+
+
 def first_index_by_id(ids: Sequence[int]) -> Dict[int, int]:
     """Opening step of each sequence in a flattened batch (pure twin of training_utils.first_index_by_env_id)."""
     first: Dict[int, int] = {}
