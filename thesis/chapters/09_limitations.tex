@@ -74,6 +74,8 @@ it.
 \textbf{Removed by:} adding the cross-episode term after normalisation, or
 batching so that the trial-common component survives, with the objective
 otherwise unchanged.
+The bootstrap through the reset, which was the dominant defect, is removed
+in the corrected estimator (Section~\ref{sec:res-v1}).
 
 \section{The probe cannot classify at \texorpdfstring{\(m=3\)}{m = 3}}
 \label{sec:lim-m3-probe}
@@ -136,20 +138,18 @@ second gate failure.
 pre-registration, which is the honest next step rather than a reanalysis of
 these runs.
 
-\section{The failure is located but not isolated}
+\section{The bug was found after the grid ran}
 \label{sec:lim-diagnostic}
 
-The evidence that the estimator rather than the game produced the collapse
-is indirect: the gates show the environment is learnable, the channel
-measure shows no response specific to the objective, and the split-credit
-arm shows that changing only the estimator changes the outcome.
-No run isolates the chained estimator from the co-learning dynamics.
-\textbf{Weakens:} the mechanism argument of Chapter~\ref{ch:discussion}.
-\textbf{Removed by:} one cheap diagnostic --- the chained-credit shaper
-against the scripted tit-for-tat partner of gate G2, three seeds, 100
-epochs, about four GPU-hours.
-A naive learner acquires reciprocity against that partner
-(Section~\ref{sec:gates}); if the chained shaper does not, the failure is in
-the estimator and not in the presence of a learning co-player.
-The run has no co-learner and therefore cannot produce a shaping result; it
-can only locate the failure.
+The estimator bug of Section~\ref{sec:res-v1} was found by replaying the
+executed records, after training and evaluation had finished.
+Its effect is measured on those records and its fix is one line, but the
+corrected chained arms were run after the v1 results had been seen.
+\textbf{Weakens:} the confirmatory status of the corrected chained arms
+beyond what Section~\ref{sec:lim-exploratory} already states; nothing in
+the rerun's readouts, classes or rules was changed, and the amendment log
+fixes the rerun's scope and stop rule before it started.
+\textbf{Removed by:} a replication of the corrected design at a new
+pre-registration.
+The offline replay is reproducible by an examiner from the v1 records and
+\texttt{scripts/dial\_credit\_replay.py}.

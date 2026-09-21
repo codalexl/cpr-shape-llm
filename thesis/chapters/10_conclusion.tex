@@ -16,17 +16,25 @@ On the pre-registered arms the result is a null, and it fails on the
 controls: two ordinary naive learners produced an unconditional restrainer
 on five of five seeds, the trial-batched control on four of five, and the
 shaping arms on none.
-Where the objective was estimated by chaining advantages across the trial,
-it did not merely fail to teach restraint --- it extinguished the resource
-on all thirteen of its seeds, leaving both agents near the value of mutual
-harvest while the controls earned near the value of mutual restraint.
+Where the objective was estimated by the released chained estimator, which
+bootstraps the value through the environment's reset at every collapse, it
+did not merely fail to teach restraint --- it extinguished the resource on
+all thirteen of its seeds, leaving both agents near the value of mutual
+harvest while the controls earned near the value of mutual restraint; the
+inversion is measured on those records and the arms were rerun with the
+corrected estimator.
+% [Corrected chained arms: one sentence, from the rerun.]
 
 Three further results stand independently of that null.
 
 \textbf{Credit assignment dominates the objective at this scale.}
 Two arms identical in seat, learning rate, clip, update schedule, batch and
 prompt, and differing only in how cross-episode credit is estimated, differ
-in whether the resource survives at all.
+in whether the resource survives at all; and the difference has a measured
+cause, a bootstrap through the environment's reset that reverses the sign
+of the chained estimator's restraint signal wherever an episode ends by
+collapse.
+% [Corrected chained arms: what they did, from the rerun.]
 An opponent-shaping objective for language-model agents is not only a choice
 of objective; it is a choice of estimator, and reporting one without the
 other leaves the result unidentified.
@@ -67,14 +75,11 @@ there is nothing left to bargain over.
 \section{Future work}
 \label{sec:conc-future}
 
-Three steps follow directly, in increasing cost.
-A single diagnostic run would isolate the estimator from the co-learning
-dynamics by training the chained-credit shaper against a scripted reciprocal
-partner (Chapter~\ref{ch:lim}); it cannot produce a shaping result and can
-only locate the failure.
-A lower-variance estimator of the same trial objective, pre-registered as
-the manipulated factor, would test whether the objective is reachable at all
-at this scale.
+Two steps follow directly, in increasing cost.
+A pre-registered replication of the corrected chained estimator against its
+trial-batched control, with the estimator as the manipulated factor, would
+give the corrected result confirmatory rather than exploratory status
+(Chapter~\ref{ch:lim}).
 And an environment, prior or budget in which the naive baseline does not
 already acquire the target behaviour would restore the headroom this design
 lost --- at the cost of a new pre-registration, since altering the design

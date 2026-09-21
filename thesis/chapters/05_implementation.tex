@@ -25,7 +25,7 @@ Path & Role \\
 \texttt{cpr\_observation\_managers.py} & prompts rendered from structured state; trial memory for a shaper \\
 \texttt{cpr\_bots.py} & scripted partners: committed harvest, tit-for-tat, the probe, the replay tape \\
 \texttt{agents.py}, \texttt{utils/training\_utils.py} & PPO over the legal action tokens, the advantage operator, and the cross-episode credit hook \\
-\texttt{trial\_batching.py} & the trial-batched control and the split-credit estimator, as pure functions \\
+\texttt{trial\_batching.py} & the trial-batched control, the split-credit estimator and the episode-terminal flags of the corrected chained estimator, as pure functions \\
 \texttt{environment.py} & \texttt{inner\_rollout} and \texttt{outer\_rollout}, reused from ShapeLLM \\
 \bottomrule
 \end{tabularx}
@@ -34,7 +34,9 @@ Path & Role \\
 Agent 2's learning rule is selected entirely by configuration keys:
 \texttt{trial\_batched} for the control, \texttt{is\_shaper} for the trial
 objective, \texttt{transmit\_info} for the trial-memory prompt, and
-\texttt{cross\_episode\_credit} for the estimator.
+\texttt{cross\_episode\_credit} for the estimator, and
+\texttt{episode\_terminal\_values} for the corrected bootstrap at episode
+ends (Chapter~\ref{ch:method}).
 Two arms therefore differ in exactly the keys their contrast names, which
 \texttt{tests/test\_cpr\_dial\_configs.py} asserts key by key.
 
@@ -67,7 +69,9 @@ the within-trial channel measure, and it applies the decision rules.
 and figures of Chapter~\ref{ch:results}, so no quantity is computed in two
 places.
 \texttt{scripts/dial\_credit\_replay.py} re-credits recorded trials under
-alternative estimators, and \texttt{scripts/dial\_learnability.py} and
+alternative estimators, including the executed chained form and the
+corrected one, which is how the estimator bug of Section~\ref{sec:res-v1}
+was measured before any rerun, and \texttt{scripts/dial\_learnability.py} and
 \texttt{scripts/dial\_shaping\_window.py} produce the pre-training analyses
 of Chapter~\ref{ch:design}.
 

@@ -67,6 +67,12 @@ rate, clip, batch and update schedule fixed and removes only the
 cross-episode objective; that control is the trial-batched arm of
 Chapter~\ref{ch:design}, and it is the methodological contribution of this
 thesis.
+A second feature matters for any transfer of the method to episodic games:
+the released estimator chains generalised advantage estimation across the
+episodes of a trial through one sequence per parallel game, which is sound
+where a repeated matrix game has no terminal state, and which
+Chapter~\ref{ch:results} shows bootstraps through the environment's reset
+where an episode can end by collapse.
 
 Duque et al.\ \cite{duque2025} collapse shaping into a policy-gradient term
 that multiplies own and opponent advantages, and evaluate it on domains that

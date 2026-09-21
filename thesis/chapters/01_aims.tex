@@ -85,10 +85,15 @@ a class.
   controls rather than on the shapers: two naive learners produced an
   unconditional restrainer on five of five seeds, and the shaping arms did
   not.
-\item \textbf{Estimated by chaining advantages across the trial, the
-  objective destroyed the resource.} Every such arm recorded survival 0.00
-  on every seed, with both agents earning near the mutual-harvest value,
-  while the controls sustained the pool and earned near mutual restraint.
+\item \textbf{The released chained estimator inverts the restraint signal
+  in an episodic game, and the effect is measured.} As first executed it
+  bootstrapped the value through the environment's reset at every collapse;
+  every such arm recorded survival 0.00 on every seed, with both agents near
+  the mutual-harvest value, while the controls sustained the pool. Replaying
+  the arms' own records with that one bootstrap set to zero reverses the
+  estimator's push from strongly away from restraint to strongly toward it
+  on every seed. The arms were rerun with the corrected estimator.
+  % [Corrected chained arms: one clause on their outcome, from the rerun.]
 \item \textbf{The estimator, not the objective, separates the arms.} An arm
   identical in every respect except how cross-episode credit is estimated
   sustained the resource and left an unconditional co-learner. It matched
@@ -114,8 +119,11 @@ a class.
   learnable before training, the trial-level objective produced no change in
   the co-learner's acquired policy, and the measurements that say why.
 \item The finding that credit assignment dominates the objective at this
-  scale: two arms differing only in the estimator of the same objective
-  differ in whether the resource survives at all.
+  scale, with its mechanism: the released chained estimator bootstraps
+  through the environment's reset in episodic games, which reverses the
+  sign of its restraint signal wherever episodes end by collapse; two arms
+  differing only in the estimator of the same objective differ in whether
+  the resource survives at all.
 \item A gate protocol that spends compute only after the environment is
   shown learnable, with three logged attempts, two of which stopped an
   experiment that would have produced an uninterpretable result.

@@ -50,18 +50,25 @@ seeds, and the frozen policy transferred to a fresh learner on five of five.
 Neither arm beat the controls; one matched them and the other destroyed the
 thing being contested.
 
-Three properties of the chained estimator explain the asymmetry, and each
-was measured rather than assumed.
-Credit reaches a step discounted by \(\lambda\) per live step, so a reward
+The mechanism is measured, not inferred (Section~\ref{sec:res-v1}).
+The estimator as first executed bootstrapped the value through the
+environment's reset at every collapse, and on the chained arms' own
+records its push toward restraint reverses sign, on every seed, when that
+one bootstrap is set to zero.
+Chaining through a collapse into a fresh pool inverts the signal, and the
+inversion feeds itself once collapses are common.
+Split credit computes advantages within episodes and never bootstraps
+through a reset, which is why it sustained the resource with the same
+objective, seat, speed, schedule, batch and prompt.
+Three further properties of the chained estimator are real and secondary:
+credit reaches a step discounted by \(\lambda\) per live step, so a reward
 one episode later enters the opening advantage of a full episode at
-\(0.97^{50}=0.22\) (Chapter~\ref{ch:method}).
-Advantages are whitened per update, which removes the component of the
-cross-episode term that is common to the trial --- precisely the component a
-shared co-learner's response produces.
-And the estimates themselves were noisy where the naive learner's were not:
-in the pilot diagnosis, whole-trial advantages had a standard deviation of
-14 to 32 against 2 to 7, and the restrain-minus-harvest gap was never
-significant over ten blocks.
+\(0.97^{50}=0.22\); whitening per update removes the component of the
+cross-episode term that is common to the trial, which is the component a
+shared co-learner's response produces; and in the pilot diagnosis the
+whole-trial advantages had a standard deviation of 14 to 32 against the
+naive learner's 2 to 7.
+% [Corrected chained arms: one sentence on what they did, from the rerun.]
 
 The practical implication is narrow and useful.
 An opponent-shaping objective for language-model agents is not only a choice
@@ -130,21 +137,23 @@ LLM agents can shape.
 \label{sec:disc-commons}
 
 One result deserves emphasis beyond the shaping question.
-The arms that maximised the shaper's own trial return drove a renewable
-resource to extinction in every episode of every seed, earning 0.38 to 0.49
-units per round where mutual harvest pays 0.36 and mutual restraint pays
-1.00.
-The objective did not merely fail to teach restraint; optimising it produced
-worse outcomes for both agents than not optimising it at all.
+The arms that optimised the shaper's trial return with the estimator as
+first executed drove a renewable resource to extinction in every episode of
+every seed, earning 0.38 to 0.49 units per round where mutual harvest pays
+0.36 and mutual restraint pays 1.00, and the cause was a bootstrap through
+the environment's reset that no matrix-game benchmark would have exposed.
+An objective that is sound on repeated matrix games can, through its
+estimator, produce worse outcomes for both agents than not optimising it
+at all when the shared object can be exhausted.
 
-Two readings follow, and the experiment does not separate them.
-The objective may be pointing at a real gradient that this estimator cannot
-follow, in which case the collapse is a failure of credit assignment.
-Or the trial return may be maximised, within the reachable policy space, by
-harvesting hard while the partner still restrains --- a locally attractive
-policy that destroys the resource that makes it valuable.
-Distinguishing these requires an estimator with lower variance and the same
-objective, which the split-credit arm begins but does not settle.
+The reading is the first of the two that were possible: the estimator
+pointed the wrong way, and Section~\ref{sec:res-v1} shows the sign
+reversing on the recorded play once the bootstrap through the reset is
+removed.
+The alternative --- that the trial return is maximised by harvesting hard
+while the partner still restrains --- is what the corrected chained arms
+test, and their result is read in Section~\ref{sec:res-mechanism}.
+% [From the rerun: whether the corrected arms sustained the resource.]
 
 For deployment the weaker statement is already enough.
 An agent trained to maximise its own return across an interaction in which a

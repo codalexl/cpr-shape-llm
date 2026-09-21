@@ -147,6 +147,25 @@ Each failure produced one change --- the design point in the first case, the
 addition of the split-credit arm in the second --- and each change is dated
 in the amendment log before the run it affected.
 
+\paragraph{The amendment of 21 September.}
+After the grid had been evaluated, a replay of the executed chained arms'
+own records showed that the estimator bootstrapped the value through the
+environment's reset at every collapse and thereby pushed away from
+restraint (Section~\ref{sec:res-v1}).
+The amendment logged the bug, its measured effect, the one-line fix, and a
+rerun of the five chained arms and their evaluation runs into the same
+folders, with the first runs kept as estimator v1.
+Nothing else changed: not the arms, the seeds, the readouts, the classes,
+nor S, T or C.
+One stop rule was added, which could only shorten the rerun: if at epoch 30
+every chained seed still showed survival below 0.05 with agent~2's
+restraint below its first-epoch level, the phase stops and that is
+reported.
+Pre-training the value head with the policy frozen was considered and not
+adopted, because the replay with a critic that knows stock, both last
+takes, episode and round still inverts the sign; a better critic would not
+have removed the bug.
+
 \section{What was fixed in advance}
 \label{sec:status}
 
@@ -162,6 +181,7 @@ Design point, invariants, toy gate & Pre-registered 14 September, before any env
 Gates and their thresholds & Pre-registered; two attempts failed and are on record \\
 Arms, seeds, readouts, decision rules & Fixed before training launched \\
 Split-credit arm & Deviation, logged; additional, never replacing a pre-registered arm \\
+Chained-credit arms & Run twice: with the estimator as first executed (v1, 16--20 September), then, after the bug of Section~\ref{sec:res-v1} was found and logged on 21 September, with the corrected estimator; arms, seeds, readouts and rules unchanged \\
 History-off arm & Prompt ablation, not part of S \\
 E1 controls & Addition of 21 September; descriptive, outside S, T and C \\
 \bottomrule

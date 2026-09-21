@@ -103,6 +103,30 @@ later reaches the first round of a full 50-round episode at
 \(0.97^{50}=0.22\), and later episodes arrive more weakly still.
 This is the estimator of every pre-registered shaper arm.
 
+\paragraph{Terminal values at episode ends.}
+The released rollout assigns a shaper one sequence per parallel game for
+the whole trial and drops the rounds after a collapse from the batch, so
+the estimator as first executed bootstrapped the value at an episode's
+last live step from the next live step of the same game, which after a
+collapse is the first round of the next episode with a fresh pool: the
+environment's reset was treated as an ordinary transition.
+In a repeated matrix game there is no terminal state and no reset of
+state, so the estimator is sound there; in an episodic game with an
+absorbing empty pool it is not.
+Section~\ref{sec:res-v1} measures the consequence on the executed
+records: the estimator's push toward restraint reverses sign wherever
+episodes end by collapse.
+The corrected estimator, used by every chained arm reported in
+Chapter~\ref{ch:results}, sets the bootstrap to zero at the last live
+step of each episode and keeps the \(\lambda\)-chain of later advantages
+across the boundary, so the cross-episode credit of
+\eqref{eq:shaper-objective} is preserved and only the spurious value
+through the reset is removed
+(\texttt{trial\_batching.episode\_terminals};
+\texttt{episode\_terminal\_values} in every chained-shaper configuration,
+required by the lock).
+The runs made with the first form are kept on record as estimator v1.
+
 \paragraph{Split credit.}
 Advantages are computed within each episode, and the policy advantage --- not
 the critic's target --- gains the agent's return in the trial's later

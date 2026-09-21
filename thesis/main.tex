@@ -66,11 +66,14 @@ Across 43 pre-registered training runs in two growth regimes, the
 trial-level objective did not change the policy the co-learner acquired: two
 naive learners produced an unconditional restrainer on every seed, and the
 shaping arms did not.
-Where the objective was estimated by chaining advantages across the trial,
-it extinguished the resource on every seed, both agents earning near the
-mutual-harvest value, while the controls sustained it.
+The released estimator of that objective, which chains advantages across
+the episodes of a trial, bootstraps the value through the environment's
+reset at every collapse; as first executed it extinguished the resource on
+every seed, and replaying its own records with that bootstrap set to zero
+reverses its push from strongly away from restraint to strongly toward it.
 An arm differing only in how that credit is estimated sustained the resource
 and matched the controls.
+% [One sentence on the corrected chained arms, from the rerun.]
 The exploitative outcome the literature reports appeared only in the regime
 where a partner with no shaping objective produced it too.
 \end{abstract}
