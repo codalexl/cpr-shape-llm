@@ -38,6 +38,7 @@ LOGGED_WEIGHT = 0.2181  # lambda**50, the weight logged on 15 September and with
 TRIAL, EPISODE = (lambda e: 0), (lambda e: e)
 VARIANTS = [  # label, GAE segment, lambda, update batch, cross-episode weight, baseline ("loo" or "previous")
     ("whole-trial GAE, lambda 0.97 (as run)", TRIAL, 0.97, TRIAL, None, None),
+    ("whole-trial GAE, lambda 0.97, value reset at episode ends", TRIAL, 0.97, TRIAL, None, None, True),
     ("whole-trial GAE, lambda 0.90", TRIAL, 0.90, TRIAL, None, None),
     ("whole-trial GAE, lambda 0.80", TRIAL, 0.80, TRIAL, None, None),
     ("3-episode trials", lambda e: e // 3, 0.97, lambda e: e // 3, None, None),
@@ -67,10 +68,14 @@ def sequences(rec, agent, lo, hi):
     return seqs
 
 
-def gae(r, V, last, lam):
+def gae(r, V, last, lam, terminal=None):
+    """`last` ends a credit segment (v_next and the lambda chain both reset). `terminal`, when given, marks steps
+    after which the environment resets (an episode's last live round): v_next is 0 there even if the segment
+    continues, which is what the executed chained estimator does not do."""
     A, nxt = np.zeros(len(r)), 0.0
     for t in reversed(range(len(r))):
-        v_next = 0.0 if last[t] else V[t + 1]
+        cut = last[t] or (terminal is not None and terminal[t])
+        v_next = 0.0 if cut else V[t + 1]
         nxt = 0.0 if last[t] else nxt
         A[t] = r[t] + v_next - V[t] + lam * nxt
         nxt = A[t]
@@ -96,7 +101,7 @@ def trial_means(future):
     return {epoch: np.mean(fs, axis=0) for epoch, fs in by_epoch.items()}
 
 
-def credit(seqs, segment, lam, batch, cross, base=None, previous=None):
+def credit(seqs, segment, lam, batch, cross, base=None, previous=None, terminal_at_episode_end=False):
     first = {}
     for e in range(EPISODES):
         first.setdefault(segment(e), e)
@@ -104,18 +109,19 @@ def credit(seqs, segment, lam, batch, cross, base=None, previous=None):
     for key, seq in seqs.items():
         seg = [segment(s[2]) for s in seq]
         last = [t == len(seq) - 1 or seg[t + 1] != seg[t] for t in range(len(seq))]
-        prepared[key] = (np.array([s[0] for s in seq], float), last, [s[2] - first[segment(s[2])] for s in seq])
+        term = [t == len(seq) - 1 or seq[t + 1][2] != seq[t][2] for t in range(len(seq))] if terminal_at_episode_end else None
+        prepared[key] = (np.array([s[0] for s in seq], float), last, [s[2] - first[segment(s[2])] for s in seq], term)
     fit = defaultdict(list)
     for key, seq in seqs.items():
-        r, last, pos = prepared[key]
-        for s, p, g in zip(seq, pos, gae(r, np.zeros(len(r)), last, lam)):
+        r, last, pos, term = prepared[key]
+        for s, p, g in zip(seq, pos, gae(r, np.zeros(len(r)), last, lam, term)):
             fit[(s[3], p)].append(g)
     critic = {b: float(np.mean(v)) for b, v in fit.items()}
     future = futures(seqs)
     out = []
     for key, seq in seqs.items():
-        r, last, pos = prepared[key]
-        A = gae(r, np.array([critic[(s[3], p)] for s, p in zip(seq, pos)]), last, lam)
+        r, last, pos, term = prepared[key]
+        A = gae(r, np.array([critic[(s[3], p)] for s, p in zip(seq, pos)]), last, lam, term)
         if cross is not None:
             if base == "loo":
                 others = [k for k in seqs if k[0] == key[0] and k != key]
@@ -154,8 +160,8 @@ def main(argv=None) -> None:
             seqs = sequences(rec, agent, lo, hi)
             previous = trial_means(futures(sequences(rec, agent, lo - SPLIT_BASELINE_TRIALS, hi)))
             print(f"\n{name}, epochs {lo}-{hi}")
-            for label, segment, lam, batch, cross, base in variants:
-                sd, t = measure(credit(seqs, segment, lam, batch, cross, base, previous))
+            for label, segment, lam, batch, cross, base, *flags in variants:
+                sd, t = measure(credit(seqs, segment, lam, batch, cross, base, previous, terminal_at_episode_end=bool(flags and flags[0])))
                 print(f"  {label:54s} raw SD {sd:5.1f} | t {t:+5.1f}", flush=True)
 
     print("\nshaper: share of the later-episode return's variance common to a trial's games (what a baseline from the "
