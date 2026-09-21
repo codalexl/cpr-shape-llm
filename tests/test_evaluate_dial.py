@@ -46,8 +46,9 @@ def test_episode_readouts_over_the_window():
 def test_planned_seeds():
     assert ed.planned("m2_shapellm") == 5 and ed.planned("m2_slow") == 3 and ed.planned("m3_shapellm") == 3
     assert ed.planned("m2_probe_of_m2_e2_replay_shaper_matched") == 5 and ed.planned("m2_shaper_matched_split_g3") == 1
+    assert ed.planned("m2_e1_transfer_tbn_matched") == 5 and ed.planned("m2_e1_transfer_naive") == 5  # E1 controls
     with pytest.raises(KeyError):
-        ed.planned("m2_e1_transfer_naive")
+        ed.planned("m2_e1_transfer_slow")  # not an evaluated shaper and not an E1 control
     assert ed.planned("m2_tbn_matched_g3tbn") == 1 and ed.planned("m2_shaper_matched_split") == 5
     assert ed.planned("m2_e1_transfer_shaper_matched_split", 200) == 5 and ed.planned("m2_e1_transfer_shaper_matched", 200) == 5
     assert ed.planned("m2_naive", 200) == 3 and ed.planned("m2_shapellm", 200) == 3 and ed.planned("m2_tbn_matched", 200) == 5

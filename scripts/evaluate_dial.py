@@ -27,7 +27,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import cpr_eval as ev  # noqa: E402
-from make_dial_configs import ADDITIONAL, EVAL_SHAPERS, EXTRA_SEEDS_LONG, GATE_RUNS, OPTIONAL, PILOT_RUNS, SEEDS, SEEDS_LONG  # noqa: E402
+from make_dial_configs import ADDITIONAL, EVAL_CONTROLS, EVAL_SHAPERS, EXTRA_SEEDS_LONG, GATE_RUNS, OPTIONAL, PILOT_RUNS, SEEDS, SEEDS_LONG  # noqa: E402
 
 RESTRAIN = 1
 GATE = {  # Section 9: folder, readout, threshold
@@ -60,6 +60,9 @@ def planned(folder: str, length: int = 100, extra: bool = False) -> int:
     stage, rest = folder.split("_", 1)
     for arm in EVAL_SHAPERS.get(stage, ()):
         if any(rest == f"{kind}_{arm}" for kind in EVAL_KINDS):
+            return seeds[f"{stage}_{arm}"]
+    for arm in EVAL_CONTROLS.get(stage, ()):  # E1 controls inherit the seeds of the arm whose agent 2 they freeze
+        if rest == f"e1_transfer_{arm}":
             return seeds[f"{stage}_{arm}"]
     raise KeyError(f"{folder} is not a pre-registered run")
 

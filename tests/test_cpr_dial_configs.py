@@ -49,7 +49,7 @@ SPLIT = {"ppo_agent_parameters2.cross_episode_credit", "ppo_agent_parameters2.cr
 
 
 def test_every_config_is_a_design_point(configs):
-    assert len(configs) == 8 + 3 + 2 + 4 * 4 + 2 + 1  # arms (the split-credit arm included), probes, E1-E4 per evaluated shaper, gates, optional
+    assert len(configs) == 8 + 3 + 2 + 4 * 4 + 2 + 1 + 2  # arms, probes, E1-E4 per evaluated shaper, gates, optional, E1 controls
     for name, cfg in configs.items():
         assert check_dial_config(cfg) in ("m2", "m3")
         gp = cfg["game_parameters"]
@@ -116,6 +116,20 @@ def test_the_optional_arm_and_the_planned_seeds(configs):
     assert {name for name, n in mdc.SEEDS_LONG.items() if n == 5} == set(mdc.DECISIVE + mdc.ADDITIONAL)
     assert mdc.DECISIVE == ("m2_shaper_matched", "m2_tbn_matched") and mdc.ADDITIONAL == ("m2_shaper_matched_split",)
     assert mdc.SEEDS_LONG["m2_shapellm"] == 3 and mdc.EXTRA_SEEDS_LONG == {"m2_shapellm": (3, 4)}
+
+
+def test_the_e1_controls_freeze_a_non_shaper_agent_2(configs):
+    """E1 with a frozen tbn or naive agent 2: the control for "the finished policy teaches a stranger"."""
+    assert mdc.EVAL_CONTROLS == {"m2": ["tbn_matched", "naive"]}
+    for arm in mdc.EVAL_CONTROLS["m2"]:
+        cfg = configs[f"m2_e1_transfer_{arm}"]
+        assert cfg["obs_manager_parameters2"]["is_shaper"] is False, arm          # the frozen partner is not a shaper
+        assert "frozen_partner_adapter" in cfg and cfg["frozen_partner_adapter"] is None
+        assert cfg["ppo_agent_parameters1"] == configs["m2_naive"]["ppo_agent_parameters1"]  # a fresh naive learner
+        assert "cross_episode_credit" not in cfg["ppo_agent_parameters2"]
+    # differs from the shaper transfer run only in agent 2's seat
+    differ = keys_that_differ(configs["m2_e1_transfer_shaper_matched"], configs["m2_e1_transfer_tbn_matched"])
+    assert all(k.startswith(("obs_manager_parameters2", "ppo_agent_parameters2")) for k in differ), differ
 
 
 def test_the_split_credit_arm_is_additional_and_the_lock_checks_it(configs):

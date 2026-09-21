@@ -14,6 +14,7 @@ cpr_dial.check_dial_config before it is written.
   <stage>_probe.json                    a frozen partner against the scripted probe (--learner_adapter per seed)
   m2_shapellm_history_off.json          the optional arm: ShapeLLM-style with the previous-round line off for both
                                         players (the history switch is the environment's prompt line, not the shaper's)
+  <stage>_e1_transfer_<control>.json    E1 control (21 September): frozen non-shaper agent 2 against a fresh learner
   m2_shaper_matched_split.json          an additional arm (15 September): shaper-matched with split cross-episode credit;
                                         its evaluation arms equal shaper-matched's, since a frozen shaper takes no update
 """
@@ -47,6 +48,9 @@ ARMS = {  # agent 2 per arm; agent 1 is always the naive learner of the base con
 }
 STAGE_ARMS = {"m2": list(ARMS), "m3": ["naive", "slow", "shapellm"]}
 EVAL_SHAPERS = {"m2": ["shapellm", "shaper_matched", "shaper_matched_split"], "m3": ["shapellm"]}
+# E1 controls (21 September): the same transfer run with a frozen NON-shaper agent 2, so "the finished policy teaches a
+# fresh learner" can be separated from "any trained agent 2 teaches a fresh learner". Descriptive; not part of S.
+EVAL_CONTROLS = {"m2": ["tbn_matched", "naive"]}
 SEEDS = {  # Section 5: five seeds on the m = 2 arms that decide S. E1-E4 and probes inherit the seeds of what they read
     "m2_naive": 5, "m2_slow": 3, "m2_tbn_matched": 5, "m2_shaper_matched": 5, "m2_tbn_slow": 3, "m2_shaper_slow": 3,
     "m2_shapellm": 5, "m3_naive": 3, "m3_slow": 3, "m3_shapellm": 3, "m2_shaper_matched_split": 5,
@@ -135,6 +139,8 @@ def build() -> list:
                 naive, shaper, frozen_partner_adapter=None, frozen_learner_adapter=None)
             configs[f"{stage}_e4_untrained_partner_{arm}"] = one_learner(
                 naive, shaper, frozen_partner_adapter=None, frozen_learner_adapter="adapter/cpr_learner_r2")
+        for arm in EVAL_CONTROLS.get(stage, ()):  # E1 only; the frozen partner takes no update
+            configs[f"{stage}_e1_transfer_{arm}"] = one_learner(naive, configs[f"{stage}_{arm}"], frozen_partner_adapter=None)
     configs["g1_m3_harvest"] = one_learner(configs["m3_naive"], scripted_partner={"kind": "take", "take": 2})
     configs["g2_m2_tft"] = one_learner(configs["m2_naive"], scripted_partner={"kind": "tit_for_tat"})
     history_off = copy.deepcopy(configs["m2_shapellm"])
