@@ -25,7 +25,7 @@ The training loop builds on ShapeLLM (Garcia Segura et al., ICLR 2026) and is us
 | `verify_cpr.py` | Ground-truth fixture for the environment tests and the launcher's preflight |
 | `configs/dial/` | Every run configuration, generated from `configs/grid/B_ns_whiten.json` |
 | `scripts/` | Config generation, launching and scheduling, evaluation, tables, figures, inference, and estimator replay |
-| `results/dial/` | Evaluator outputs. `results/dial_v1/` holds the uncut window summaries. `scripts/dial_records.py` reads a chained arm from `checkpoints/dial_v1` and every other arm from `checkpoints/dial`. The round tapes are not in a clone |
+| `results/dial/` | Evaluator outputs. `results/dial_v1/` holds the uncut window summaries. `scripts/dial_records.py` reads a chained arm from `checkpoints/dial_v1` and every other arm from `checkpoints/dial`. The round tapes are the [release asset](https://github.com/codalexl/cpr-shape-llm/releases/download/submission-v2/dial_records_final.tgz) |
 | `tests/` | The test suite (run before every launch) |
 
 ## Installation
@@ -60,4 +60,4 @@ A single configuration can be fanned out over seeds, one process per GPU:
 EPOCHS=100 CKPT_FREQ=100 ./scripts/launch_dial.sh m2_shapellm "0 1 2 3 4" "0 1 2 3 4"
 ```
 
-Training records are written under `checkpoints/dial/`, which is not tracked. The uncut chained tapes, once extracted, belong in `checkpoints/dial_v1/`. The copies under the chained names in `checkpoints/dial/` are the later hybrid, and the window survivals of those five arms are `results/dial/hybrid_window_survival.json`.
+Training records are written under `checkpoints/dial/`, which is not tracked. The uncut tapes are [dial_records_final.tgz](https://github.com/codalexl/cpr-shape-llm/releases/download/submission-v2/dial_records_final.tgz) (SHA-256 `566ffbd9cbf8a804674bad017ff1ef28c0ef87b2fe23eb55e8466dca1db64b0d`). Inside the archive the paths are `checkpoints/dial/<arm>/`. Place that tree at `checkpoints/dial_v1/`. The copies under the chained names in `checkpoints/dial/` are the later hybrid, and the window survivals of those five arms are `results/dial/hybrid_window_survival.json`.
