@@ -26,6 +26,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import evaluate_dial as ed  # noqa: E402
+from dial_records import tape_dir  # noqa: E402
 
 ORDER = ["m2_naive", "m2_slow", "m2_tbn_matched", "m2_tbn_slow", "m2_shaper_matched_split",
          "m2_shaper_matched", "m2_shaper_slow", "m2_shapellm", "m2_shapellm_history_off"]
@@ -42,7 +43,7 @@ plt.rcParams.update({"font.size": 9, "axes.spines.top": False, "axes.spines.righ
 
 
 def windows(root, arm, w=20):
-    return [s for _, rec in ed.runs(root / arm) if (s := ed.summarise(rec, window=w))]
+    return [s for _, rec in ed.runs(tape_dir(arm, root)) if (s := ed.summarise(rec, window=w))]
 
 
 def save(fig, out, name):
@@ -87,7 +88,7 @@ def classes_m2(root, out, w):
     fig, ax = plt.subplots(figsize=(7.2, 2.9))
     for i, arm in enumerate(ORDER):
         counts = Counter()
-        for _, rec in ed.runs(root / f"m2_probe_of_{arm}"):
+        for _, rec in ed.runs(tape_dir(f"m2_probe_of_{arm}", root)):
             s = ed.summarise(rec, window=w)
             if s:
                 counts[s["agent1_class"]] += 1
@@ -118,7 +119,7 @@ def regimes(root, out, w):
         axes[0].bar(x[j] + 0.19, np.mean([s["return_per_round"][1] for s in rows]), width=0.36,
                     color="#b07a3f", alpha=0.85, label="agent 2" if j == 0 else None)
         cells, n = Counter(), 0
-        for _, rec in ed.runs(root / arm):
+        for _, rec in ed.runs(tape_dir(arm, root)):
             last = max(int(e) for e in rec["epoch"]) + 1 - w
             for i in range(len(rec["epoch"])):
                 if not rec["masked"][i] and int(rec["epoch"][i]) >= last:
@@ -145,7 +146,7 @@ def curves_m2(root, out):
                "m2_shaper_matched": "#b04a3f", "m2_shapellm": "#d98c3f"}
     for arm in show:
         surv, restr = defaultdict(list), defaultdict(list)
-        for _, rec in ed.runs(root / arm):
+        for _, rec in ed.runs(tape_dir(arm, root)):
             alive, rounds, r2 = defaultdict(lambda: [0, 0]), defaultdict(int), defaultdict(int)
             seen = {}
             for i in range(len(rec["epoch"])):
@@ -174,6 +175,7 @@ def curves_m2(root, out):
     save(fig, out, "curves_m2")
 
 
+# The five rungs. Chained arms are the uncut tapes (dial_records.tape_dir).
 RUNGS = ["m2_naive", "m2_slow", "m2_tbn_slow", "m2_shaper_slow", "m2_shapellm"]
 RUNG_COLOUR = {
     "m2_naive": "#1b4f72",
@@ -257,7 +259,7 @@ def ladder_trajectories(root, out):
     fig, axes = plt.subplots(4, 1, figsize=(7.2, 8.8), sharex=True)
     for arm in RUNGS:
         seeds = []
-        for _, rec in ed.runs(root / arm):
+        for _, rec in ed.runs(tape_dir(arm, root)):
             seeds.append(_epoch_series(rec))
         if not seeds:
             continue
@@ -296,7 +298,7 @@ def ladder_trajectories(root, out):
 
     fig, axes = plt.subplots(3, 1, figsize=(7.2, 7.4), sharex=True)
     for arm in M3_ARMS:
-        seeds = [_epoch_series(rec) for _, rec in ed.runs(root / arm)]
+        seeds = [_epoch_series(rec) for _, rec in ed.runs(tape_dir(arm, root))]
         if not seeds:
             continue
         x = np.arange(len(seeds[0][0]))
@@ -412,17 +414,18 @@ def episodes_m2(root, out):
 
     naive seed 0, epoch 94, episode 2, game 2: both restrain and the stock stays up.
     slow seed 1, epoch 94, episode 0, game 1: median death round among that seed's window.
-    ShapeLLM-style seed 3, epoch 88, episode 2, game 4: agent 1 still restrains and the
-    stock is empty from round 45, the death closest to mid-episode among such episodes.
+    ShapeLLM-style seed 4, epoch 80, episode 0, game 1: the seed whose window restraint
+    stays high. Among that seed's window episodes the death round is the median, and the
+    tie goes to the earliest (epoch, episode, game). Stock is empty from round 17.
     """
     pinned = [
         ("m2_naive", 0, 94, 2, 2, "naive, seed 0\nepoch 95", 1.0, 0.82, 50),
         ("m2_slow", 1, 94, 0, 1, "slow, seed 1\nepoch 95", 0.0, None, 11),
-        ("m2_shapellm", 3, 88, 2, 4, "ShapeLLM-style, seed 3\nepoch 89", 0.955, 0.295, 44),
+        ("m2_shapellm", 4, 80, 0, 1, "ShapeLLM-style, seed 4\nepoch 81", 0.625, 0.0625, 16),
     ]
     fig, axes = plt.subplots(1, 3, figsize=(7.4, 2.8), sharey=True)
     for ax, (arm, seed, epoch0, episode, game, title, r1, r2, nlive) in zip(axes, pinned):
-        rec = next(rec for s, rec in ed.runs(root / arm) if s == seed)
+        rec = next(rec for s, rec in ed.runs(tape_dir(arm, root)) if s == seed)
         row = _one_episode(rec, epoch0, episode, game)
         if abs(row["r1"] - r1) > 0.02 or row["nlive"] != nlive:
             raise RuntimeError(f"{arm} seed {seed} episode stats moved: {row}")
@@ -443,7 +446,7 @@ def race(root, out):
     colours = ["#1b4f72", "#148f77", "#b7950b", "#ca6f1e", "#922b21"]
     fig, axes = plt.subplots(2, 3, figsize=(7.4, 5.2), sharex=True, sharey=True)
     for col, (arm, title) in enumerate(arms):
-        seeds = [_restraint_by_epoch(rec) for _, rec in ed.runs(root / arm)]
+        seeds = [_restraint_by_epoch(rec) for _, rec in ed.runs(tape_dir(arm, root))]
         for row in (0, 1):
             ax = axes[row, col]
             for i, pair in enumerate(seeds):
@@ -468,7 +471,7 @@ def joint_cells(root, out):
     fig, axes = plt.subplots(2, 3, figsize=(7.4, 5.4), sharex=True, sharey=True)
     flat = list(axes.ravel())
     for ax, (arm, title) in zip(flat, CELL_ARMS):
-        seeds = [_cell_series(rec) for _, rec in ed.runs(root / arm)]
+        seeds = [_cell_series(rec) for _, rec in ed.runs(tape_dir(arm, root))]
         if not seeds:
             continue
         x = np.arange(len(seeds[0]["11"]))

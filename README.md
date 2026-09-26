@@ -19,13 +19,13 @@ The training loop builds on ShapeLLM (Garcia Segura et al., ICLR 2026) and is us
 | `cpr_game.py`, `cpr_observation_managers.py`, `cpr_bots.py` | Rollout surface and records, prompts, and scripted partners (committed harvest, tit-for-tat, probe, replay tape) |
 | `cpr_eval.py`, `cpr_xi.py` | Evaluation helpers and the shocked-stock calculations used by the solver |
 | `agents.py`, `environment.py`, `utils/` | PPO agents over the legal action tokens, and the ShapeLLM rollout and trainer |
-| `trial_batching.py` | The trial-batched control, split credit, and the episode-terminal flags of the corrected chained estimator |
+| `trial_batching.py` | The trial-batched control, split credit, and whole-trial GAE. The episode-terminal flag zeros the bootstrap and keeps the lambda-chain; that hybrid is not the chained result |
 | `finetuning_cpr.py`, `finetuning_cpr_fixed.py` | Entry points: two learners, or one learner against a scripted or frozen partner |
 | `init_lora_adapters.py` | Creates the rank-2 LoRA adapters |
 | `verify_cpr.py` | Ground-truth fixture for the environment tests and the launcher's preflight |
 | `configs/dial/` | Every run configuration, generated from `configs/grid/B_ns_whiten.json` |
 | `scripts/` | Config generation, launching and scheduling, evaluation, tables, figures, inference, and estimator replay |
-| `results/dial/` | Evaluator outputs for the corrected runs; `results/dial_v1/` holds the first execution of the chained estimator and the gate records |
+| `results/dial/` | Evaluator outputs. `results/dial_v1/` holds the uncut window summaries. `scripts/dial_records.py` reads a chained arm from `checkpoints/dial_v1` and every other arm from `checkpoints/dial`. The round tapes are not in a clone |
 | `tests/` | The test suite (run before every launch) |
 
 ## Installation
@@ -49,8 +49,10 @@ python scripts/evaluate_dial.py --gate                     # gate readouts
 python scripts/dial_results_tables.py --root checkpoints/dial --out <dir>
 python scripts/dial_figures.py --root checkpoints/dial --out <dir>
 python scripts/dial_inference.py                           # permutation tests and window tables
-python scripts/dial_credit_replay.py                       # the reset-bootstrap replay
+python scripts/dial_credit_replay.py                       # recomputed advantages
 ```
+
+`--root checkpoints/dial` is the folder for naive, slow, and the trial-batched arms. A chained arm is opened from `checkpoints/dial_v1` by `scripts/dial_records.py`, whatever `--root` says.
 
 A single configuration can be fanned out over seeds, one process per GPU:
 
@@ -58,4 +60,4 @@ A single configuration can be fanned out over seeds, one process per GPU:
 EPOCHS=100 CKPT_FREQ=100 ./scripts/launch_dial.sh m2_shapellm "0 1 2 3 4" "0 1 2 3 4"
 ```
 
-Training records are written under `checkpoints/dial/`, which is not tracked.
+Training records are written under `checkpoints/dial/`, which is not tracked. The uncut chained tapes, once extracted, belong in `checkpoints/dial_v1/`. The copies under the chained names in `checkpoints/dial/` are the later hybrid, and the window survivals of those five arms are `results/dial/hybrid_window_survival.json`.

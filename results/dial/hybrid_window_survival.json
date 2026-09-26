@@ -1,0 +1,113 @@
+{
+  "description": "Window survival of the five chained arms under the hybrid that sets the bootstrap to zero at an episode join and keeps the lambda-chain. Source tapes are checkpoints/dial under these names. They are not in dial_records_final.tgz. Chapter 7 reports the uncut tapes in checkpoints/dial_v1. Section 7.9 prints m2_shaper_matched, m2_shapellm and m2_shaper_slow at two decimal places.",
+  "source": "checkpoints/dial",
+  "window_epochs": [
+    81,
+    100
+  ],
+  "survival_definition": "share of episodes still alive at round 50",
+  "arms": {
+    "m2_shaper_matched": {
+      "seeds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "alive": [
+        42,
+        0,
+        392,
+        9,
+        227
+      ],
+      "episodes": 500,
+      "survival": [
+        0.084,
+        0.0,
+        0.784,
+        0.018,
+        0.454
+      ]
+    },
+    "m2_shaper_slow": {
+      "seeds": [
+        0,
+        1,
+        2
+      ],
+      "alive": [
+        6,
+        0,
+        0
+      ],
+      "episodes": 500,
+      "survival": [
+        0.012,
+        0.0,
+        0.0
+      ]
+    },
+    "m2_shapellm": {
+      "seeds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "alive": [
+        0,
+        0,
+        0,
+        24,
+        0
+      ],
+      "episodes": 500,
+      "survival": [
+        0.0,
+        0.0,
+        0.0,
+        0.048,
+        0.0
+      ]
+    },
+    "m2_shapellm_history_off": {
+      "seeds": [
+        0,
+        1,
+        2
+      ],
+      "alive": [
+        62,
+        92,
+        81
+      ],
+      "episodes": 500,
+      "survival": [
+        0.124,
+        0.184,
+        0.162
+      ]
+    },
+    "m3_shapellm": {
+      "seeds": [
+        0,
+        1,
+        2
+      ],
+      "alive": [
+        408,
+        416,
+        392
+      ],
+      "episodes": 500,
+      "survival": [
+        0.816,
+        0.832,
+        0.784
+      ]
+    }
+  }
+}

@@ -27,6 +27,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import evaluate_dial as ed  # noqa: E402
+from dial_records import tape_dir  # noqa: E402
 
 M2 = ["m2_naive", "m2_slow", "m2_tbn_matched", "m2_shaper_matched", "m2_tbn_slow", "m2_shaper_slow",
       "m2_shapellm", "m2_shaper_matched_split", "m2_shapellm_history_off"]
@@ -64,13 +65,13 @@ def latex(caption, label, columns, header, rows, size=r"\small", colsep=None, sp
 
 
 def window(root, arm, w):
-    return [(seed, ed.summarise(rec, window=w)) for seed, rec in ed.runs(root / arm)]
+    return [(seed, ed.summarise(rec, window=w)) for seed, rec in ed.runs(tape_dir(arm, root))]
 
 
 def coplay(root, arms, w):
     returns, rates, data = [], [], {}
     for arm in arms:
-        for seed, rec in ed.runs(root / arm):
+        for seed, rec in ed.runs(tape_dir(arm, root)):
             s = ed.summarise(rec, window=w)
             if not s:
                 continue
@@ -103,7 +104,7 @@ def coplay(root, arms, w):
 def classes(root, arms, w):
     rows, data = [], {}
     for arm in arms:
-        for seed, rec in ed.runs(root / f"{arm[:2]}_probe_of_{arm}"):
+        for seed, rec in ed.runs(tape_dir(f"{arm[:2]}_probe_of_{arm}", root)):
             s = ed.summarise(rec, window=w)
             if not s:
                 continue
@@ -127,7 +128,7 @@ def currency(root, arms, w):
     rows, data = [], {}
     for arm in arms:
         cells, keep = Counter(), []
-        for seed, rec in ed.runs(root / arm):
+        for seed, rec in ed.runs(tape_dir(arm, root)):
             s = ed.summarise(rec, window=w)
             if not s:
                 continue
@@ -164,7 +165,7 @@ def frozen(root, stage, w):
         entry = {}
         for kind in ("e1_transfer", "e2_replay"):
             counts = Counter()
-            for seed, rec in ed.runs(root / f"{stage}_probe_of_{stage}_{kind}_{arm}"):
+            for seed, rec in ed.runs(tape_dir(f"{stage}_probe_of_{stage}_{kind}_{arm}", root)):
                 s = ed.summarise(rec, window=w)
                 if s:
                     counts[s["agent1_class"]] += 1
@@ -193,7 +194,7 @@ def frozen(root, stage, w):
 def channel(root, arms):
     rows, data = [], {}
     for arm in arms:
-        for seed, rec in ed.runs(root / arm):
+        for seed, rec in ed.runs(tape_dir(arm, root)):
             c = ed.channel(rec)
             if not c or c["r"] is None:
                 continue
@@ -215,9 +216,11 @@ def value_loss(root, w):
     A single update jumps, so the paragraph's opening and finish are three-update means.
     """
     rows = []
-    for arm in ("m2_slow", "m2_shapellm"):
-        for seed, rec in ed.runs(root / arm):
-            path = root / arm / f"exp{seed + 1}_model2_training_metrics.txt"
+    # Round tapes of the chained arms are in the uncut archive. Their training
+    # logs are not. The logs under those names in checkpoints/dial are the hybrid.
+    for arm in ("m2_slow",):
+        for seed, rec in ed.runs(tape_dir(arm, root)):
+            path = tape_dir(arm, root) / f"exp{seed + 1}_model2_training_metrics.txt"
             if not path.exists():
                 continue
             values = json.loads(path.read_text())["value_loss"]
@@ -231,7 +234,9 @@ def value_loss(root, w):
     table = latex("Agent~2's logged value loss, the mean of the first three updates and of the last three. "
                   "The loss is the unweighted value loss in the training log, not that loss times the value coefficient. "
                   "Survival is the share of episodes still alive at round~50 over epochs 81--100. "
-                  "Slow is the naive learner on the slow step. ShapeLLM-style is the shaper.",
+                  "The arm is the naive learner on the slow step. "
+                  "The uncut archive does not contain the chained training logs, and the logs "
+                  "under those names in the checkpoint folder are the later hybrid, so they are not in this table.",
                   "tab:value-loss", "llrrrr",
                   ["Arm", "Seed", "Updates", "First three", "Last three", "Survival"], rows,
                   short="Logged value loss")
