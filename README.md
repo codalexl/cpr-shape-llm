@@ -1,19 +1,32 @@
 # cpr-shape-llm
 
-CPR training on top of ShapeLLM (ICLR 2026), used with permission. See `ATTRIBUTION.md`.
+Code, configurations and results for an MSc thesis (UCL, MSc Data Science and Machine Learning, 2026): *Opponent shaping for language-model agents in a sequential common-pool resource*.
 
-**Live path:** logistic chicken CPR (\(R_0=8\), \(K=40\), \(T=36\), `rate_tenths=9`). Launcher:
+The question is whether a ShapeLLM-style shaper changes how two learning agents play a stochastic common-pool resource, compared with two naive learners, and which of the shaper's ingredients carries the change. The ingredients are:
+- the trial return;
+- one update per trial;
+- a trial-memory prompt;
+- a smaller learning rate.
 
-```bash
-./scripts/run_cpr.sh smoke                      # does it run
-./scripts/run_cpr.sh naive_naive_center           # two learners, 15 epochs, seed 0
-./scripts/run_cpr.sh naive_naive_center_e50       # matched long naive — RunPod
-./scripts/run_cpr.sh naive_naive_slow2_s012      # slow agent-2 LR, 3×15
-```
+The training loop builds on ShapeLLM (Garcia Segura et al., ICLR 2026) and is used with permission (see `ATTRIBUTION.md`).
 
-Experimental record: [`docs/LIVE_FACTS.md`](docs/LIVE_FACTS.md). CUDA box: [`docs/RUNPOD.md`](docs/RUNPOD.md).
+## Layout
 
-Do **not** reuse `archive/ipd_rps/finetuning_fixed_opponent.py` for CPR.
+| Path | Role |
+|---|---|
+| `cpr_env.py` | Environment: integer logistic stock, scarcity rule, absorbing empty pool, multiplicative growth shock, per-seed shock tables |
+| `cpr_dial.py` | Exact solver for the two-player game: fixed-horizon evaluation, stationary best responses, invariants, and the design-point lock |
+| `cpr_game.py`, `cpr_observation_managers.py`, `cpr_bots.py` | Rollout surface and records, prompts, and scripted partners (committed harvest, tit-for-tat, probe, replay tape) |
+| `cpr_eval.py`, `cpr_xi.py` | Evaluation helpers and the shocked-stock calculations used by the solver |
+| `agents.py`, `environment.py`, `utils/` | PPO agents over the legal action tokens, and the ShapeLLM rollout and trainer |
+| `trial_batching.py` | The trial-batched control, split credit, and the episode-terminal flags of the corrected chained estimator |
+| `finetuning_cpr.py`, `finetuning_cpr_fixed.py` | Entry points: two learners, or one learner against a scripted or frozen partner |
+| `init_lora_adapters.py` | Creates the rank-2 LoRA adapters |
+| `verify_cpr.py` | Ground-truth fixture for the environment tests and the launcher's preflight |
+| `configs/dial/` | Every run configuration, generated from `configs/grid/B_ns_whiten.json` |
+| `scripts/` | Config generation, launching and scheduling, evaluation, tables, figures, inference, and estimator replay |
+| `results/dial/` | Evaluator outputs for the corrected runs; `results/dial_v1/` holds the first execution of the chained estimator and the gate records |
+| `tests/` | The test suite (run before every launch) |
 
 ## Installation
 
@@ -22,8 +35,27 @@ pip install -r requirements.txt          # CUDA (cu121)
 pip install -r requirements-mps.txt      # Apple Silicon
 ```
 
-Pin **trl 0.11.4**. Hugging Face access is required for `google/gemma-2-2b-it`. The launcher creates rank-2 LoRA adapters under `adapter/` on first run.
+Pin **trl 0.11.4**, because `utils/training_utils.py` imports `trl.core`. Hugging Face access is required for `google/gemma-2-2b-it`. The launcher creates the adapters under `adapter/` on the first run.
 
-## Upstream ShapeLLM (matrix games)
+## Reproducing
 
-The original IPD/RPS entries live under `archive/ipd_rps/`. They are not the thesis training protocol.
+```bash
+python -m pytest tests -q                                  # the suite
+python cpr_dial.py                                         # design report and invariants
+python scripts/make_dial_configs.py                        # regenerate configs/dial/
+python scripts/schedule_dial.py train --length 100 --gpus 0,1,2,3,4
+python scripts/schedule_dial.py evaluate --length 100 --gpus 0,1,2,3,4
+python scripts/evaluate_dial.py --gate                     # gate readouts
+python scripts/dial_results_tables.py --root checkpoints/dial --out <dir>
+python scripts/dial_figures.py --root checkpoints/dial --out <dir>
+python scripts/dial_inference.py                           # permutation tests and window tables
+python scripts/dial_credit_replay.py                       # the reset-bootstrap replay
+```
+
+A single configuration can be fanned out over seeds, one process per GPU:
+
+```bash
+EPOCHS=100 CKPT_FREQ=100 ./scripts/launch_dial.sh m2_shapellm "0 1 2 3 4" "0 1 2 3 4"
+```
+
+Training records are written under `checkpoints/dial/`, which is not tracked.

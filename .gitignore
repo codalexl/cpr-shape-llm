@@ -254,3 +254,8 @@ RUNPOD.md
 docs/*.fdb_latexmk
 docs/*.fls
 docs/shapellm_2510.08255.pdf
+
+# Local-only material (thesis write-up, retired pond-era files, raw pod pulls)
+_local/
+thesis/
+results/dial/pod_pull_*/

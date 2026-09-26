@@ -1,0 +1,36 @@
+checkpoints/dial/m2_shapellm: raw SD of advantages | policy-gradient projection t
+
+shaper, epochs 81-100
+  whole-trial GAE, lambda 0.97 (as run)                  raw SD   9.6 | t -28.0
+  whole-trial GAE, lambda 0.97, value reset at episode ends raw SD  20.1 | t +28.4
+  whole-trial GAE, lambda 0.90                           raw SD   5.4 | t -27.2
+  whole-trial GAE, lambda 0.80                           raw SD   2.5 | t -27.8
+  3-episode trials                                       raw SD   7.5 | t -10.8
+  2-episode trials                                       raw SD   6.7 | t -10.8
+  episode GAE (the tbn control)                          raw SD   2.7 | t  +3.0
+  leave-one-game-out baseline, weight 1 (withdrawn)      raw SD   6.1 | t  +1.5
+  leave-one-game-out baseline, weight 0.2181 (withdrawn) raw SD   2.9 | t  +2.8
+  split credit, previous 5 trials, weight 1 (the arm)    raw SD   7.6 | t  +9.6
+
+shaper, epochs 181-200
+  whole-trial GAE, lambda 0.97 (as run)                  raw SD   nan | t  +nan
+  whole-trial GAE, lambda 0.97, value reset at episode ends raw SD   nan | t  +nan
+  whole-trial GAE, lambda 0.90                           raw SD   nan | t  +nan
+  whole-trial GAE, lambda 0.80                           raw SD   nan | t  +nan
+  3-episode trials                                       raw SD   nan | t  +nan
+  2-episode trials                                       raw SD   nan | t  +nan
+  episode GAE (the tbn control)                          raw SD   nan | t  +nan
+  leave-one-game-out baseline, weight 1 (withdrawn)      raw SD   nan | t  +nan
+  leave-one-game-out baseline, weight 0.2181 (withdrawn) raw SD   nan | t  +nan
+  split credit, previous 5 trials, weight 1 (the arm)    raw SD   nan | t  +nan
+
+naive learner (calibration), epochs 81-100
+  whole-trial GAE, lambda 0.97 (as run)                  raw SD  10.7 | t  +0.8
+  2-episode trials                                       raw SD   6.7 | t  +0.6
+
+naive learner (calibration), epochs 181-200
+  whole-trial GAE, lambda 0.97 (as run)                  raw SD   nan | t  +nan
+  2-episode trials                                       raw SD   nan | t  +nan
+
+shaper: share of the later-episode return's variance common to a trial's games (what a baseline from the trial's other games removes)
+  epochs 81-100: after episode 1: 0.65, after episode 2: 0.55, after episode 3: 0.36, after episode 4: 0.35

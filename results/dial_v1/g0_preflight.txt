@@ -1,0 +1,17 @@
+Action token check
+  [ok ] '1' -> 235274
+  [ok ] '2' -> 235284
+  [ok ] '3' -> 235304
+
+Loading google/gemma-2-2b-it ...
+
+Untrained action distribution (device: cuda)
+  prompt                                    1        2        3
+  reset (R=20, no history)              0.094    0.888    0.018
+  R=20, both requested 1                0.033    0.961    0.006
+  R=14, both requested 1                0.037    0.948    0.015
+  R=8, both requested 1                 0.029    0.960    0.011
+  R=4, both requested 1                 0.026    0.966    0.008
+  R=1, both requested 1                 0.519    0.458    0.023
+
+Record these numbers before training. Any post-training shift must be read against this baseline, not against a uniform prior.

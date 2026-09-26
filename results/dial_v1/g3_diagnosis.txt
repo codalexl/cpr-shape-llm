@@ -1,0 +1,59 @@
+(1) What the pilot pair played: restraint rate (rounds) by the other's last take and stock band
+
+  epochs 1-20 (500 episodes; returns per episode: learner 20.7, shaper 22.8)
+    naive learner after the other took 1: <8: 0.23 (194)  8-11: 0.25 (316)  12-15: 0.23 (491)  >=16: 0.27 (848)
+    naive learner after the other took 2: <8: 0.39 (1178)  8-11: 0.43 (1255)  12-15: 0.45 (1472)  >=16: 0.42 (829)
+    shaper        after the other took 1: <8: 0.10 (452)  8-11: 0.14 (618)  12-15: 0.14 (790)  >=16: 0.19 (982)
+    shaper        after the other took 2: <8: 0.18 (920)  8-11: 0.24 (953)  12-15: 0.31 (1173)  >=16: 0.30 (695)
+    collapsed episodes 500 of 500; collapse round median 13; mean stock at round 1: 20.0, 5: 14.2, 10: 8.5, 15: 1.0, 20: 0.0, 30: 0.0
+
+  epochs 81-100 (500 episodes; returns per episode: learner 19.9, shaper 24.3)
+    naive learner after the other took 1: <8: 0.38 (157)  8-11: 0.50 (204)  12-15: 0.40 (338)  >=16: 0.25 (694)
+    naive learner after the other took 2: <8: 0.48 (1261)  8-11: 0.50 (1376)  12-15: 0.53 (1682)  >=16: 0.55 (1032)
+    shaper        after the other took 1: <8: 0.10 (587)  8-11: 0.10 (798)  12-15: 0.12 (1029)  >=16: 0.09 (1100)
+    shaper        after the other took 2: <8: 0.15 (831)  8-11: 0.19 (782)  12-15: 0.19 (991)  >=16: 0.20 (626)
+    collapsed episodes 500 of 500; collapse round median 13; mean stock at round 1: 20.0, 5: 14.4, 10: 8.8, 15: 1.3, 20: 0.0, 30: 0.0
+
+  epochs 181-200 (500 episodes; returns per episode: learner 21.8, shaper 33.9)
+    naive learner after the other took 1: <8: 0.35 (113)  8-11: 0.94 (254)  12-15: 0.95 (377)  >=16: 0.21 (676)
+    naive learner after the other took 2: <8: 0.32 (1241)  8-11: 0.95 (2529)  12-15: 0.93 (2788)  >=16: 0.78 (1172)
+    shaper        after the other took 1: <8: 0.10 (746)  8-11: 0.11 (2722)  12-15: 0.11 (2841)  >=16: 0.07 (1218)
+    shaper        after the other took 2: <8: 0.08 (608)  8-11: 0.10 (61)  12-15: 0.12 (324)  >=16: 0.13 (630)
+    collapsed episodes 500 of 500; collapse round median 18; mean stock at round 1: 20.0, 5: 14.7, 10: 11.5, 15: 7.1, 20: 2.3, 30: 0.1
+
+(2) Exact values against the learner's end policy (epochs 181-200; 4 stock bands x the other's last take)
+  the empirical pair: shaper 33.3, learner 21.4, pool alive at round 50 0.00 (observed shaper 33.9, learner 21.8)
+  exact advantage of one shaper restraint at its own policy: +0.71 (2.9 restraint samples per game-episode)
+  best fixed rule for the shaper: shaper 69.8, learner 53.9, alive 0.99; restrains in bands 8-11 after the learner took 1, 8-11 after the learner took 2
+  always harvest : shaper 31.4, learner 19.1, alive 0.00
+  always restrain: shaper 50.0, learner 67.1, alive 1.00
+  tit-for-tat    : shaper 59.6, learner 59.7, alive 0.99
+
+(3) The advantage estimates PPO used (per step; restraint vs harvest), per 20-epoch block
+  naive learner:
+    epochs   1- 20: samples  2470/ 4113; raw mean  +3.34/ +4.26 (SD  7.0/ 7.2); whitened gap -0.035 (t  -1.4)
+    epochs  21- 40: samples  6942/ 2092; raw mean  -0.32/ +1.02 (SD  5.8/ 6.4); whitened gap -0.213 (t  -8.5)
+    epochs  41- 60: samples  4335/ 3737; raw mean  -0.12/ +0.54 (SD  6.1/ 6.5); whitened gap -0.117 (t  -5.3)
+    epochs  61- 80: samples  1856/ 4879; raw mean  -0.24/ -0.17 (SD  4.8/ 5.1); whitened gap -0.039 (t  -1.5)
+    epochs  81-100: samples  3212/ 3532; raw mean  -0.05/ -0.05 (SD  3.3/ 3.0); whitened gap +0.004 (t  +0.2)
+    epochs 101-120: samples  3341/ 3472; raw mean  +0.03/ -0.01 (SD  2.9/ 2.7); whitened gap +0.010 (t  +0.4)
+    epochs 121-140: samples  5337/ 2694; raw mean  +0.15/ +0.02 (SD  2.6/ 2.4); whitened gap +0.068 (t  +2.9)
+    epochs 141-160: samples  6005/ 2339; raw mean  +0.15/ -0.16 (SD  2.2/ 2.0); whitened gap +0.164 (t  +7.0)
+    epochs 161-180: samples  5879/ 2463; raw mean  +0.27/ -0.15 (SD  2.3/ 2.0); whitened gap +0.151 (t  +6.3)
+    epochs 181-200: samples  7090/ 2060; raw mean  +0.38/ -0.01 (SD  2.4/ 2.1); whitened gap +0.126 (t  +5.1)
+  shaper:
+    epochs   1- 20: samples  1398/ 5185; raw mean +31.69/+31.54 (SD 14.4/15.0); whitened gap +0.019 (t  +0.6)
+    epochs  21- 40: samples  1584/ 7450; raw mean +32.36/+33.97 (SD 18.8/19.9); whitened gap -0.035 (t  -1.3)
+    epochs  41- 60: samples  2356/ 5716; raw mean +23.05/+26.69 (SD 20.4/21.1); whitened gap -0.029 (t  -1.2)
+    epochs  61- 80: samples  2201/ 4534; raw mean +17.44/+18.69 (SD 20.5/20.9); whitened gap -0.050 (t  -1.9)
+    epochs  81-100: samples   937/ 5807; raw mean +19.65/+19.52 (SD 22.6/23.3); whitened gap -0.001 (t  -0.0)
+    epochs 101-120: samples   857/ 5956; raw mean +17.90/+17.73 (SD 24.1/25.0); whitened gap +0.006 (t  +0.2)
+    epochs 121-140: samples  1071/ 6960; raw mean +21.46/+20.20 (SD 26.0/27.1); whitened gap +0.045 (t  +1.4)
+    epochs 141-160: samples   856/ 7488; raw mean +20.90/+19.91 (SD 28.3/29.2); whitened gap +0.025 (t  +0.7)
+    epochs 161-180: samples   817/ 7525; raw mean +19.24/+18.07 (SD 30.0/30.7); whitened gap +0.006 (t  +0.2)
+    epochs 181-200: samples   948/ 8202; raw mean +20.75/+19.28 (SD 30.3/32.2); whitened gap +0.054 (t  +1.6)
+
+(4) Training metrics (first ten updates, middle ten, last ten)
+  pilot naive learner (1000 updates): value_loss 69.73 / 4.13 / 4.24; kl_div 0.02 / 0.29 / 1.12; entropy 0.58 / 0.43 / 0.21
+  pilot shaper (200 updates): value_loss 629.42 / 423.44 / 687.30; kl_div 0.00 / 0.07 / 0.04; entropy 0.51 / 0.32 / 0.36
+  pond B_ns_whiten shaper (200 updates): value_loss 740.12 / 1421.10 / 1390.43; kl_div -0.00 / 0.02 / 0.21; entropy 0.11 / 0.09 / 0.31

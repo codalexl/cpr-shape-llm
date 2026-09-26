@@ -69,6 +69,9 @@ def planned(folder: str, length: int = 100, extra: bool = False) -> int:
 
 def runs(folder: Path):
     for path in sorted(Path(folder).glob("exp*_cpr_records")):
+        head = Path(path).read_bytes()[:32].lstrip()
+        if not head or head.startswith(b"SKIP_PLACEHOLDER"):
+            continue
         yield int(path.name[3:].split("_")[0]) - 1, ev.load_records(path)
 
 
@@ -109,6 +112,28 @@ def summarise(rec: dict, window: int = 20, end: Optional[int] = None) -> Optiona
         "agent1_rates": {k: {"rate": r, "rounds": n, "wilson": wilson(r, n)} for k, (r, n) in rates.items()},
         "agent1_class": ev.policy_class(rates),
     }
+
+
+def live_per_round(rec: dict, window: int = 20, end: Optional[int] = None) -> Optional[list]:
+    """Receipts on living rounds divided by living rounds, over the same window as summarise.
+
+    return_per_round divides by every logged round, and rounds after the pool dies contribute zero.
+    This does not. None if the window is empty or contains no living round.
+    """
+    n_epochs = max(int(e) for e in rec["epoch"]) + 1
+    stop = n_epochs if end is None else end
+    if stop > n_epochs:
+        return None
+    epochs = range(max(0, stop - window), stop)
+    total, n = [0, 0], 0
+    for i in range(len(rec["epoch"])):
+        if int(rec["epoch"][i]) in epochs and not rec["masked"][i]:
+            total[0] += int(rec["reward_1"][i])
+            total[1] += int(rec["reward_2"][i])
+            n += 1
+    if n == 0:
+        return None
+    return [total[0] / n, total[1] / n]
 
 
 def channel(rec: dict) -> Optional[dict]:

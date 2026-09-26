@@ -37,6 +37,8 @@ def test_episode_readouts_over_the_window():
     assert s["epochs"] == [2, 3] and s["episodes"] == 4
     assert s["survival"] == 0.5 and s["masked_share"] == 2 / 16
     assert s["return_per_episode"] == [7.0, 3.5] and s["return_per_round"] == [1.75, 0.875]
+    # the two masked rounds pay nothing, so the all-round rate is below the living-round rate
+    assert ed.live_per_round(records(collapse=(1, 3)), window=2) == [2.0, 1.0]
     assert s["restraint_1"] == 1.0 and s["restraint_2"] == 0.0
     rounds = {k: v["rounds"] for k, v in s["agent1_rates"].items()}
     assert rounds == {"after_restrain": 4, "after_take": 10, "low": 0, "high": 14}

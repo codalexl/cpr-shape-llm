@@ -1,0 +1,158 @@
+{
+  "0": {
+    "epochs": [
+      1,
+      20
+    ],
+    "episodes": 500,
+    "survival": 1.0,
+    "masked_share": 0.0,
+    "return_per_episode": [
+      50.786,
+      74.936
+    ],
+    "return_per_round": [
+      1.01572,
+      1.49872
+    ],
+    "restraint_1": 0.98428,
+    "restraint_2": 0.50128,
+    "after_restrain_1": 0.9812133072407045,
+    "agent1_rates": {
+      "after_restrain": {
+        "rate": 0.9812133072407045,
+        "rounds": 12775,
+        "wilson": [
+          0.9787101449096224,
+          0.9834271430273376
+        ]
+      },
+      "after_take": {
+        "rate": 0.9874846625766871,
+        "rounds": 12225,
+        "wilson": [
+          0.9853552012980847,
+          0.9893078444641564
+        ]
+      },
+      "low": {
+        "rate": null,
+        "rounds": 4,
+        "wilson": null
+      },
+      "high": {
+        "rate": 0.9842774843975036,
+        "rounds": 24996,
+        "wilson": [
+          0.9826591922155128,
+          0.9857469436057638
+        ]
+      }
+    },
+    "agent1_class": "undetermined"
+  },
+  "1": {
+    "epochs": [
+      1,
+      20
+    ],
+    "episodes": 500,
+    "survival": 1.0,
+    "masked_share": 0.0,
+    "return_per_episode": [
+      51.148,
+      75.188
+    ],
+    "return_per_round": [
+      1.02296,
+      1.50376
+    ],
+    "restraint_1": 0.97704,
+    "restraint_2": 0.49624,
+    "after_restrain_1": 0.9570300157977883,
+    "agent1_rates": {
+      "after_restrain": {
+        "rate": 0.9570300157977883,
+        "rounds": 12660,
+        "wilson": [
+          0.9533566710198349,
+          0.9604260787580841
+        ]
+      },
+      "after_take": {
+        "rate": 0.9975688816855753,
+        "rounds": 12340,
+        "wilson": [
+          0.9965315665786749,
+          0.9982964940795239
+        ]
+      },
+      "low": {
+        "rate": null,
+        "rounds": 24,
+        "wilson": null
+      },
+      "high": {
+        "rate": 0.977017937219731,
+        "rounds": 24976,
+        "wilson": [
+          0.9750848678727912,
+          0.9788042872930286
+        ]
+      }
+    },
+    "agent1_class": "undetermined"
+  },
+  "2": {
+    "epochs": [
+      1,
+      20
+    ],
+    "episodes": 500,
+    "survival": 1.0,
+    "masked_share": 0.0,
+    "return_per_episode": [
+      53.274,
+      75.024
+    ],
+    "return_per_round": [
+      1.06548,
+      1.50048
+    ],
+    "restraint_1": 0.93452,
+    "restraint_2": 0.49952,
+    "after_restrain_1": 0.9059949780288763,
+    "agent1_rates": {
+      "after_restrain": {
+        "rate": 0.9059949780288763,
+        "rounds": 12744,
+        "wilson": [
+          0.9008050250139285,
+          0.9109402354543221
+        ]
+      },
+      "after_take": {
+        "rate": 0.9641808093994778,
+        "rounds": 12256,
+        "wilson": [
+          0.960742487092985,
+          0.9673282312105859
+        ]
+      },
+      "low": {
+        "rate": null,
+        "rounds": 8,
+        "wilson": null
+      },
+      "high": {
+        "rate": 0.9344990396927016,
+        "rounds": 24992,
+        "wilson": [
+          0.9313643817810584,
+          0.937500141668314
+        ]
+      }
+    },
+    "agent1_class": "undetermined"
+  }
+}

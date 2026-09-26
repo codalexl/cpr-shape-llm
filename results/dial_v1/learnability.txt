@@ -1,0 +1,45 @@
+Epochs for a two-SD restraint signal at the epoch-1 prior
+  pond Test A (R0 8, 36 rounds, vs take-2, restraint prior 0.05): advantage +7.92 (SD 20.2), 7 epochs; the pond learner took off at epochs 21-30
+  random end (pre-registered)
+    G1 m=3 vs take-2       advantage +0.28 (SD 5.1); epochs at restraint prior 0.03 / 0.10 / 0.20: 282 / 90 / 50
+    G2 m=2 vs tit-for-tat  advantage +0.64 (SD 3.3); epochs at restraint prior 0.03 / 0.10 / 0.20: 28 / 9 / 5
+    G3-like m=2 vs prior   advantage -0.14 at restraint prior 0.10 for both players
+  fixed 36 rounds
+    G1 m=3 vs take-2       advantage +0.56 (SD 3.2); epochs at restraint prior 0.03 / 0.10 / 0.20: 23 / 8 / 4
+    G2 m=2 vs tit-for-tat  advantage +0.89 (SD 1.4); epochs at restraint prior 0.03 / 0.10 / 0.20: 2 / 1 / 1
+    G3-like m=2 vs prior   advantage -0.01 at restraint prior 0.10 for both players
+  24 + geometric(1/12)
+    G1 m=3 vs take-2       advantage +0.56 (SD 3.2); epochs at restraint prior 0.03 / 0.10 / 0.20: 23 / 8 / 4
+    G2 m=2 vs tit-for-tat  advantage +0.89 (SD 1.4); epochs at restraint prior 0.03 / 0.10 / 0.20: 2 / 1 / 1
+    G3-like m=2 vs prior   advantage -0.01 at restraint prior 0.10 for both players
+
+Invariants for stationary play (best responses from the geometric analysis, evaluated under each end)
+  random end (pre-registered)  m=2: committed harvest 19.5 vs tit-for-tat 40.8 (commitment fails); restrained partner worth 37.8; restrain-vs-harvest survival 0.39
+  random end (pre-registered)  m=3: committed harvest 58.3 vs tit-for-tat 47.8 (commitment wins); restrained partner worth 40.5; restrain-vs-harvest survival 0.86
+  fixed 36 rounds              m=2: committed harvest 22.6 vs tit-for-tat 42.9 (commitment fails); restrained partner worth 38.2; restrain-vs-harvest survival 0.00
+  fixed 36 rounds              m=3: committed harvest 69.1 vs tit-for-tat 50.2 (commitment wins); restrained partner worth 38.8; restrain-vs-harvest survival 0.92
+  24 + geometric(1/12)         m=2: committed harvest 22.6 vs tit-for-tat 42.9 (commitment fails); restrained partner worth 38.2; restrain-vs-harvest survival 0.00
+  24 + geometric(1/12)         m=3: committed harvest 67.7 vs tit-for-tat 50.2 (commitment wins); restrained partner worth 39.5; restrain-vs-harvest survival 0.91
+
+Amended design (takes 1-2, fixed horizon, 5 games): epochs for a two-SD restraint signal
+  restraint prior 0.06: G1 7.4 (advantage +0.58) | G2 0.7 (advantage +0.91) | G3-like, partner at the same prior 7010 (advantage +0.01)
+  restraint prior 0.10: G1 4.7 (advantage +0.58) | G2 0.5 (advantage +0.92) | G3-like, partner at the same prior 273 (advantage +0.04)
+  restraint prior 0.15: G1 3.4 (advantage +0.58) | G2 0.4 (advantage +0.94) | G3-like, partner at the same prior 59 (advantage +0.07)
+  restraint prior 0.20: G1 2.8 (advantage +0.58) | G2 0.4 (advantage +0.96) | G3-like, partner at the same prior 24 (advantage +0.10)
+  restraint prior 0.30: G1 2.2 (advantage +0.59) | G2 0.3 (advantage +1.00) | G3-like, partner at the same prior 8 (advantage +0.17)
+
+Amended design: margins by horizon (stationary best responses over the fixed horizon)
+  T= 30: two takes: m=2 margin  +7.7, m=3 margin  +6.9, m=3 lone restrainer survives 0.96, m=2 restrained partner worth  28.5 | three takes: m=2  +6.1, m=3 +12.2 | cross-episode credit 0.40
+  T= 36: two takes: m=2 margin +14.7, m=3 margin  +9.5, m=3 lone restrainer survives 0.92, m=2 restrained partner worth  36.5 | three takes: m=2 +12.8, m=3 +16.2 | cross-episode credit 0.33
+  T= 40: two takes: m=2 margin +19.4, m=3 margin +11.2, m=3 lone restrainer survives 0.89, m=2 restrained partner worth  41.8 | three takes: m=2 +17.3, m=3 +18.4 | cross-episode credit 0.30
+  T= 45: two takes: m=2 margin +25.2, m=3 margin +12.8, m=3 lone restrainer survives 0.85, m=2 restrained partner worth  48.5 | three takes: m=2 +22.9, m=3 +20.8 | cross-episode credit 0.25
+  T= 50: two takes: m=2 margin +31.0, m=3 margin +12.4, m=3 lone restrainer survives 0.80, m=2 restrained partner worth  55.1 | three takes: m=2 +28.4, m=3 +21.2 | cross-episode credit 0.22
+  T= 55: two takes: m=2 margin +36.9, m=3 margin +11.6, m=3 lone restrainer survives 0.76, m=2 restrained partner worth  61.8 | three takes: m=2 +34.0, m=3 +21.1 | cross-episode credit 0.19
+  T= 60: two takes: m=2 margin +42.7, m=3 margin +10.2, m=3 lone restrainer survives 0.72, m=2 restrained partner worth  68.5 | three takes: m=2 +39.6, m=3 +21.4 | cross-episode credit 0.16
+  T= 70: two takes: m=2 margin +54.4, m=3 margin  +6.3, m=3 lone restrainer survives 0.64, m=2 restrained partner worth  81.8 | three takes: m=2 +50.7, m=3 +19.2 | cross-episode credit 0.12
+  T= 80: two takes: m=2 margin +66.0, m=3 margin  +2.9, m=3 lone restrainer survives 0.58, m=2 restrained partner worth  95.1 | three takes: m=2 +61.8, m=3 +15.4 | cross-episode credit 0.09
+  T=100: two takes: m=2 margin +89.4, m=3 margin  +0.5, m=3 lone restrainer survives 0.46, m=2 restrained partner worth 121.8 | three takes: m=2 +84.0, m=3 +17.9 | cross-episode credit 0.05
+
+Wider action sets on a pool of 40 (rate 0.4, peak regrowth 4; geometric end with mean 50): restrain 2, harvest 3
+  takes 0-5: best lone survival against a committed take-3 1.00, take-4 0.96, take-5 0.37; committed take-3 earns 150.0 against 105.3 for tit-for-tat (2 after 2 or less, else 3)
+  takes 1-5: best lone survival against a committed take-3 0.96, take-4 0.37, take-5 0.23; committed take-3 earns 137.5 against 105.3 for tit-for-tat (2 after 2 or less, else 3)

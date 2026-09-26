@@ -1,0 +1,45 @@
+{
+  "checks": {
+    "G1 (m=3): learner restraint against committed harvest": {
+      "folder": "g1_m3_harvest",
+      "threshold": 0.5,
+      "values": {
+        "0": 0.9672270334521991,
+        "1": 0.9890486257928118,
+        "2": 0.9582613204286208
+      },
+      "verdict": "pass"
+    },
+    "G2 (m=2): learner restraint after tit-for-tat restrained": {
+      "folder": "g2_m2_tft",
+      "threshold": 0.5,
+      "values": {
+        "0": 0.9065956029313791,
+        "1": 0.982250447809803,
+        "2": 0.9158407079646018
+      },
+      "verdict": "pass"
+    },
+    "G3 (m=2): shaper restraint and pool survival in the pilot": {
+      "folder": "m2_shaper_matched_g3",
+      "threshold": 0.3,
+      "values": {
+        "100": {
+          "0": [
+            0.13893831553973904,
+            0.0
+          ]
+        },
+        "200": {
+          "0": [
+            0.10360655737704919,
+            0.0
+          ]
+        }
+      },
+      "verdict": "fail"
+    }
+  },
+  "go": false,
+  "training_length": null
+}

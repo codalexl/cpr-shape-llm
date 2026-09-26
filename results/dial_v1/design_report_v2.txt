@@ -1,0 +1,55 @@
+live pond (K=40, rate 0.9, takes 0-3, no noise): a restrained partner is worth 2.0 to a best responder from R0=8 and 0.0 from R0=20
+m=2 with an abstain action: committed harvest earns 100.0 (survival 1.00)
+
+m=2 (K=20, rate 0.5, takes 1/2, fixed 50 rounds): m=2; peak integer growth at xi 0.7/1.0/1.3 = 2/2/3
+  I2 restrain vs harvest: best expected drift -0.67/round, never rises: True; alive after 36/100 rounds 0.00/0.00; pool alive at the close 0.00 (best policy 0.00) -> no unilateral salvation: True
+  I3 against a best responder: committed harvest earns 31.5 (partner 20.0, survival 0.00); tit-for-tat earns 62.5 (partner 62.7); mutual restraint 50.0 -> commitment fails: True
+  a restrained partner is worth 55.1 to a best responder; payoffs T/R/S/P 75.2/50.0/50.0/17.8
+m=3 (K=20, rate 0.6, takes 1/2, fixed 50 rounds): m=3; peak integer growth at xi 0.7/1.0/1.3 = 2/3/4
+  I2 restrain vs harvest: best expected drift +0.00/round, never rises: False; alive after 36/100 rounds 0.92/0.46; pool alive at the close 0.80 (best policy 0.80) -> no unilateral salvation: False
+  I3 against a best responder: committed harvest earns 90.7 (partner 52.5, survival 0.69); tit-for-tat earns 78.3 (partner 78.8); mutual restraint 50.0 -> commitment fails: False
+  a restrained partner is worth 46.8 to a best responder; payoffs T/R/S/P 99.2/50.0/50.0/25.1
+m=2, K=30 (K=30, rate 0.3, takes 1/2, fixed 50 rounds): m=2; peak integer growth at xi 0.7/1.0/1.3 = 2/2/3
+  I2 restrain vs harvest: best expected drift -0.67/round, never rises: True; alive after 36/100 rounds 0.00/0.00; pool alive at the close 0.00 (best policy 0.00) -> no unilateral salvation: True
+  I3 against a best responder: committed harvest earns 39.7 (partner 27.9, survival 0.00); tit-for-tat earns 64.1 (partner 64.3); mutual restraint 50.0 -> commitment fails: True
+  a restrained partner is worth 49.6 to a best responder; payoffs T/R/S/P 77.5/50.0/50.0/25.5
+m=3, K=30 (K=30, rate 0.4, takes 1/2, fixed 50 rounds): m=3; peak integer growth at xi 0.7/1.0/1.3 = 2/3/4
+  I2 restrain vs harvest: best expected drift +0.00/round, never rises: False; alive after 36/100 rounds 1.00/0.71; pool alive at the close 0.97 (best policy 0.97) -> no unilateral salvation: False
+  I3 against a best responder: committed harvest earns 94.6 (partner 59.7, survival 0.73); tit-for-tat earns 80.1 (partner 80.6); mutual restraint 50.0 -> commitment fails: False
+  a restrained partner is worth 40.1 to a best responder; payoffs T/R/S/P 99.8/50.0/50.0/37.5
+
+I4 gate: 100 episodes from a learner restraining 0.06 of the time; per-episode shaper return
+m=2 reciprocity step 0.1: best response  20.0 | best fixed  52.1 [R<12: restrained -> 1, else -> 1; R>=12: restrained -> 2, else -> 2] | learning aware  64.1 (gain +12.0) | always harvest  18.4 | tit-for-tat  42.8
+    learner restraint at the end: best fixed 0.99/0.02  learning aware 0.99/0.88  always harvest 0.05/0.07
+m=2 reciprocity step 0.3: best response  19.9 | best fixed  58.3 [R<12: restrained -> 1, else -> 1; R>=12: restrained -> 2, else -> 2] | learning aware  68.0 (gain +9.7) | always harvest  18.5 | tit-for-tat  49.0
+    learner restraint at the end: best fixed 0.99/0.01  learning aware 0.99/0.89  always harvest 0.03/0.09
+m=2 stock_band  step 0.1: best response  20.0 | best fixed  53.5 [R<12: restrained -> 1, else -> 1; R>=12: restrained -> 2, else -> 2] | learning aware  62.6 (gain +9.2) | always harvest  18.4 | tit-for-tat  42.5
+    learner restraint at the end: best fixed 0.95/0.02  learning aware 0.99/0.87  always harvest 0.06/0.06
+m=2 stock_band  step 0.3: best response  19.9 | best fixed  58.4 [R<12: restrained -> 1, else -> 1; R>=12: restrained -> 2, else -> 2] | learning aware  68.5 (gain +10.0) | always harvest  18.3 | tit-for-tat  53.0
+    learner restraint at the end: best fixed 0.95/0.01  learning aware 0.97/0.97  always harvest 0.05/0.05
+m=3 reciprocity step 0.1: best response  49.2 | best fixed  79.0 [R<12: restrained -> 1, else -> 2; R>=12: restrained -> 2, else -> 2] | learning aware  88.8 (gain +9.8) | always harvest  77.2 | tit-for-tat  68.1
+    learner restraint at the end: best fixed 0.97/0.70  learning aware 0.95/0.58  always harvest 0.05/0.98
+m=3 reciprocity step 0.3: best response  49.1 | best fixed  87.2 [partner restrained last -> 2, else -> 2] | learning aware  92.0 (gain +4.8) | always harvest  87.2 | tit-for-tat  69.9
+    learner restraint at the end: best fixed 0.03/0.98  learning aware 0.99/0.54  always harvest 0.03/0.98
+m=3 stock_band  step 0.1: best response  67.9 | best fixed  72.5 [R<12: restrained -> 1, else -> 2; R>=12: restrained -> 2, else -> 2] | learning aware  87.2 (gain +14.7) | always harvest  66.3 | tit-for-tat  68.8
+    learner restraint at the end: best fixed 0.99/0.01  learning aware 0.99/0.42  always harvest 0.48/0.99
+m=3 stock_band  step 0.3: best response  80.6 | best fixed  82.9 [partner restrained last -> 2, else -> 2] | learning aware  90.3 (gain +7.4) | always harvest  82.9 | tit-for-tat  68.7
+    learner restraint at the end: best fixed 0.99/0.93  learning aware 0.99/0.25  always harvest 0.99/0.93
+
+I4 gate: 100 episodes from a learner restraining 0.16 of the time; per-episode shaper return
+m=2 reciprocity step 0.1: best response  60.0 | best fixed  58.9 [R<12: restrained -> 1, else -> 1; R>=12: restrained -> 2, else -> 2] | learning aware  68.3 (gain +9.5) | always harvest  19.7 | tit-for-tat  51.6
+    learner restraint at the end: best fixed 0.99/0.02  learning aware 0.99/0.90  always harvest 0.10/0.25
+m=2 reciprocity step 0.3: best response  61.5 | best fixed  65.8 [R<12: restrained -> 1, else -> 2; R>=12: restrained -> 2, else -> 2] | learning aware  69.9 (gain +4.2) | always harvest  24.0 | tit-for-tat  52.2
+    learner restraint at the end: best fixed 0.99/0.94  learning aware 0.99/0.89  always harvest 0.06/0.95
+m=2 stock_band  step 0.1: best response  59.2 | best fixed  58.8 [R<12: restrained -> 1, else -> 1; R>=12: restrained -> 2, else -> 2] | learning aware  67.3 (gain +8.5) | always harvest  19.3 | tit-for-tat  53.6
+    learner restraint at the end: best fixed 0.95/0.02  learning aware 0.99/0.87  always harvest 0.14/0.15
+m=2 stock_band  step 0.3: best response  60.5 | best fixed  60.9 [R<12: restrained -> 1, else -> 2; R>=12: restrained -> 2, else -> 2] | learning aware  70.4 (gain +9.5) | always harvest  19.2 | tit-for-tat  57.4
+    learner restraint at the end: best fixed 0.99/0.01  learning aware 0.98/0.88  always harvest 0.11/0.14
+m=3 reciprocity step 0.1: best response  49.4 | best fixed  87.1 [partner restrained last -> 2, else -> 2] | learning aware  90.8 (gain +3.8) | always harvest  87.1 | tit-for-tat  70.1
+    learner restraint at the end: best fixed 0.09/0.98  learning aware 0.95/0.58  always harvest 0.09/0.98
+m=3 reciprocity step 0.3: best response  49.2 | best fixed  90.7 [partner restrained last -> 2, else -> 2] | learning aware  92.5 (gain +1.8) | always harvest  90.7 | tit-for-tat  70.7
+    learner restraint at the end: best fixed 0.04/0.98  learning aware 0.98/0.58  always harvest 0.04/0.98
+m=3 stock_band  step 0.1: best response  71.5 | best fixed  82.6 [partner restrained last -> 2, else -> 2] | learning aware  89.1 (gain +6.4) | always harvest  82.6 | tit-for-tat  74.8
+    learner restraint at the end: best fixed 0.97/0.95  learning aware 0.99/0.43  always harvest 0.97/0.95
+m=3 stock_band  step 0.3: best response  82.6 | best fixed  87.9 [partner restrained last -> 2, else -> 2] | learning aware  90.5 (gain +2.6) | always harvest  87.9 | tit-for-tat  73.6
+    learner restraint at the end: best fixed 0.99/0.93  learning aware 0.99/0.24  always harvest 0.99/0.93

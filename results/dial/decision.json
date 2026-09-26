@@ -1,0 +1,186 @@
+{
+  "S": {
+    "shapellm": {
+      "1. partner unconditional": false,
+      "2. controls not unconditional (m2_naive, m2_slow, m2_tbn_matched, m2_tbn_slow)": false,
+      "3. E1 learner unconditional": false,
+      "4. E2 learner not unconditional, and E4 per-round return below E3": false,
+      "holds": false
+    },
+    "shaper_matched": {
+      "1. partner unconditional": true,
+      "2. controls not unconditional (m2_naive, m2_slow, m2_tbn_matched)": false,
+      "3. E1 learner unconditional": true,
+      "4. E2 learner not unconditional, and E4 per-round return below E3": false,
+      "holds": false
+    },
+    "shaper_matched_split": {
+      "1. partner unconditional": true,
+      "2. controls not unconditional (m2_naive, m2_slow, m2_tbn_matched)": false,
+      "3. E1 learner unconditional": true,
+      "4. E2 learner not unconditional, and E4 per-round return below E3": false,
+      "holds": false
+    }
+  },
+  "T": {
+    "shaper_matched": {
+      "partner conditional": false,
+      "tbn_matched partner none": false,
+      "holds": false
+    },
+    "shaper_slow": {
+      "partner conditional": false,
+      "tbn_slow partner none": false,
+      "holds": false
+    },
+    "shapellm": {
+      "partner conditional": false,
+      "tbn_slow partner none": false,
+      "holds": false
+    },
+    "shaper_matched_split": {
+      "partner conditional": false,
+      "tbn_matched partner none": false,
+      "holds": false
+    }
+  },
+  "C": {
+    "slow partner yields at m=3 (r_after_take >= 0.5)": true
+  },
+  "arms": {
+    "m2_naive": {
+      "classes": {
+        "unconditional": 5
+      },
+      "r_after_take": {
+        "0": 0.9809467103304554,
+        "1": 0.9252911160539056,
+        "2": 0.8970243239906162,
+        "3": 0.9817702845100106,
+        "4": 0.8715195847097688
+      }
+    },
+    "m2_slow": {
+      "classes": {
+        "unconditional": 1,
+        "none": 2
+      },
+      "r_after_take": {
+        "0": 0.999017199017199,
+        "1": 0.004321209938782859,
+        "2": 0.1326431575541896
+      }
+    },
+    "m2_tbn_matched": {
+      "classes": {
+        "unconditional": 4,
+        "mixed": 1
+      },
+      "r_after_take": {
+        "0": 0.9524002430625886,
+        "1": 0.9687597625741956,
+        "2": 0.3414996288047513,
+        "3": 0.9992072929052715,
+        "4": 0.9693026028213789
+      }
+    },
+    "m2_shaper_matched": {
+      "classes": {
+        "unconditional": 4,
+        "mixed": 1
+      },
+      "r_after_take": {
+        "0": 0.9855841425568125,
+        "1": 0.5883711167086482,
+        "2": 0.9239184485330681,
+        "3": 0.9981299212598426,
+        "4": 0.944911776774723
+      }
+    },
+    "m2_tbn_slow": {
+      "classes": {
+        "unconditional": 2,
+        "mixed": 1
+      },
+      "r_after_take": {
+        "0": 0.9464094319399786,
+        "1": 0.9999016232169208,
+        "2": 0.5624161073825503
+      }
+    },
+    "m2_shaper_slow": {
+      "classes": {
+        "unconditional": 1,
+        "mixed": 2
+      },
+      "r_after_take": {
+        "0": 0.9740180655637877,
+        "1": 0.48166591217745586,
+        "2": 0.5016347501167678
+      }
+    },
+    "m2_shapellm": {
+      "classes": {
+        "none": 2,
+        "mixed": 2,
+        "unconditional": 1
+      },
+      "r_after_take": {
+        "0": 0.03147100424328147,
+        "1": 0.5486012328117591,
+        "2": 0.043835616438356165,
+        "3": 0.9603166336839912,
+        "4": 0.5170826266052823
+      }
+    },
+    "m3_naive": {
+      "classes": {
+        "mixed": 3
+      },
+      "r_after_take": {
+        "0": 0.6547063399455465,
+        "1": 0.5118117229129663,
+        "2": 0.391609756097561
+      }
+    },
+    "m3_slow": {
+      "classes": {
+        "mixed": 2,
+        "undetermined": 1
+      },
+      "r_after_take": {
+        "0": 0.5384483937115516,
+        "1": 0.729514846665585,
+        "2": 0.9461488250652742
+      }
+    },
+    "m3_shapellm": {
+      "classes": {
+        "mixed": 2,
+        "unconditional": 1
+      },
+      "r_after_take": {
+        "0": 0.9971198156682027,
+        "1": 0.9995893223819302,
+        "2": 0.827971913781842
+      }
+    },
+    "m2_shaper_matched_split": {
+      "classes": {
+        "unconditional": 4,
+        "mixed": 1
+      },
+      "r_after_take": {
+        "0": 0.9933768287860815,
+        "1": 0.9966963660026029,
+        "2": 0.9508760614855423,
+        "3": 0.5143739605607033,
+        "4": 0.9813374805598756
+      }
+    }
+  },
+  "verdict": "Null",
+  "verdict_additional": {
+    "shaper_matched_split": "Null"
+  }
+}
